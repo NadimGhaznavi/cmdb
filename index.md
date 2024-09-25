@@ -1,7 +1,7 @@
 ---
-title: Monero XMR Mining Project
+title: Configuration Management Database
 ---
 
-* [P2Pool Payouts Visualization](/P2Pool-Payouts.html)
-* [Miner CPU and Memory Specs](/Miner-Specs.html)
-* [Configuring the Monero Daemon and P2Pool Daemon](/Kermit-Configuration.html)
+## Links
+
+* [/opt/prod/xmrig/xmrig-mode.sh](/xmrig-mode.sh.html)

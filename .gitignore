@@ -1,0 +1,13 @@
+# Generated site output
+_site/
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/
+vendor/
+
+# Local environments and credentials
+.venv/
+.env
+.env.*
+__pycache__/
+*.py[cod]

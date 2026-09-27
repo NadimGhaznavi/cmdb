@@ -1,0 +1,14 @@
+# Jekyll output and local dependencies
+_site/
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/
+.bundle/
+vendor/
+
+# Local environments and credentials
+.venv/
+.env
+.env.*
+__pycache__/
+*.py[cod]

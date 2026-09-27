@@ -34,6 +34,10 @@ exclude:
   - AGENTS.md
   - README.md
   - LICENSE
+  - VERSION
+  - Gemfile
+  - Gemfile.lock
+  - scripts
   - vendor
   - .venv
 

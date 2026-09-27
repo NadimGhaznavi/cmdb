@@ -50,3 +50,25 @@ The server validates the database environment at startup. `/ready` verifies
 the actual connection. `DbMgr` owns connections, cursors, bound SQL execution,
 and transactions; application code should use domain interfaces built on this
 layer as inventory features are added.
+
+## Network scans
+
+`cmdb/interface/Nmap.py` wraps
+[python-nmap](https://pypi.org/project/python-nmap/). Install the Python
+dependencies above and ensure the `nmap` executable is installed on the scanning
+host and available on `PATH`; the Python package does not install that executable.
+
+The following uses an example LAN address, not the current network configuration:
+
+```python
+from cmdb.interface.Nmap import Nmap
+
+scanner = Nmap()
+result = scanner.scan("192.168.1.10", ports="22,80,443", timeout=60)
+hosts = result["scan"]
+```
+
+`scan()` returns python-nmap's result dictionary. It accepts Nmap target and
+port syntax, optional `arguments` (default `-sV`), and a timeout in seconds
+(default `0`, unlimited). Library errors propagate to the caller. Use a separate
+instance per worker thread.

@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Nmap interface using python-nmap for network scans, with configurable targets,
+  ports, scan arguments, and timeout.
+
 ## [0.2.0] - 2026-09-27 @ 19:20
 
 ## [0.1.0] - 2026-09-27 @ 19:11

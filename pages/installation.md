@@ -1,0 +1,70 @@
+---
+title: Server Installation
+---
+
+[Documentation index]({{ site.baseurl }}{% link index.md %})
+
+CMDB follows MyCount's control-server installation pattern: a dedicated Linux
+account, a local MariaDB database, a Python virtual environment, and a systemd
+service. Run installation from a checkout separate from `/opt/prod/cmdb`.
+
+## Prerequisites
+
+The target machine needs Python 3.11 or later with virtual-environment support,
+MariaDB server and client, and systemd. MariaDB must be running with root
+administrative access through its local socket. Python dependencies are
+downloaded during installation. On Debian/Ubuntu, the maintainer can prepare
+the system with:
+
+```sh
+sudo apt install python3 python3-venv mariadb-server mariadb-client
+sudo systemctl enable --now mariadb
+```
+
+## Install
+
+From the checkout:
+
+```sh
+sudo scripts/install.sh
+```
+
+The installer creates the `cmdb` Linux service account and the `cmdb` database
+and database account. It generates `/etc/cmdb/database.env` owned by root with
+mode `600`. Repeated installation reuses the credentials without resetting an
+existing database password. An existing account with different credentials
+causes installation to fail; it is not silently taken over.
+
+Application files are copied to `/opt/prod/cmdb`, with Python dependencies in
+`.venv`. The installer checks the database connection, installs
+`cmdb-server.service`, enables it at boot, starts it, and checks `/health` and
+`/ready`. Open `http://<server>:14444/` afterward.
+
+The initial backend establishes a database connection but creates no inventory
+tables. The domain schema will be added with the inventory features.
+
+## Upgrade
+
+From the updated checkout:
+
+```sh
+sudo scripts/upgrade.sh
+```
+
+Upgrade reuses the installation process, preserving credentials and database
+data. The service stops before dependencies and application files are updated.
+A failure can leave it stopped; correct the reported issue and rerun the
+command. Deployment does not provide automatic rollback.
+
+## Runtime configuration
+
+Paths, account names, and the default listener `0.0.0.0:14444` are defined in
+`cmdb/constants/DCmdb.py`. The service is intended for a trusted LAN. It has no
+authentication and installation does not add a public proxy or router mapping.
+
+Systemd reads `/etc/cmdb/database.env` before starting the unprivileged process.
+The file contains `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`.
+Keep it private and out of this repository.
+
+See [CMDB server]({{ site.baseurl }}{% link pages/server.md %}) for endpoints,
+status commands, and development startup.

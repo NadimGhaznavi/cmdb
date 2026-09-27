@@ -26,6 +26,9 @@ and merge `dev` into the feature branch. Follow the source checks in
 bash -n scripts/new-release.sh
 ```
 
+For server changes, run the Python tests described in
+[CMDB server]({{ site.baseurl }}{% link pages/server.md %}).
+
 Review `CHANGELOG.md`'s `Unreleased` section. `VERSION` starts at `0.0.0` as an
 unreleased baseline; it does not represent a published release.
 
@@ -56,8 +59,9 @@ It advances `dev` to `main`, atomically pushes `main`, `dev`, and the tag to
 
 The script publishes Git changes. GitHub Pages handles the site build using
 the repository's configured publishing source. Check its build result and
-the live site after release. No application deployment metadata or service
-restarts are needed for this static site.
+the live site after release. Deploy the Python server separately using the
+[installation or upgrade command]({{ site.baseurl }}{% link pages/installation.md %});
+publishing a release does not restart the server.
 
 ## If a release stops
 

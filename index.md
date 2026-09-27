@@ -10,6 +10,8 @@ title: Configuration Management Database
 
 ## Project
 
+* [Server installation]({{ site.baseurl }}{% link pages/installation.md %})
+* [CMDB server]({{ site.baseurl }}{% link pages/server.md %})
 * [Project mission]({{ site.baseurl }}{% link pages/project-mission.md %})
 * [Site development]({{ site.baseurl }}{% link pages/development.md %})
 * [Coding guidelines]({{ site.baseurl }}{% link pages/coding-guidelines.md %})

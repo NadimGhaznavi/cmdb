@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-27 @ 19:11
+
 ### Summary
 
 Establish CMDB's documentation and release foundation using the MyCount project

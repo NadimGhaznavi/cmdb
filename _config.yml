@@ -36,6 +36,11 @@ exclude:
   - LICENSE
   - VERSION
   - scripts
+  - cmdb
+  - cmdb-server.py
+  - requirements.txt
+  - systemd
+  - tests
   - vendor
   - .venv
 

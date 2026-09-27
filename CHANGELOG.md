@@ -16,6 +16,9 @@ conventions and shared Minimal Mistakes theme.
 
 ### Added
 
+- CMDB server on port 14444 with a landing page, health and MariaDB readiness endpoints.
+- MyCount-style account and database provisioning, private credentials, virtual environment, systemd service, and repeatable upgrade scripts.
+- Server installation documentation and HTTP/database contract tests.
 - Project mission, development guidance, contributor instructions, and release documentation.
 - A maintainer-run feature → dev → main release script, version file, and changelog.
 - Ignore rules for generated site files.

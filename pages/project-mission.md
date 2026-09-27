@@ -14,10 +14,15 @@ Keep configuration references readable and actionable: explain what a service
 does, where its configuration lives, and how to perform the documented task.
 State limitations when records are incomplete or may be out of date.
 
-CMDB is a static documentation site built with Jekyll and published through
+CMDB's documentation is built with Jekyll and published through
 GitHub Pages at [cmdb.osoyalce.com](https://cmdb.osoyalce.com). Its source files
 are the configuration record; changes to documentation do not apply changes
 to the machines being documented.
+
+The [CMDB server]({{ site.baseurl }}{% link pages/server.md %}) provides the
+foundation for a live inventory application with a MariaDB backend. It runs
+as a separate systemd service on port 14444; its initial endpoints expose a
+landing page and health checks.
 
 The site shares the Minimal Mistakes theme and development conventions used
 by MyCount. Its [release process]({{ site.baseurl }}{% link pages/releases.md %})

@@ -96,9 +96,6 @@ if grep -Fq "## [${version}]" CHANGELOG.md; then
     fail "Version ${version} is already in CHANGELOG.md."
 fi
 
-bundle exec jekyll build --strict_front_matter
-[[ -z $(git status --porcelain) ]] || fail "The build changed the working tree; review and commit those changes before releasing."
-
 git fetch --prune --tags origin
 git show-ref --verify --quiet "refs/tags/${tag}" && fail "Tag ${tag} already exists."
 git show-ref --verify --quiet "refs/remotes/origin/${next_branch}" &&

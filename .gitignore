@@ -1,9 +1,8 @@
-# Jekyll output and local dependencies
+# Generated site output
 _site/
 .jekyll-cache/
 .jekyll-metadata
 .sass-cache/
-.bundle/
 vendor/
 
 # Local environments and credentials

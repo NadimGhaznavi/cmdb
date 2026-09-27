@@ -4,49 +4,24 @@ title: Site Development
 
 [Documentation index]({{ site.baseurl }}{% link index.md %})
 
-## Local setup
+## Editing
 
-Install Ruby, Bundler, and the build tools needed by Ruby gems. From the project
-root, install the dependencies declared in `Gemfile`:
+GitHub Pages builds the site. Edit Markdown pages and `_config.yml` in the
+checkout; local Jekyll builds and Ruby dependencies are not part of this workflow.
 
-```sh
-bundle config set --local path vendor/bundle
-bundle install
-```
-
-The maintainer should commit the generated `Gemfile.lock` so local builds use
-the same resolved dependencies. Repeat installation after dependency changes.
-
-The initial dependency installation and remote theme download require network
-access. The theme is `NadimGhaznavi/minimal-mistakes`; changes to its neighboring
-local checkout do not automatically change this site's remote theme.
-
-## Preview
-
-```sh
-bundle exec jekyll serve --host 127.0.0.1
-```
-
-Open `http://127.0.0.1:4000` and follow the links from the homepage. Jekyll writes
-generated files to `_site/`. Restart the preview after changing `_config.yml`.
+The theme is `NadimGhaznavi/minimal-mistakes`. Changes to its neighboring local
+checkout take effect after they are published to the remote theme and GitHub
+Pages rebuilds this site.
 
 ## Check changes
 
 ```sh
-bundle exec jekyll build --strict_front_matter
 bash -n scripts/new-release.sh
 ```
 
-The build checks Liquid link targets and reports front-matter errors. Inspect
-the rendered pages for correct titles, tables, code blocks, sidebar, and links.
-For changes to URL handling, also build with a project-site prefix:
-
-```sh
-bundle exec jekyll build --strict_front_matter --baseurl /cmdb
-```
-
-Internal links and assets should include `/cmdb` in that build. Run the normal
-build again before inspecting output for the custom domain.
+Check YAML front matter, confirm internal link targets exist, and ensure every
+documentation page is reachable from `index.md`. Check rendered titles, tables,
+code blocks, sidebar, and links on the published site after the Pages build.
 
 ## Publication
 

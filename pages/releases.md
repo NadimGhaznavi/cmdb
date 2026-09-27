@@ -19,11 +19,10 @@ git switch -c feat/maint-0.1.0
 ```
 
 Before releasing, commit all changes, bring local `main` and `dev` up to date,
-and merge `dev` into the feature branch. Install the dependencies described in
-[Site development]({{ site.baseurl }}{% link pages/development.md %}), then check:
+and merge `dev` into the feature branch. Follow the source checks in
+[Site development]({{ site.baseurl }}{% link pages/development.md %}), including:
 
 ```sh
-bundle exec jekyll build --strict_front_matter
 bash -n scripts/new-release.sh
 ```
 
@@ -48,8 +47,8 @@ example, the first release could be:
 Use a semantic version without a leading `v`. An optional third argument sets
 the next feature branch name.
 
-The script checks the working tree, version, changelog, branches, and Jekyll
-build, then fetches remote refs and verifies branch ancestry. It merges the
+The script checks the working tree, version, changelog, and branches,
+then fetches remote refs and verifies branch ancestry. It merges the
 feature branch into `dev`, updates `VERSION` and `CHANGELOG.md`, commits the
 release, merges into `main`, and creates an annotated tag such as `v0.1.0`.
 It advances `dev` to `main`, atomically pushes `main`, `dev`, and the tag to

@@ -54,7 +54,8 @@ Keep credentials, tokens, and other secrets out of this public site.
 
 Keep each change coherent. When moving a page, update incoming links and check
 its generated URL. Preserve existing behavior unless the task calls for a change.
-Keep generated Jekyll output and installed dependencies out of source control.
+GitHub Pages builds the site. Do not add a Gemfile or require local Jekyll
+builds. Keep generated site output out of source control.
 
 Follow the checks in [Site development]({{ site.baseurl }}{% link pages/development.md %}).
 Verify page titles, navigation, rendered tables, code blocks, and theme assets

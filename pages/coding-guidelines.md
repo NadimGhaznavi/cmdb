@@ -26,6 +26,9 @@ execute the release script are permitted.
 - `pages/` contains configuration references and project guides.
 - `_config.yml` holds Jekyll settings and site-wide layout defaults.
 - `scripts/` contains maintenance tooling.
+- `cmdb/` contains Python server code, grouped into constants, interfaces, and server modules.
+- `cmdb-server.py` is the service entry point; `systemd/` contains its unit template.
+- `tests/` verifies HTTP behavior and database contracts.
 - `VERSION` holds the project version; `0.0.0` is the initial unreleased baseline.
 - `CHANGELOG.md` records user-visible changes and releases.
 
@@ -51,6 +54,16 @@ the current network configuration and identify incomplete or outdated records.
 Keep credentials, tokens, and other secrets out of this public site.
 
 ## Make reviewable changes
+
+Keep database mechanics in `cmdb/interface/DbMgr.py`; domain database interfaces
+own application queries. Never share a connection between request threads.
+Use bound SQL parameters and explicit transactions for related writes. Validate
+external configuration at the boundary and let internal programming errors
+surface. Keep presentation separate from database access and application logic.
+
+Run the Python checks in [CMDB server]({{ site.baseurl }}{% link pages/server.md %})
+when modifying the backend. This server environment is separate from the
+GitHub Pages build.
 
 Keep each change coherent. When moving a page, update incoming links and check
 its generated URL. Preserve existing behavior unless the task calls for a change.

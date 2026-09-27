@@ -1,3 +1,7 @@
+---
+title: autofs
+---
+
 ### Introduction and Scope
 
 This page documents the **Autofs** configuration on my network.

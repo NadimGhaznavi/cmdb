@@ -1,12 +1,45 @@
-remote_theme: jekyll/minima
-
+title: "CMDB"
+name: "CMDB"
+description: "Configuration Management Database"
+url: "https://cmdb.osoyalce.com"
+baseurl: ""
 mycount:
-    endpoint: "https://count.osoyalce.com/count"
-    site: "cmdb"
-      
-plugins:
-  - jekyll-feed
-  - jekyll-seo-tag
+  endpoint: "https://count.osoyalce.com/count"
+  site: "cmdb"
+repository: "NadimGhaznavi/cmdb"
+locale: "en-US"
+remote_theme: "NadimGhaznavi/minimal-mistakes"
+minimal_mistakes_skin: "dark"
 
-minima:
-  skin: dark
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-include-cache
+  - jekyll-sitemap
+
+author:
+  name: "Nadim-Daniel Ghaznavi"
+  bio: "Creator"
+  location: "Hamilton, ON"
+footer:
+  since: "2026"
+
+include:
+  - pages
+exclude:
+  - AGENTS.md
+  - README.md
+  - LICENSE
+  - vendor
+  - .venv
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: single
+      author_profile: true

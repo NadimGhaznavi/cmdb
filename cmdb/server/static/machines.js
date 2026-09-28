@@ -6,9 +6,8 @@ async function refreshMachines() {
   if (refreshing) return;
   refreshing = true;
   const refresh = document.getElementById("refresh-button");
-  const edit = document.getElementById("edit-button");
   const status = document.getElementById("graph-status");
-  refresh.disabled = edit.disabled = true;
+  refresh.disabled = true;
   refresh.textContent = "Scanning…";
   status.textContent = "Scanning the LAN…";
   try {
@@ -30,7 +29,7 @@ async function refreshMachines() {
     status.textContent = error.message || "Scan failed. Try again.";
   } finally {
     refreshing = false;
-    refresh.disabled = edit.disabled = false;
+    refresh.disabled = false;
     refresh.textContent = "Refresh";
   }
 }
@@ -72,16 +71,6 @@ async function loadMachines() {
   const details = document.getElementById("machine-details");
   const selectionDetails = document.getElementById("selection-details");
   const softwareDetails = document.getElementById("software-details");
-  const editButton = document.getElementById("edit-button");
-  const saveButton = document.getElementById("save-button");
-  const cancelButton = document.getElementById("cancel-button");
-  const refreshButton = document.getElementById("refresh-button");
-  const hostnameInput = document.getElementById("hostname-input");
-  const hostnameText = document.getElementById("detail-hostName");
-  const editStatus = document.getElementById("edit-status");
-  let selectedNode = null;
-  let editing = false;
-  let saving = false;
   try {
     if (typeof cytoscape !== "function") {
       throw new Error("The machine graph could not be loaded. Refresh to try again.");
@@ -149,8 +138,7 @@ async function loadMachines() {
       maxZoom: 3,
     });
     function selectMachine(node) {
-      if (editing || refreshing) return;
-      selectedNode = node;
+      if (refreshing) return;
       graph.nodes().unselect();
       node.select();
       for (const field of ["ipAddress", "macAddress", "hostName", "deployedComponent", "createdOn", "updatedOn"]) {
@@ -161,79 +149,24 @@ async function loadMachines() {
       selectionDetails.hidden = false;
       details.open = true;
       document.getElementById("machine-heading").textContent = `Machine: ${machineLabel(node.data())}`;
-      softwareDetails.hidden = true;
-      editButton.hidden = false;
-      editStatus.textContent = "";
+      softwareDetails.replaceChildren();
+      const template = document.getElementById("software-detail-template");
+      const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
+      for (const system of systems) {
+        const section = template.content.cloneNode(true);
+        const type = system.type || "Unknown";
+        const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
+        section.querySelector("summary").textContent = `Software System: ${title}`;
+        for (const cell of section.querySelectorAll("[data-field]")) {
+          cell.textContent = system[cell.dataset.field] ?? "—";
+        }
+        softwareDetails.append(section);
+      }
     }
     graph.on("tap", "node", event => {
-      if (editing || refreshing) return;
+      if (refreshing) return;
       const node = event.target;
-      if (!node.hasClass("software")) {
-        selectMachine(node);
-        return;
-      }
-      selectMachine(node.parent());
-      const type = node.data("type") || "Unknown";
-      const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
-      document.getElementById("software-heading").textContent = `Software System: ${title}`;
-      for (const field of ["type", "subtype", "supplier", "version", "codename"]) {
-        document.getElementById(`software-${field}`).textContent = node.data(field) ?? "—";
-      }
-      softwareDetails.hidden = false;
-    });
-    function setEditing(value) {
-      editing = value;
-      hostnameInput.hidden = !value;
-      hostnameText.hidden = value;
-      editButton.hidden = value || !selectedNode;
-      saveButton.hidden = !value;
-      cancelButton.hidden = !value;
-      refreshButton.disabled = value;
-      graph.autounselectify(value);
-    }
-    editButton.addEventListener("click", () => {
-      hostnameInput.value = selectedNode.data("hostName") ?? "";
-      editStatus.textContent = "";
-      setEditing(true);
-      hostnameInput.focus();
-    });
-    cancelButton.addEventListener("click", () => {
-      if (saving) return;
-      setEditing(false);
-      editStatus.textContent = "";
-      editButton.focus();
-    });
-    saveButton.addEventListener("click", async () => {
-      if (saving || !hostnameInput.reportValidity()) return;
-      saving = true;
-      saveButton.disabled = cancelButton.disabled = refreshButton.disabled = hostnameInput.disabled = true;
-      editStatus.textContent = "Saving…";
-      try {
-        const response = await fetch("/api/machines/hostname", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ipAddress: selectedNode.id(), hostName: hostnameInput.value }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not save the hostname.");
-        const machine = result.machine;
-        selectedNode.data({ ...machine, label: machineLabel(machine) });
-        setEditing(false);
-        selectMachine(selectedNode);
-        editStatus.textContent = "Hostname saved.";
-        editButton.focus();
-      } catch (error) {
-        editStatus.textContent = error.message || "Could not save the hostname. Try again.";
-      } finally {
-        saving = false;
-        saveButton.disabled = cancelButton.disabled = refreshButton.disabled = hostnameInput.disabled = false;
-      }
-    });
-    hostnameInput.addEventListener("keydown", event => {
-      if (event.key === "Enter" || event.key === "Escape") {
-        event.preventDefault();
-        (event.key === "Enter" ? saveButton : cancelButton).click();
-      }
+      selectMachine(node.hasClass("software") ? node.parent() : node);
     });
     new ResizeObserver(() => {
       graph.resize();

@@ -27,16 +27,17 @@ records when the page opens. Refresh at the bottom left wakes the existing
 scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
 Requests during an active scan share that scan; scans never overlap.
-Save or cancel a hostname edit before refreshing.
 Nodes use bold white 16px labels. Named machines have dark green rounded
 rectangles of size 160 × 80 when empty; unnamed machines have grey circles.
 Machines with deployed software expand into rounded containers with the machine
 name above nested software rectangles. Software labels include the subtype,
 codename when present, and version, such as `Debian (trixie) 13.6`.
 MariaDB appears in a matching box below the OS, regardless of discovery order.
-Machines remain arranged in a circle. Clicking an inner rectangle shows its
-Software System fields below the containing machine in the left panel, with
-a heading such as `Software System: Linux` or `Software System: RDBMS`.
+Machines remain arranged in a circle. Clicking a machine or any inner software
+rectangle loads the machine and its available software systems in the left panel.
+The OS appears first, then MariaDB. Each software section starts collapsed with
+a heading such as `Software System: Linux` or `Software System: RDBMS`; click
+the heading to expand its fields.
 Selection lightens the containing machine’s color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
@@ -45,20 +46,16 @@ Click a node to see its fields and timestamps in
 browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 The `Machine: Sally` (or IP address) heading collapses the machine section to
-just its heading. Clicking a machine expands it and clears the software details.
+just its heading. Clicking a machine or its software expands the machine details
+and resets its software sections to collapsed.
 An empty inventory and an unavailable database show distinct status messages.
 Detail labels come from `DLabel.ATTRIBUTES` in `cmdb/constants/DLabel.py`,
 for example `ipAddress` displays as IP Address and `hostName` as Host Name.
 The mapping affects presentation only; model attributes, API keys, and database
 columns retain their original names.
 
-Selecting a machine reveals Edit below the details table. Edit turns `hostName` into a
-text box and offers Save and Cancel. Save updates the database, node label,
-and details; Cancel discards the draft. A failed save keeps the draft
-available to retry. Names are trimmed and limited to 255 characters; an empty
-name clears the field. Hostnames can be edited, but successful SSH discovery
-replaces them with the hostname reported by the machine. Saving updates
-`updatedOn` while retaining `createdOn` and the other machine fields.
+Machine details are read-only. Successful SSH discovery populates the hostname
+reported by the machine.
 
 [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 and its MIT license are bundled
 under `cmdb/server/static/vendor/`, so the graph needs no CDN connection.

@@ -1,6 +1,40 @@
 "use strict";
 
 let refreshing = false;
+let backupFilesRequest = 0;
+
+function elapsedTime(seconds) {
+  const pad = value => String(value).padStart(2, "0");
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
+}
+
+async function loadBackupFiles() {
+  const request = ++backupFilesRequest;
+  const status = document.getElementById("backup-files-status");
+  const body = document.getElementById("backup-files-rows");
+  status.textContent = "Loading backup files…";
+  try {
+    const response = await fetch("/api/backups/files", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error("Backup files are unavailable. Reopen Backups to try again.");
+    const { files } = await response.json();
+    if (request !== backupFilesRequest) return;
+    body.replaceChildren();
+    for (const file of files) {
+      const row = document.createElement("tr");
+      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.hostName || "—"]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.append(cell);
+      }
+      body.append(row);
+    }
+    status.textContent = files.length ? "" : "No backup files yet.";
+  } catch (error) {
+    if (request !== backupFilesRequest) return;
+    body.replaceChildren();
+    status.textContent = error.message || "Backup files could not be loaded.";
+  }
+}
 
 async function loadBackups() {
   const status = document.getElementById("backups-status");
@@ -62,7 +96,7 @@ async function backupNow(row, modelElement) {
   const button = row.querySelector('[data-action="backup"]');
   const status = row.querySelector(".backup-row-status");
   button.disabled = true;
-  status.textContent = "Starting backup…";
+  status.textContent = "Processing backup job...";
   try {
     const response = await fetch("/api/backups", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -70,14 +104,14 @@ async function backupNow(row, modelElement) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not start the backup.");
-    await watchBackup(row, result.backupId);
+    await watchBackup(row, result.backupId, true);
   } catch (error) {
     status.textContent = `${error.message} Reopen Backups to check the recorded status before retrying.`;
     button.disabled = false;
   }
 }
 
-async function watchBackup(row, identity) {
+async function watchBackup(row, identity, refreshFiles = false) {
   const button = row.querySelector('[data-action="backup"]');
   const status = row.querySelector(".backup-row-status");
   button.disabled = true;
@@ -89,13 +123,15 @@ async function watchBackup(row, identity) {
       if (backup.status === "succeeded") {
         row.querySelector('[data-field="lastBackup"]').textContent = localTimestamp(backup.completedOn);
         status.textContent = "Backup completed.";
+        if (refreshFiles) loadBackupFiles();
         return;
       }
       if (backup.status === "failed") {
         status.textContent = `Backup failed: ${backup.error || "Unknown error."}`;
         return;
       }
-      status.textContent = "Backup queued or running…";
+      status.textContent = "Processing backup job...";
+      refreshFiles = true;
       button.textContent = "Backing up…";
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
@@ -116,7 +152,10 @@ function showPage() {
   link.textContent = backups ? "Inventory" : "Backups";
   link.href = backups ? "#inventory" : "#backups";
   document.title = backups ? "Backups — CMDB" : "CMDB";
-  if (backups) loadBackups();
+  if (backups) {
+    loadBackups();
+    loadBackupFiles();
+  }
 }
 
 window.addEventListener("hashchange", showPage);

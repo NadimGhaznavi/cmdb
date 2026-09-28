@@ -13,3 +13,6 @@ class DCmdb:
     HOST: Final[str] = "0.0.0.0"
     PORT: Final[int] = 14444
     REQUEST_TIMEOUT: Final[int] = 10
+    SCAN_TARGET: Final[str] = "192.168.0.0/24"
+    SCAN_INTERVAL_SECONDS: Final[int] = 300
+    SCAN_TIMEOUT_SECONDS: Final[int] = 30

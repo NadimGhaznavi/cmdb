@@ -17,7 +17,7 @@ downloaded during installation. On Debian/Ubuntu, the maintainer can prepare
 the system with:
 
 ```sh
-sudo apt install python3 python3-venv mariadb-server mariadb-client
+sudo apt install python3 python3-venv mariadb-server mariadb-client nmap
 sudo systemctl enable --now mariadb
 ```
 
@@ -40,8 +40,14 @@ Application files are copied to `/opt/prod/cmdb`, with Python dependencies in
 `cmdb-server.service`, enables it at boot, starts it, and checks `/health` and
 `/ready`. Open `http://<server>:14444/` afterward.
 
-The initial backend establishes a database connection but creates no inventory
-tables. The domain schema will be added with the inventory features.
+The installer applies `schema/cmdb-schema-v1.sql` to the database. It creates the
+`machines` table if absent, preserving existing rows on repeat installation.
+`ipAddress` is the primary key (`VARCHAR(45)`, accommodating IPv4 and IPv6).
+`hostName`, `site`, and `deployedComponent` are nullable `VARCHAR(255)` columns,
+matching the `Machine` entity's attribute casing. `createdOn` and `updatedOn`
+record insertion and the latest discovery update in UTC. The SQL file also adds
+these timestamp columns to existing tables; old rows receive the migration time.
+Edit the SQL file to maintain the schema.
 
 ## Upgrade
 

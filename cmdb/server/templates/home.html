@@ -1,9 +1,39 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CMDB</title>
-<style>body{background:#17191c;color:#eee;font:18px system-ui;margin:3rem auto;padding:0 1rem;max-width:60rem}a{color:#ffb454}header{border-bottom:3px solid #d98124}</style>
-</head><body><header><h1>CMDB</h1><p>Configuration Management Database</p></header>
-<main><p>The CMDB server is running.</p>
-<p><a href="/ready">Database readiness</a> &middot;
-<a href="https://cmdb.osoyalce.com">Documentation</a></p></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CMDB</title>
+  <link rel="stylesheet" href="/static/machines.css">
+  <script defer src="/static/vendor/cytoscape-3.34.3.min.js"></script>
+  <script defer src="/static/machines.js"></script>
+</head>
+<body>
+  <header>
+    <h1>CMDB</h1>
+    <p>Configuration Management Database</p>
+    <hr>
+  </header>
+  <main aria-label="Machines">
+    <div class="panel-heading">
+      <p>Last refresh: {{last_refresh}}</p>
+      <label for="machine-picker">Machine
+        <select id="machine-picker" disabled><option value="">Select a machine</option></select>
+      </label>
+    </div>
+    <p id="graph-status" role="status">Loading machines…</p>
+    <noscript>Enable JavaScript to view machines.</noscript>
+    <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
+    <section id="machine-details" aria-label="Selected machine" hidden>
+      <dl>
+        <div><dt>ipAddress</dt><dd id="detail-ipAddress"></dd></div>
+        <div><dt>hostName</dt><dd id="detail-hostName"></dd></div>
+        <div><dt>site</dt><dd id="detail-site"></dd></div>
+        <div><dt>deployedComponent</dt><dd id="detail-deployedComponent"></dd></div>
+        <div><dt>createdOn</dt><dd id="detail-createdOn"></dd></div>
+        <div><dt>updatedOn</dt><dd id="detail-updatedOn"></dd></div>
+      </dl>
+    </section>
+  </main>
+</body>
+</html>

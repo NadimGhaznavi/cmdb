@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-27 @ 20:48
+
 ### Fixed
 
 - Limited the generated-site vendor ignore rule to the repository root so the

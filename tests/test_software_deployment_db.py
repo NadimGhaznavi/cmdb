@@ -1,6 +1,10 @@
 """Fresh-schema integration checks against an explicitly supplied test MariaDB socket."""
 
 import os
+import hashlib
+import shlex
+import subprocess
+from tempfile import TemporaryDirectory
 from datetime import datetime
 from pathlib import Path
 import unittest
@@ -10,6 +14,7 @@ import pymysql
 
 from cmdb.entity.Machine import Machine
 from cmdb.entity.Backup import Backup
+from cmdb.interface.BackupDb import BackupDb
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.DataManagerDb import DataManagerDb
@@ -295,6 +300,54 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 self.db.execute('INSERT INTO Backup (modelElement, startedOn, completedOn, status, '
                                 'pathname, sizeBytes, checksum, error) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
                                 tuple(values.values()))
+
+    def test_host_dump_restores_real_mariadb_data_and_checksum(self):
+        self.db.execute('CREATE TABLE backup_payload (id INT PRIMARY KEY, value TEXT)')
+        self.db.execute('INSERT INTO backup_payload VALUES (%s, %s)', (1, 'A quoted \' value'))
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            binaries = root / 'bin'
+            binaries.mkdir()
+            # Only the mount check and socket routing are fixtures; dump and restore are real.
+            fixtures = {
+                'findmnt': '#!/bin/sh\necho nfs4\n',
+                'mariadb-dump': '#!/bin/sh\nshift\nexec /usr/bin/mariadb-dump --no-defaults --socket='
+                    + shlex.quote(os.environ['CMDB_TEST_DB_SOCKET']) + ' "$@"\n',
+            }
+            for name, contents in fixtures.items():
+                path = binaries / name
+                path.write_text(contents)
+                path.chmod(0o755)
+            script = Path(__file__).resolve().parents[1] / 'cmdb/interface/scripts/backup-db.sh'
+            result = subprocess.run(['sh', str(script), directory, 'host/db/real.dump', self.database, 'root'],
+                                    env=dict(os.environ, PATH=str(binaries) + ':' + os.environ['PATH']),
+                                    text=True, capture_output=True, check=True)
+            dump = (root / 'host/db/real.dump').read_bytes()
+            self.assertEqual(result.stdout.split(), [str(len(dump)), hashlib.sha256(dump).hexdigest()])
+            self.db.execute('DELETE FROM backup_payload')
+            subprocess.run(['/usr/bin/mariadb', '--no-defaults', '--socket=' + os.environ['CMDB_TEST_DB_SOCKET'],
+                            '--user=root'], input=dump, capture_output=True, check=True)
+            self.assertEqual(self.db.query('SELECT * FROM backup_payload'), [{'id': 1, 'value': 'A quoted \' value'}])
+
+    def test_backup_inventory_and_last_success_survive_later_failure(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='host'))
+        DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb', 'mysql', 'sys'])
+        backups = BackupDb(self.db)
+        items = backups.databases()
+        self.assertEqual([row['databaseName'] for row in items], ['cmdb'])
+        target = items[0]['modelElement']
+        started = datetime(2026, 9, 28, 12)
+        identity = backups.start(target, started)
+        backups.finish(identity, started, result=dict(pathname='host/db/test.dump', sizeBytes=1, checksum='a' * 64))
+        failed = backups.start(target, started)
+        backups.finish(failed, started, error='Dump failed')
+        row = backups.databases()[0]
+        self.assertEqual(row['lastBackup'], started)
+        self.assertEqual(row['latestBackup'], failed)
+        abandoned = backups.start(target, started)
+        backups.recover()
+        self.assertEqual(backups.get(abandoned)['status'], 'failed')
+        self.assertEqual(backups.get(identity)['status'], 'succeeded')
 
     def test_backup_schedule_rejects_invalid_policy_values(self):
         target = NamespaceDb(self.db).create(name='backup target')

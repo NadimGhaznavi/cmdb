@@ -9,6 +9,10 @@ permalink: /CHANGELOG/
 
 ### Added
 
+- Implement Backup Now with asynchronous bookkeeping, host-local MariaDB dumps
+  directly into the NFS backup directory, SHA-256 checksums, status polling, and
+  Last Backup updates. Keep temporary files beside final dumps. Add agent dump
+  privileges and local service write access; scheduling and retention remain deferred.
 - Add the application-specific Backup entity and table for individual attempts,
   with inventory references, timestamps, status, file path, size, SHA-256 checksum,
   and failure details. Enforce consistent completion records independently of schedules.

@@ -160,6 +160,14 @@ Uninstall retains both local accounts and their homes.
 
 
 The installer also provisions MariaDB's `cmdbagent@localhost` using socket
-authentication and grants `SHOW DATABASES`. It verifies access as Linux
+authentication and grants `SHOW DATABASES`, `SELECT`, `SHOW VIEW`, `TRIGGER`,
+and `EVENT` for inventory and dumps. It verifies access as Linux
 `cmdbagent`. This runs on upgrade as well as fresh installation and uses
 `schema/cmdbagent.sql`. The existing application database credentials are retained.
+
+For manual backups, each database host needs `mariadb-dump`, `findmnt`, `flock`,
+and the standard coreutils commands. Autofs must mount `/imports/backups` as NFS,
+and `cmdbagent` must be able to create files in that host's backup directory.
+The installer does not configure mounts or NFS permissions. The service grants
+write access to the configured backup directory for local neuromancer dumps.
+See [manual backups]({{ site.baseurl }}{% link pages/backups.md %}).

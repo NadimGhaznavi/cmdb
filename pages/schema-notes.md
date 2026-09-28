@@ -24,7 +24,7 @@ today or a DeployedComponent later. It does not inherit from ModelElement.
 All columns are non-null. Deleting a referenced ModelElement is blocked until
 its schedule is explicitly removed. Inventory discovery does not create schedule
 rows. The schema and Python entity are in place; UI persistence, execution
-timing and backup execution remain unimplemented.
+timing remain unimplemented. Manual execution is available through Backup Now.
 The table is included in the install schema; no record migration is added.
 
 ## Backup attempts
@@ -51,8 +51,9 @@ Completed attempts require a completion time no earlier than their start.
 Success requires a nonempty pathname, size, checksum, and no error. Running and
 failed attempts have no completed-file size or checksum. The latest-success
 index supports looking up Last Backup by model item and completion time.
-Only the entity and storage schema are implemented: creating attempts, writing
-files, calculating checksums, and updating Last Backup remain future work.
+BackupManager creates attempts and records SSHDb results. Backup Now polls those
+records and displays the latest successful completion time. See
+[manual backups]({{ site.baseurl }}{% link pages/backups.md %}) for execution and failure handling.
 
 ## Data packages and inherited names
 

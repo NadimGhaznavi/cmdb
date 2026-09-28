@@ -12,6 +12,9 @@ connection and transaction layer, adapted to the `cmdb` package.
 | --- | --- |
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
+| `GET /api/backups` | Lists MariaDB user databases, model IDs, latest attempts, and last successful completion times. |
+| `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
+| `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
@@ -31,14 +34,15 @@ as the inventory graph, or the IP address when unnamed. Each section contains
 Database, Enabled, Frequency, Retention, Last Backup, and Actions columns.
 Enabled starts unchecked, Frequency is fixed to Daily, and Retention offers
 1 week (the default), 2 weeks, 1 month, and Forever. These controls are currently
-a UI preview: values are not saved and reset when the view reloads. Update and
-Backup Now appear after Last Backup and remain disabled until their operations
-are implemented. Wide tables scroll horizontally on narrow screens.
+a UI preview: values are not saved and reset when the view reloads. Update stays
+disabled. Backup Now runs a manual backup independently of Enabled, displays
+progress or failure, and updates Last Backup after success. Wide tables scroll
+horizontally on narrow screens. See [manual backups]({{ site.baseurl }}{% link pages/backups.md %}).
 The system databases `mysql`,
 `information_schema`, `performance_schema`, and `sys` are excluded from both
 the rows and counts. DBMS hosts without user databases show `0 DBs` and an empty
-state when expanded. Last Backup displays `---` for now;
-backup tracking is not yet implemented. Browser Back and Forward also switch
+state when expanded. Last Backup displays `---` until the first successful backup.
+Browser Back and Forward also switch
 views. The scan button and refresh timestamp are shown only on Inventory.
 
 The main panel fills the remaining window below the title. It loads database
@@ -188,7 +192,7 @@ Nmap, using the existing SoftwareSystem and Component mapping.
 OS classifications populate the
 [software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %}).
 Missing or inconclusive results preserve existing OS records. The service's
-stop timeout is 210 seconds to allow the active scan to finish or time out.
+stop timeout is 3900 seconds to allow the active scan and a bounded backup to finish.
 
 The scanner then runs the [SSH follow-up]({{ site.baseurl }}{% link pages/ssh.md %}#scanner-follow-up)
 to test `cmdb` access, provision it through root where possible, and retrieve

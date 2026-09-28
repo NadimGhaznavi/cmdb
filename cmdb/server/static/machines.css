@@ -9,6 +9,10 @@
 .backup-actions { display: flex; gap: .5rem; white-space: nowrap; }
 .backups-table select, .backups-table button { background: #24272c; color: #eee; border: 1px solid #d98124; padding: .4rem .6rem; font: inherit; }
 .backups-table button:disabled { opacity: .5; cursor: not-allowed; }
+.backups-table button:not(:disabled) { cursor: pointer; }
+.backups-table button:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+.backup-row-status { font-size: .85rem; max-width: 24rem; white-space: pre-wrap; }
+.backup-row-status:empty { display: none; }
 .backups-table input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: #ffb454; cursor: pointer; }
 .backups-table select:focus-visible, .backups-table input:focus-visible, .backup-table-scroll:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
 #backups-page { min-width: 0; }

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-28 @ 10:45
+
 ### Added
 
 - Display MariaDB below the OS inside each machine, using the same rounded

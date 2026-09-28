@@ -91,6 +91,12 @@ async function loadMachines() {
         { selector: "node:selected", style: {
           "background-color": "#14532d", "border-color": "#fff", "border-width": 3,
         } },
+        { selector: "node[!hostName]", style: {
+          "background-color": "#3f454b", "border-color": "#9ca3af",
+        } },
+        { selector: "node[!hostName]:selected", style: {
+          "background-color": "#5b626a", "border-color": "#fff",
+        } },
       ],
       layout: { name: "circle", padding: 40, nodeDimensionsIncludeLabels: true },
       selectionType: "single",

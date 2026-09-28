@@ -28,8 +28,9 @@ scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
 Requests during an active scan share that scan; scans never overlap.
 Save or cancel a hostname edit before refreshing.
-Nodes use bold white 16px labels inside dark green bubbles; selection uses a
-lighter green. Named machines show
+Nodes use bold white 16px labels. Named machines have dark green bubbles;
+unnamed machines have grey bubbles. Selection lightens the corresponding color.
+Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.
 Click a node or use the machine selector to see its fields and UTC timestamps.
@@ -39,7 +40,7 @@ Selecting a machine reveals Edit beside Refresh. Edit turns `hostName` into a
 text box and offers Save and Cancel. Save updates the database, node label,
 selector, and details; Cancel discards the draft. A failed save keeps the draft
 available to retry. Names are trimmed and limited to 255 characters; an empty
-name clears the field, allowing discovery to populate it again. Saving updates
+name clears the field. Hostnames are maintained through editing. Saving updates
 `updatedOn` while retaining `createdOn` and the other machine fields.
 
 [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 and its MIT license are bundled
@@ -106,15 +107,14 @@ The server starts a background machine scanner immediately, then waits
 `SCAN_TIMEOUT_SECONDS` defaults to `30`. These settings are in
 `cmdb/constants/DCmdb.py`.
 
-The worker uses host discovery (`-sn`) and upserts responding hosts into
+The worker uses host discovery with DNS resolution disabled (`-sn -n`) and
+upserts responding hosts into
 `machines`. Each observation refreshes `updatedOn`, even when no attributes
-change; `createdOn` stays fixed. A discovered hostname fills an empty `hostName`;
-when Nmap supplies no hostname, a reverse lookup through the system resolver
-tries to populate it. Existing hostnames, including manual edits, are preserved.
-Lookup failures preserve the existing value. Existing `site` and
+change; `createdOn` stays fixed. Scans do not resolve or populate hostnames.
+Existing hostnames, including manual edits, are preserved. Existing `site` and
 `deployedComponent` values and machines absent from a scan are retained.
 
 The worker prints its startup message to the journal. Scan and database failures
 are retried on the next interval without logging. It owns a database connection
 per scan and stops with the server, waiting for any active scan to finish or
-reach its timeout. Reverse DNS lookups use the operating system's resolver timeout.
+reach its timeout.

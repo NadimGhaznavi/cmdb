@@ -7,6 +7,22 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-28 @ 09:30
+
+### Added
+
+- Store Linux release ID and full Debian version on SoftwareSystem, with the
+  release codename in CWM TaggedValue attached through ModelElement.
+
+- Collect OS release information alongside hostnames and MAC addresses through
+  the shared local/SSH path, updating the existing OS deployment at `/`.
+
+### Fixed
+
+- Execute SSH-interface commands directly for local targets and skip local SSH
+  provisioning. Share hostname and interface MAC collection across local and
+  remote machines, populating the CMDB host's MAC when Nmap omits it.
+
 ## [0.5.3] - 2026-09-28 @ 09:03
 
 ### Changed

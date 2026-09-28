@@ -31,7 +31,14 @@ key. Defaults are port `22`, connection timeout `10` seconds, and overall
 timeout `30` seconds; override them with `port`, `connect_timeout`, and
 `timeout`. Optional `input` supplies text to the remote command's standard input.
 The command string is interpreted by the remote shell, so quote
-dynamic arguments appropriately. No local shell is invoked.
+dynamic arguments appropriately.
+
+`SSH.is_local()` recognizes local addresses by resolving the target and checking
+whether a socket can bind to its address, without running an external command.
+For a local target, `run()` executes the command through `/bin/sh` directly,
+with the same input, output, timeout, and exit-status handling. It requires the
+requested account to match the process identity; it does not switch users or
+escalate privileges. Local commands need no SSH server, key, or known-host entry.
 
 The result is a `subprocess.CompletedProcess` containing text stdout and stderr.
 A nonzero exit raises `subprocess.CalledProcessError` with the captured output;
@@ -55,6 +62,17 @@ discovered machine in turn:
 4. After provisioning, test `cmdb` login again.
 5. Retrieve the hostname as `cmdb` with `hostname -f`, falling back to `hostname`,
    and update the Machine record by its stable ID.
+6. Read `ip -j address show`, match the scanned IP to its interface, and store
+   that interface's MAC address. This requires `iproute2` on the target. An
+   unavailable command or missing MAC preserves the stored MAC and does not
+   discard a successfully retrieved hostname.
+7. Read `/etc/os-release`, falling back to `/usr/lib/os-release` when absent,
+   and update the existing OS deployment at `/`. Release contents are parsed
+   as data, never executed. Missing, invalid, or unreadable release data leaves
+   the current OS observation unchanged and does not discard hostname or MAC data.
+
+For the local machine, skip the port check, SSH connections, and provisioning.
+The SSH interface executes the same hostname, MAC, and OS commands locally as `cmdb`.
 
 Every connection uses the persistent local `cmdb` known-hosts file, including
 the initial login, root provisioning, and the `cmdb` retest. New host keys are

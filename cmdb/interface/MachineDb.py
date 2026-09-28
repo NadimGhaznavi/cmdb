@@ -59,6 +59,13 @@ class MachineDb:
             (host_name, machine_id),
         )
 
+    def update_discovered_mac(self, machine_id: int, mac_address: str) -> None:
+        """Store the address of the interface owning the discovered IP."""
+        self._db.execute(
+            "UPDATE Machine SET macAddress = %s, updatedOn = CURRENT_TIMESTAMP(6) WHERE id = %s",
+            (mac_address, machine_id),
+        )
+
     def update_hostname(self, ip_address: str, host_name: str | None) -> Machine | None:
         with self._db.transaction():
             self._db.execute(

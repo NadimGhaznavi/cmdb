@@ -2,6 +2,7 @@
 
 from unittest import TestCase
 from unittest.mock import Mock, patch
+import socket
 
 import nmap
 import pymysql
@@ -11,6 +12,11 @@ from cmdb.server.MachineScanner import MachineScanner
 
 
 class MachineScannerTests(TestCase):
+    def setUp(self):
+        lookup = patch("cmdb.server.MachineScanner.socket.gethostbyaddr", side_effect=socket.herror("no PTR"))
+        self.lookup = lookup.start()
+        self.addCleanup(lookup.stop)
+
     @patch("cmdb.server.MachineScanner.MachineDb")
     @patch("cmdb.server.MachineScanner.DbMgr")
     @patch("cmdb.server.MachineScanner.Nmap")
@@ -38,6 +44,25 @@ class MachineScannerTests(TestCase):
         self.assertEqual(db.return_value.close.call_count, 2)
         transaction = db.return_value.transaction.return_value
         self.assertIs(transaction.__exit__.call_args.args[0], pymysql.OperationalError)
+
+    @patch("cmdb.server.MachineScanner.MachineDb")
+    @patch("cmdb.server.MachineScanner.DbMgr")
+    @patch("cmdb.server.MachineScanner.Nmap")
+    def test_reverse_dns_fills_missing_names_and_failure_keeps_machine(self, scanner, db, inventory):
+        scanner.return_value.scan.return_value = {
+            "nmap": {"scaninfo": {}}, "scan": {
+                "192.168.0.1": {"status": {"state": "up"}, "hostnames": [{"name": "router"}]},
+                "192.168.0.2": {"status": {"state": "up"}, "hostnames": []},
+                "192.168.0.3": {"status": {"state": "up"}, "hostnames": [{"name": ""}]},
+            },
+        }
+        self.lookup.side_effect = [("worker.lan", [], ["192.168.0.2"]), socket.herror("no PTR")]
+        MachineScanner().scan_once()
+        self.assertEqual([call.args[0] for call in self.lookup.call_args_list],
+                         ["192.168.0.2", "192.168.0.3"])
+        self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
+                         [Machine("192.168.0.1", "router"), Machine("192.168.0.2", "worker.lan"),
+                          Machine("192.168.0.3")])
 
     @patch("cmdb.server.MachineScanner.DbMgr")
     @patch("cmdb.server.MachineScanner.Nmap")

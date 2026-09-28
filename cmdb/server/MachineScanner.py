@@ -1,6 +1,7 @@
 """Periodically discover machines and refresh their database records."""
 
 from threading import Event, Thread
+import socket
 
 import nmap
 import pymysql
@@ -39,10 +40,17 @@ class MachineScanner(Thread):
             return
         machines = []
         for address, host in result["scan"].items():
+            if self._stop_requested.is_set():
+                return
             if host["status"]["state"] != "up":
                 continue
             host_name = next((entry["name"] for entry in host.get("hostnames", [])
                               if entry["name"]), None)
+            if not host_name:
+                try:
+                    host_name = socket.gethostbyaddr(address)[0] or None
+                except OSError:
+                    pass
             machines.append(Machine(ipAddress=address, hostName=host_name))
         if not machines:
             return

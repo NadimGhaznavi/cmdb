@@ -9,6 +9,9 @@ permalink: /CHANGELOG/
 
 ### Added
 
+- Add the application-specific Backup entity and table for individual attempts,
+  with inventory references, timestamps, status, file path, size, SHA-256 checksum,
+  and failure details. Enforce consistent completion records independently of schedules.
 - Add the application-specific BackupSchedule table and entity, with one policy
   per ModelElement, disabled by default, daily frequency, and validated retention
   choices. UI persistence and backup execution remain pending.

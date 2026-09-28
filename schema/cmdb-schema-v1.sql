@@ -100,3 +100,29 @@ CREATE TABLE IF NOT EXISTS BackupSchedule (
     CONSTRAINT BackupSchedule_frequency_ck CHECK (frequency IN ('daily')),
     CONSTRAINT BackupSchedule_retention_ck CHECK (retention IN ('1-week', '2-weeks', '1-month', 'forever'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Individual attempts have independent identities and outlive schedule changes.
+CREATE TABLE IF NOT EXISTS Backup (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    modelElement BIGINT UNSIGNED NOT NULL,
+    startedOn DATETIME(6) NOT NULL,
+    completedOn DATETIME(6) NULL,
+    status VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'running',
+    pathname TEXT NULL,
+    sizeBytes BIGINT UNSIGNED NULL,
+    checksum VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    error TEXT NULL,
+    KEY Backup_latest_success_idx (modelElement, status, completedOn),
+    CONSTRAINT Backup_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id),
+    CONSTRAINT Backup_status_ck CHECK (status IN ('running', 'succeeded', 'failed')),
+    CONSTRAINT Backup_completion_ck CHECK (
+        (status = 'running' AND completedOn IS NULL) OR
+        (status IN ('succeeded', 'failed') AND completedOn IS NOT NULL AND completedOn >= startedOn)),
+    CONSTRAINT Backup_checksum_ck CHECK (
+        checksum IS NULL OR (CHAR_LENGTH(checksum) = 64 AND checksum NOT REGEXP '[^0-9a-f]')),
+    CONSTRAINT Backup_result_ck CHECK (
+        (status = 'succeeded' AND pathname IS NOT NULL AND CHAR_LENGTH(pathname) > 0
+         AND sizeBytes IS NOT NULL AND checksum IS NOT NULL AND error IS NULL) OR
+        (status IN ('running', 'failed') AND sizeBytes IS NULL AND checksum IS NULL)),
+    CONSTRAINT Backup_error_ck CHECK (status = 'failed' OR error IS NULL)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

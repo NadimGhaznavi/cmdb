@@ -24,8 +24,35 @@ today or a DeployedComponent later. It does not inherit from ModelElement.
 All columns are non-null. Deleting a referenced ModelElement is blocked until
 its schedule is explicitly removed. Inventory discovery does not create schedule
 rows. The schema and Python entity are in place; UI persistence, execution
-timing, backup execution, and individual backup records remain unimplemented.
+timing and backup execution remain unimplemented.
 The table is included in the install schema; no record migration is added.
+
+## Backup attempts
+
+`Backup` is an application entity with its own ID and a required reference to
+`ModelElement.id`. Multiple attempts may reference the same item. There is no
+dependency on BackupSchedule, so manual attempts need no schedule and changing
+or removing a schedule preserves history. Referenced inventory items cannot be
+deleted while backup records remain.
+
+| Column | Purpose |
+| --- | --- |
+| `id` | Auto-increment primary key |
+| `modelElement` | Required foreign key to the item backed up |
+| `startedOn` | Required UTC start time, stored as DATETIME(6) |
+| `completedOn` | UTC completion time; null while running |
+| `status` | `running` (default), `succeeded`, or `failed` |
+| `pathname` | File path relative to the backup base directory; nullable until known |
+| `sizeBytes` | Unsigned completed file size; null until successful |
+| `checksum` | SHA-256 of the completed file, 64 lowercase hexadecimal characters; null until successful |
+| `error` | Failure details; null otherwise |
+
+Completed attempts require a completion time no earlier than their start.
+Success requires a nonempty pathname, size, checksum, and no error. Running and
+failed attempts have no completed-file size or checksum. The latest-success
+index supports looking up Last Backup by model item and completion time.
+Only the entity and storage schema are implemented: creating attempts, writing
+files, calculating checksums, and updating Last Backup remain future work.
 
 ## Data packages and inherited names
 

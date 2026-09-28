@@ -1,6 +1,7 @@
 """Fresh-schema integration checks against an explicitly supplied test MariaDB socket."""
 
 import os
+from datetime import datetime
 from pathlib import Path
 import unittest
 from uuid import uuid4
@@ -8,6 +9,7 @@ from uuid import uuid4
 import pymysql
 
 from cmdb.entity.Machine import Machine
+from cmdb.entity.Backup import Backup
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.DataManagerDb import DataManagerDb
@@ -223,7 +225,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
         for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}
@@ -253,6 +255,46 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
         with self.assertRaises(pymysql.IntegrityError):
             self.db.execute('DELETE FROM ModelElement WHERE id=%s', (target,))
+
+    def test_backup_attempts_preserve_history_independently_of_schedule(self):
+        target = NamespaceDb(self.db).create(name='cmdb')
+        started = datetime(2026, 9, 28, 13, 29)
+        completed = datetime(2026, 9, 28, 13, 30)
+        identity = self.db.insert('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)',
+                                  (target, started))
+        running = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
+        self.assertEqual(running, Backup(modelElement=target, startedOn=started, id=identity))
+        self.db.execute('UPDATE Backup SET status=%s, completedOn=%s, pathname=%s, sizeBytes=%s, '
+                        'checksum=%s WHERE id=%s',
+                        ('succeeded', completed, 'sally/cmdb/example.dump', 123, 'a' * 64, identity))
+        success = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
+        self.assertEqual((success.status, success.sizeBytes, success.checksum), ('succeeded', 123, 'a' * 64))
+        self.db.execute('INSERT INTO Backup (modelElement, startedOn, completedOn, status, error) '
+                        'VALUES (%s, %s, %s, %s, %s)', (target, completed, completed, 'failed', 'Dump failed'))
+        self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        self.db.execute('DELETE FROM BackupSchedule WHERE modelElement=%s', (target,))
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM Backup')[0]['n'], 2)
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('DELETE FROM ModelElement WHERE id=%s', (target,))
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)', (999999, started))
+
+    def test_backup_rejects_inconsistent_results_and_invalid_checksums(self):
+        target = NamespaceDb(self.db).create(name='cmdb')
+        started = datetime(2026, 9, 28, 13, 29)
+        valid = dict(modelElement=target, startedOn=started, completedOn=started,
+                     status='succeeded', pathname='sally/cmdb/example.dump', sizeBytes=123,
+                     checksum='0123456789abcdef' * 4, error=None)
+        for field, value in (('status', 'unknown'), ('status', 'running'), ('completedOn', None),
+                             ('completedOn', datetime(2026, 9, 27)), ('pathname', None),
+                             ('pathname', ''), ('sizeBytes', None), ('sizeBytes', -1),
+                             ('checksum', None), ('checksum', 'a' * 63), ('checksum', 'g' * 64),
+                             ('checksum', 'a' * 63 + '\n'), ('error', 'Unexpected error')):
+            values = valid | {field: value}
+            with self.subTest(field=field, value=value), self.assertRaises(pymysql.MySQLError):
+                self.db.execute('INSERT INTO Backup (modelElement, startedOn, completedOn, status, '
+                                'pathname, sizeBytes, checksum, error) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+                                tuple(values.values()))
 
     def test_backup_schedule_rejects_invalid_policy_values(self):
         target = NamespaceDb(self.db).create(name='backup target')

@@ -46,8 +46,8 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
   #selection-details { flex-basis: auto; max-width: none; border-right: 0; border-bottom: 1px solid #6e502e; padding: 0 0 1rem; }
 }
 
-#machine-heading, #software-heading { font-size: 1rem; font-weight: bold; margin: 0 0 .75rem; overflow-wrap: anywhere; }
-#machine-heading { cursor: pointer; }
-#machine-heading:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
-#machine-details:not([open]) > summary { margin-bottom: 0; }
-#software-details { margin-top: 1.5rem; }
+#selection-details summary { font-size: 1rem; font-weight: bold; margin: 0 0 .75rem; overflow-wrap: anywhere; }
+#selection-details summary { cursor: pointer; }
+#selection-details summary:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+#selection-details details:not([open]) > summary { margin-bottom: 0; }
+.software-detail { margin-top: 1.5rem; }

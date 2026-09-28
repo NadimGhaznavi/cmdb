@@ -149,23 +149,24 @@ async function loadMachines() {
       selectionDetails.hidden = false;
       details.open = true;
       document.getElementById("machine-heading").textContent = `Machine: ${machineLabel(node.data())}`;
-      softwareDetails.hidden = true;
+      softwareDetails.replaceChildren();
+      const template = document.getElementById("software-detail-template");
+      const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
+      for (const system of systems) {
+        const section = template.content.cloneNode(true);
+        const type = system.type || "Unknown";
+        const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
+        section.querySelector("summary").textContent = `Software System: ${title}`;
+        for (const cell of section.querySelectorAll("[data-field]")) {
+          cell.textContent = system[cell.dataset.field] ?? "—";
+        }
+        softwareDetails.append(section);
+      }
     }
     graph.on("tap", "node", event => {
       if (refreshing) return;
       const node = event.target;
-      if (!node.hasClass("software")) {
-        selectMachine(node);
-        return;
-      }
-      selectMachine(node.parent());
-      const type = node.data("type") || "Unknown";
-      const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
-      document.getElementById("software-heading").textContent = `Software System: ${title}`;
-      for (const field of ["type", "subtype", "supplier", "version", "codename"]) {
-        document.getElementById(`software-${field}`).textContent = node.data(field) ?? "—";
-      }
-      softwareDetails.hidden = false;
+      selectMachine(node.hasClass("software") ? node.parent() : node);
     });
     new ResizeObserver(() => {
       graph.resize();

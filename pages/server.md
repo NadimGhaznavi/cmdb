@@ -33,9 +33,11 @@ Machines with deployed software expand into rounded containers with the machine
 name above nested software rectangles. Software labels include the subtype,
 codename when present, and version, such as `Debian (trixie) 13.6`.
 MariaDB appears in a matching box below the OS, regardless of discovery order.
-Machines remain arranged in a circle. Clicking an inner rectangle shows its
-Software System fields below the containing machine in the left panel, with
-a heading such as `Software System: Linux` or `Software System: RDBMS`.
+Machines remain arranged in a circle. Clicking a machine or any inner software
+rectangle loads the machine and its available software systems in the left panel.
+The OS appears first, then MariaDB. Each software section starts collapsed with
+a heading such as `Software System: Linux` or `Software System: RDBMS`; click
+the heading to expand its fields.
 Selection lightens the containing machine’s color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
@@ -44,7 +46,8 @@ Click a node to see its fields and timestamps in
 browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 The `Machine: Sally` (or IP address) heading collapses the machine section to
-just its heading. Clicking a machine expands it and clears the software details.
+just its heading. Clicking a machine or its software expands the machine details
+and resets its software sections to collapsed.
 An empty inventory and an unavailable database show distinct status messages.
 Detail labels come from `DLabel.ATTRIBUTES` in `cmdb/constants/DLabel.py`,
 for example `ipAddress` displays as IP Address and `hostName` as Host Name.

@@ -32,18 +32,21 @@
             </tbody>
           </table>
         </details>
-        <section id="software-details" aria-labelledby="software-heading" hidden>
-          <h2 id="software-heading"></h2>
-          <table aria-label="Software system details">
-            <tbody>
-              <tr><th scope="row">{{label.type}}:</th><td id="software-type"></td></tr>
-              <tr><th scope="row">{{label.subtype}}:</th><td id="software-subtype"></td></tr>
-              <tr><th scope="row">{{label.supplier}}:</th><td id="software-supplier"></td></tr>
-              <tr><th scope="row">{{label.version}}:</th><td id="software-version"></td></tr>
-              <tr><th scope="row">{{label.codename}}:</th><td id="software-codename"></td></tr>
-            </tbody>
-          </table>
-        </section>
+        <div id="software-details"></div>
+        <template id="software-detail-template">
+          <details class="software-detail">
+            <summary></summary>
+            <table aria-label="Software system details">
+              <tbody>
+                <tr><th scope="row">{{label.type}}:</th><td data-field="type"></td></tr>
+                <tr><th scope="row">{{label.subtype}}:</th><td data-field="subtype"></td></tr>
+                <tr><th scope="row">{{label.supplier}}:</th><td data-field="supplier"></td></tr>
+                <tr><th scope="row">{{label.version}}:</th><td data-field="version"></td></tr>
+                <tr><th scope="row">{{label.codename}}:</th><td data-field="codename"></td></tr>
+              </tbody>
+            </table>
+          </details>
+        </template>
       </aside>
       <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
     </div>

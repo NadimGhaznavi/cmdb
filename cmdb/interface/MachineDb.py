@@ -10,7 +10,7 @@ class MachineDb:
 
     def list_machines(self) -> list[Machine]:
         rows = self._db.query(
-            "SELECT ipAddress, hostName, site, deployedComponent, createdOn, updatedOn "
+            "SELECT id, ipAddress, hostName, macAddress, site, deployedComponent, createdOn, updatedOn "
             "FROM machines ORDER BY INET6_ATON(ipAddress), ipAddress"
         )
         return [Machine(**row) for row in rows]
@@ -18,11 +18,12 @@ class MachineDb:
     def upsert(self, machine: Machine) -> None:
         """Refresh discovery fields while preserving manually assigned values."""
         self._db.execute(
-            "INSERT INTO machines (ipAddress, hostName, site, deployedComponent) "
-            "VALUES (%s, %s, %s, %s) "
+            "INSERT INTO machines (ipAddress, hostName, site, deployedComponent, macAddress) "
+            "VALUES (%s, %s, %s, %s, %s) "
             "ON DUPLICATE KEY UPDATE "
+            "macAddress = COALESCE(VALUES(macAddress), macAddress), "
             "updatedOn = CURRENT_TIMESTAMP(6)",
-            (machine.ipAddress, machine.hostName, machine.site, machine.deployedComponent),
+            (machine.ipAddress, machine.hostName, machine.site, machine.deployedComponent, machine.macAddress),
         )
 
     def update_hostname(self, ip_address: str, host_name: str | None) -> Machine | None:
@@ -32,7 +33,7 @@ class MachineDb:
                 "WHERE ipAddress = %s", (host_name, ip_address),
             )
             rows = self._db.query(
-                "SELECT ipAddress, hostName, site, deployedComponent, createdOn, updatedOn "
+                "SELECT id, ipAddress, hostName, macAddress, site, deployedComponent, createdOn, updatedOn "
                 "FROM machines WHERE ipAddress = %s", (ip_address,),
             )
         return Machine(**rows[0]) if rows else None

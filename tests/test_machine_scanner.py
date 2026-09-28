@@ -21,6 +21,7 @@ class MachineScannerTests(TestCase):
             "nmap": {"scaninfo": {}},
             "scan": {
                 "192.168.0.1": {"status": {"state": "up"},
+                                "addresses": {"ipv4": "192.168.0.1", "mac": "00:11:22:33:44:55"},
                                 "hostnames": [{"name": "router"}]},
                 "192.168.0.2": {"status": {"state": "up"},
                                 "hostnames": [{"name": ""}]},
@@ -30,7 +31,8 @@ class MachineScannerTests(TestCase):
         worker = MachineScanner()
         worker.scan_once()
         self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
-                         [Machine("192.168.0.1"), Machine("192.168.0.2")])
+                         [Machine("192.168.0.1", macAddress="00:11:22:33:44:55"),
+                          Machine("192.168.0.2")])
         db.return_value.transaction.assert_called_once()
         db.return_value.close.assert_called_once()
 

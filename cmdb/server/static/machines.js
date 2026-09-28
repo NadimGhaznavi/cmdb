@@ -130,7 +130,7 @@ async function loadMachines() {
       graph.nodes().unselect();
       node.select();
       picker.value = node.id();
-      for (const field of ["ipAddress", "hostName", "site", "deployedComponent", "createdOn", "updatedOn"]) {
+      for (const field of ["ipAddress", "macAddress", "hostName", "site", "deployedComponent", "createdOn", "updatedOn"]) {
         const value = field === "createdOn" || field === "updatedOn"
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
         document.getElementById(`detail-${field}`).textContent = value;

@@ -1,13 +1,31 @@
 CREATE TABLE IF NOT EXISTS machines (
-    ipAddress VARCHAR(45) NOT NULL PRIMARY KEY,
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    ipAddress VARCHAR(45) NOT NULL,
     hostName VARCHAR(255) NULL,
+    macAddress VARCHAR(17) NULL,
     site VARCHAR(255) NULL,
     deployedComponent VARCHAR(255) NULL,
     createdOn TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updatedOn TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+    updatedOn TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    UNIQUE KEY machines_ipAddress_uq (ipAddress)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Support installations made before the timestamp columns were added.
 ALTER TABLE machines
+    ADD COLUMN IF NOT EXISTS macAddress VARCHAR(17) NULL,
     ADD COLUMN IF NOT EXISTS createdOn TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     ADD COLUMN IF NOT EXISTS updatedOn TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
+
+-- Give existing machines stable IDs while retaining IP-based scan matching.
+ALTER TABLE machines
+    ADD COLUMN IF NOT EXISTS id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE FIRST,
+    ADD UNIQUE INDEX IF NOT EXISTS machines_ipAddress_uq (ipAddress);
+ALTER TABLE machines DROP PRIMARY KEY, ADD PRIMARY KEY (id);
+
+CREATE TABLE IF NOT EXISTS deployedComponents (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    pathname TEXT NOT NULL,
+    machine BIGINT UNSIGNED NOT NULL,
+    CONSTRAINT deployedComponents_machine_fk
+        FOREIGN KEY (machine) REFERENCES machines (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

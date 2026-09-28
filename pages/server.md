@@ -38,6 +38,10 @@ Click a node or use the machine selector to see its fields and timestamps in
 browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 An empty inventory and an unavailable database show distinct status messages.
+Detail labels come from `DLabel.ATTRIBUTES` in `cmdb/constants/DLabel.py`,
+for example `ipAddress` displays as IP Address and `hostName` as Host Name.
+The mapping affects presentation only; model attributes, API keys, and database
+columns retain their original names.
 The dropdown sorts named machines by unqualified hostname, ignoring case, then
 unnamed machines by numeric IP octet. Saving a hostname re-sorts the dropdown.
 

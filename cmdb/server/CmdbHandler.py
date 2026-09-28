@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 from datetime import datetime, timezone
+from html import escape
 from http.server import BaseHTTPRequestHandler
 from ipaddress import ip_address
 import json
@@ -12,6 +13,7 @@ from urllib.parse import urlsplit
 import pymysql
 
 from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.entity.Machine import Machine
@@ -78,6 +80,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
         elif path == "/":
             template = (Path(__file__).parent / "templates" / "home.html").read_text()
             body = template.replace("{{last_refresh}}", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+            for attribute, label in DLabel.ATTRIBUTES.items():
+                body = body.replace("{{label." + attribute + "}}", escape(label))
             self.respond(200, body.encode("utf-8"), "text/html; charset=utf-8")
         else:
             self.send_error(404, "Page not found")

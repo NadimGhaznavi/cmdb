@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- `DLabel.py` maps model attribute names to readable GUI labels in machine details.
+
 ### Fixed
 
 - Enforce agreement between `DeployedComponent.machine` and inherited

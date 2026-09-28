@@ -31,7 +31,7 @@ a successful no-op. Success exits 0; dump, permission, configuration, and tool
 errors exit 1. Backup attempts store the error when database access is available.
 Cron handles process timing; there is no application scheduling loop.
 
-Update saves Enabled, Daily frequency, and Retention, then writes the cron entry.
+Update saves Enabled and Retention, then writes the daily noon cron entry.
 A cron write failure rolls back the database edit and reports an error. If an
 update fails, retry it to reconcile the settings and cron entry. Deleting a policy
 through `DELETE /api/backup-schedules/<id>` removes its cron entry and preserves
@@ -67,11 +67,11 @@ MariaDB socket. Neuromancer uses the existing local command path without SSH.
 `DCmdb.BACKUP_DIR` is `/imports/disk1/backups`. The output location is:
 
 ```text
-/imports/disk1/backups/<host>/db/mariadb-<host>-<database>-YYYY-MM-DD_HH:MM:SS.dump
+/imports/disk1/backups/<host>/db/<database>/mariadb-<host>-<database>-YYYY-MM-DD_HH:MM:SS.dump
 ```
 
 The host is the short inventory hostname, falling back to its IP. Unsafe filename
-characters are percent-encoded. The database part is limited to 80 encoded
+characters are percent-encoded. The database part of the filename is limited to 80 encoded
 characters. Filenames use the UTC start date and time to the second, without
 fractional seconds or an attempt-ID suffix. An existing filename is never
 overwritten. The record stores the relative pathname, size, and SHA-256 checksum.
@@ -79,7 +79,7 @@ overwritten. The record stores the relative pathname, size, and SHA-256 checksum
 The host first accesses the base directory, triggering autofs where configured.
 Local storage is also supported, including the backing directory on Wintermute,
 the NFS server. No filesystem-type check is performed.
-It creates its temporary file in the destination host's `db` directory,
+It creates the `<host>/db/<database>` directory if needed and its temporary file there,
 dumps directly there, then computes the size and checksum on that host. It
 publishes the completed file with a hard link and removes the temporary name,
 without copying the file across filesystems or through the CMDB server.

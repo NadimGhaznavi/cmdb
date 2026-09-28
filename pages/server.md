@@ -34,8 +34,8 @@ The Live Databases section groups stored databases into collapsible host section
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
 as the inventory graph, or the IP address when unnamed. Each section contains
-Database, Enabled, Frequency, Retention, Last Backup, and Actions columns.
-For a new policy, Enabled starts unchecked, Frequency is fixed to Daily, and Retention offers
+Database, Enabled, Retention, Last Backup, and Actions columns.
+Backups run daily at noon. For a new policy, Enabled starts unchecked, and Retention offers
 1 week (the default), 2 weeks, 1 month, and Forever. Update persists these settings
 and creates or removes the noon cron job. Existing settings are loaded when the
 page opens. Retention deletion remains unimplemented.

@@ -31,7 +31,7 @@ class SSHDbTests(TestCase):
     def test_backup_quotes_database_and_returns_only_completed_file_metadata(self):
         with patch.object(self.db, 'ensure_agent', return_value=True):
             self.ssh.run.return_value = result('123 ' + 'a' * 64 + '\n')
-            path = 'sally/db/mariadb-sally-db-1.dump'
+            path = 'sally/db/db/mariadb-sally-db-1.dump'
             self.assertEqual(self.db.backup_db('host', "db'; touch /tmp/injected; #", path),
                              dict(pathname=path, sizeBytes=123, checksum='a' * 64))
             import shlex
@@ -45,8 +45,8 @@ class SSHDbTests(TestCase):
                     self.db.backup_db('host', 'db', path)
 
     def test_backup_rejects_system_databases_and_path_traversal(self):
-        for database, path in [('mysql', 'host/db/file.dump'), ('db', '../db/file.dump'),
-                               ('db', '/host/db/file.dump'), ('db', 'host/db/../../file.dump')]:
+        for database, path in [('mysql', 'host/db/mysql/file.dump'), ('db', '../db/db/file.dump'),
+                               ('db', '/host/db/db/file.dump'), ('db', 'host/db/../file.dump'), ('db', 'host/db/db/../file.dump')]:
             with self.subTest(database=database, path=path), self.assertRaises(ValueError):
                 self.db.backup_db('host', database, path)
         self.ssh.run.assert_not_called()

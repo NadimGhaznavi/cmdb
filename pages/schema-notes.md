@@ -26,8 +26,7 @@ namespace ownership. A package can exist without links, and a manager can
 have no packages. Duplicate links and dangling references are rejected.
 
 DataManager shares its DeployedComponent ID; Schema shares its Package ID.
-No attributes are copied down to either child. Catalog, database discovery,
-and unneeded attributes such as `isCaseSensitive` are deferred.
+No attributes are copied down to either child. Catalog and unneeded attributes such as `isCaseSensitive` are deferred.
 
 ## Deployment owner consistency
 
@@ -69,3 +68,14 @@ A changed codename selects or creates a separate definition rather than changing
 one already used by other machines. Missing codename data is not invented.
 The scanner recognizes both Nmap's `OS` classification and host-reported `linux`
 as OS deployments at `/`, so successive observations update the same deployment.
+
+
+## Discovered database identity
+
+MariaDB instances are matched by Machine ID and reported data-directory path.
+Schema names are scoped through ModelElement.namespace to that DataManager;
+DataManagerDataPackage separately records the access relationship. This keeps
+names on their inherited owner and preserves the association's many-to-many
+structure. Discovery writes are serialized by the existing scanner worker.
+A version change reuses the deployed instance and schemas while selecting a
+new SoftwareSystem/Component definition. Missing schemas are retained for now.

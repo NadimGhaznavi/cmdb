@@ -3,7 +3,7 @@
 import subprocess
 from threading import Event
 from unittest import TestCase
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from cmdb.interface.SSHDb import SSHDb, provisioning_sql
 
@@ -59,3 +59,23 @@ class SSHDbTests(TestCase):
         self.stop.set()
         self.assertFalse(self.db.ensure_agent('host'))
         self.ssh.run.assert_not_called()
+
+    def test_inventory_reads_server_version_path_and_exact_names(self):
+        with patch.object(self.db, 'ensure_agent', return_value=True):
+            self.ssh.run.return_value = result(
+                '{"version":"11.8.3-MariaDB","pathname":"/var/lib/mysql/"}\n'
+                '"cmdb"\n"odd\\tname"\n"quoted\\\"name"\n')
+            self.assertEqual(self.db.inventory('host'), {
+                'version': '11.8.3-MariaDB', 'pathname': '/var/lib/mysql/',
+                'databases': ['cmdb', 'odd\tname', 'quoted"name']})
+            self.assertIn('information_schema.SCHEMATA', self.ssh.run.call_args.kwargs['input'])
+            self.assertNotIn('user', self.ssh.run.call_args.kwargs)
+
+    def test_invalid_or_partial_inventory_is_not_returned(self):
+        with patch.object(self.db, 'ensure_agent', return_value=True):
+            for output in ('', '{}', '[]', '{"version":"MySQL","pathname":"/data"}',
+                           '{"version":"MariaDB","pathname":"/data"}\ninvalid'):
+                self.ssh.run.return_value = result(output)
+                self.assertIsNone(self.db.inventory('host'))
+            self.ssh.run.side_effect = DENIED
+            self.assertIsNone(self.db.inventory('host'))

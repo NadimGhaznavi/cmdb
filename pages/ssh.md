@@ -161,6 +161,8 @@ not revoke additional grants. It sets the agent's authentication to `unix_socket
 the application's existing `cmdb` database account is unaffected. SQL stays in
 the external schema folder and is copied with the installed application.
 
-This step provisions and verifies access. Persisting database inventory and
-configuring backups remain future work; no data-reading or backup grants are
-added to a newly created agent account.
+After verification, `SSHDb.inventory()` reads the server version, data directory,
+and schema names using `schema/mariadb-inventory.sql`. The activity persists the
+[MariaDB inventory]({{ site.baseurl }}{% link pages/software-deployment.md %}#mariadb-discovery)
+through DataManagerDb after completing the remote commands. Backup jobs and
+backup privileges remain future work.

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import re
+import json
 import shlex
 import subprocess
 from threading import Event
@@ -40,6 +41,28 @@ class SSHDb:
                     and 'MariaDB' in lines[0]
                     and any(('SHOW DATABASES' in line or 'ALL PRIVILEGES' in line)
                             and 'ON *.* TO' in line for line in lines[1:]))
+
+    def inventory(self, host: str) -> dict | None:
+        """Collect a complete server/database observation before any inventory writes."""
+        if not self.ensure_agent(host):
+            return None
+        try:
+            sql = (Path(__file__).resolve().parents[2] / 'schema/mariadb-inventory.sql').read_text()
+            result = self._run(host, 'mariadb --no-defaults --protocol=socket --batch --raw '
+                               '--skip-column-names --user=' + shlex.quote(DCmdb.AGENT_USER), input=sql)
+            lines = result.stdout.splitlines()
+            if not lines:
+                return None
+            server = json.loads(lines[0])
+            version, pathname = server['version'], server['pathname']
+            names = [json.loads(line) for line in lines[1:]]
+            if (not isinstance(version, str) or 'MariaDB' not in version or len(version) > 255
+                    or not isinstance(pathname, str) or not pathname.startswith('/')
+                    or any(not isinstance(name, str) or not name or len(name) > 255 for name in names)):
+                return None
+            return {'version': version, 'pathname': pathname, 'databases': names}
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+            return None
 
     def ensure_agent(self, host: str) -> bool:
         """Return whether MariaDB inventory access is ready on this host."""

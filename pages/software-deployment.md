@@ -42,9 +42,8 @@ Subsystem, remain omitted; entities inherit from their nearest implemented
 ancestor. The newly needed `name` attribute stays on ModelElement.
 There is no DeployedSoftwareSystem entity or association table in this subset.
 
-The database-inventory schema is prepared for a deployed MariaDB DataManager
-linked to relational Schema objects through `DataManagerDataPackage`. This
-increment does not yet discover or populate those records. DataProvider describes
+MariaDB discovery creates a deployed DataManager linked to relational Schema
+objects through `DataManagerDataPackage`. DataProvider describes
 client software, rather than the MariaDB server itself. See
 [Schema Notes]({{ site.baseurl }}{% link pages/schema-notes.md %}) for association
 multiplicities and naming decisions.
@@ -120,3 +119,30 @@ JOIN ModelElement AS me ON me.id = c.id
 JOIN SoftwareSystem AS ss ON ss.id = me.namespace
 WHERE ss.type IN ('OS', 'linux');
 ```
+
+
+## MariaDB discovery
+
+After host inventory, SSHDb verifies or provisions agent access and executes
+`schema/mariadb-inventory.sql` over the default local MariaDB socket. It collects
+`VERSION()`, `@@datadir`, and database names from `information_schema.SCHEMATA`.
+The local machine uses the same command path as remote machines.
+
+SoftwareSystem uses `type="DBMS"`, `subtype="MariaDB"`, `supplier="MariaDB"`
+(the inventory convention), and the complete server-reported version string.
+Its Component is deployed as a DataManager on the discovered Machine. The
+DataManager inherits `pathname`, populated with the reported data directory.
+Machine ID and that path identify the observed instance across version changes.
+Only the default socket instance is queried in this increment.
+
+Each database, including system databases, becomes a Schema with its exact name
+on ModelElement. Its namespace is the DataManager, which keeps identical names
+on different instances distinct. DataManagerDataPackage links the manager to
+each schema. Repeated observations reuse identities; new releases share a new
+software definition without changing another machine's release. Existing
+schemas absent from a later observation are retained for now.
+
+Commands finish before opening the inventory write connection. A complete
+observation is saved in one transaction; failed or invalid reads leave prior
+records untouched. The existing software graph also displays the new MariaDB
+deployment; database schemas are stored for reporting.

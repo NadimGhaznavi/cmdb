@@ -10,6 +10,7 @@ import pymysql
 from cmdb.entity.Machine import Machine
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.NamespaceDb import NamespaceDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -229,6 +230,38 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             self.assertNotIn("namespace", columns)
             self.assertNotIn("ownedElement", columns)
             self.assertNotIn("name", columns)
+
+    def test_mariadb_inventory_reuses_instances_and_keeps_schema_names_scoped(self):
+        first = self.machines.upsert(Machine('192.168.0.7'))
+        second = self.machines.upsert(Machine('192.168.0.8'))
+        self.record(first)
+        inventory = DataManagerDb(self.db)
+        def record(machine, version='11.8.3-MariaDB', names=None):
+            with self.db.transaction():
+                return inventory.record_mariadb(machine, version, '/var/lib/mysql/',
+                                                names if names is not None else ['cmdb', 'mysql', 'Mixed', 'mixed'])
+        a = record(first)
+        b = record(second)
+        self.assertEqual(record(first), a)
+        self.assertNotEqual(a, b)
+        schemas = self.db.query('SELECT s.id, me.name, me.namespace FROM `Schema` s '
+                                'JOIN ModelElement me ON me.id=s.id ORDER BY s.id')
+        self.assertEqual(len(schemas), 8)
+        self.assertEqual({row['namespace'] for row in schemas}, {a, b})
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DataManagerDataPackage')[0]['n'], 8)
+        self.assertEqual(record(first, '11.8.4-MariaDB', ['newdb']), a)
+        self.assertEqual(len(self.db.query('SELECT id FROM `Schema`')), 9)
+        versions = self.db.query('SELECT dc.id, ss.version FROM DataManager dm '
+            'JOIN DeployedComponent dc ON dc.id=dm.id JOIN Component c ON c.id=dc.component '
+            'JOIN ModelElement me ON me.id=c.id JOIN SoftwareSystem ss ON ss.id=me.namespace ORDER BY dc.id')
+        self.assertEqual(versions, [{'id': a, 'version': '11.8.4-MariaDB'}, {'id': b, 'version': '11.8.3-MariaDB'}])
+        self.assertEqual(len(self.inventory()), 3)  # OS plus two MariaDB deployments.
+
+    def test_mariadb_failure_rolls_back_its_whole_observation(self):
+        with self.assertRaises(pymysql.IntegrityError), self.db.transaction():
+            DataManagerDb(self.db).record_mariadb(999999, '11.8.3-MariaDB', '/data/', ['cmdb'])
+        for table in ('SoftwareSystem', 'Component', 'DeployedComponent', 'DataManager', 'Schema'):
+            self.assertEqual(self.db.query(f'SELECT COUNT(*) AS n FROM `{table}`')[0]['n'], 0)
 
     def test_data_packages_preserve_many_to_many_and_parent_identity(self):
         managers = []

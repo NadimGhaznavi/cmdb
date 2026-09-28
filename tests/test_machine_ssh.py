@@ -22,10 +22,11 @@ def denied():
 
 class MachineSSHTests(TestCase):
     def setUp(self):
-        for name in ('SSH', 'SSHDb', 'DbMgr', 'MachineDb', 'SoftwareDeploymentDb', 'socket.create_connection'):
+        for name in ('SSH', 'SSHDb', 'DataManagerDb', 'DbMgr', 'MachineDb', 'SoftwareDeploymentDb', 'socket.create_connection'):
             mock = patch('cmdb.activity.MachineSSH.' + name)
             setattr(self, name.split('.')[-1], mock.start())
             self.addCleanup(mock.stop)
+        self.SSHDb.return_value.inventory.return_value = None
         self.stop = Event()
         self.activity = MachineSSH(self.stop)
         self.SSH.return_value.is_local.return_value = False
@@ -46,7 +47,7 @@ class MachineSSHTests(TestCase):
         self.assertTrue(all('user' not in call.kwargs for call in self.remote.call_args_list))
         self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(42, 'worker.example.lan')
         self.DbMgr.return_value.close.assert_called_once()
-        self.SSHDb.return_value.ensure_agent.assert_called_once_with('192.168.0.7')
+        self.SSHDb.return_value.inventory.assert_called_once_with('192.168.0.7')
 
     def test_local_and_remote_hosts_share_interface_lookup(self):
         interfaces = [
@@ -69,6 +70,17 @@ class MachineSSHTests(TestCase):
                 self.assertEqual(stored.args[1].version, '13')
                 self.MachineDb.return_value.update_discovered_mac.assert_called_once_with(
                     42, 'AA:BB:CC:DD:EE:02')
+
+    def test_database_inventory_is_written_after_host_connection_is_closed(self):
+        self.remote.side_effect = [result(), result('sally'), result('[]'), result('')]
+        observation = {'version': '11.8.3-MariaDB', 'pathname': '/var/lib/mysql/', 'databases': ['cmdb']}
+        def collect(address):
+            self.DbMgr.return_value.close.assert_called_once()
+            return observation
+        self.SSHDb.return_value.inventory.side_effect = collect
+        self.activity.run({'192.168.0.7': 42})
+        self.DataManagerDb.return_value.record_mariadb.assert_called_once_with(42, **observation)
+        self.assertEqual(self.DbMgr.return_value.close.call_count, 2)
 
     def test_failed_mac_lookup_preserves_hostname_and_previous_mac(self):
         self.remote.side_effect = [result(), result('sally'),

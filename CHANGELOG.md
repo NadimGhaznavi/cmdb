@@ -9,6 +9,10 @@ permalink: /CHANGELOG/
 
 ### Added
 
+- Collect MariaDB server version, data directory, and database names through
+  the local/SSH agent path. Store software releases, DataManager deployments,
+  and linked Schema records, reusing identities on repeated scans.
+
 - Prepare database inventory storage with ModelElement.name, Package, Schema,
   DataManager, and the CWM DataManagerDataPackage association. Keep inherited
   fields on their parents and preserve both many-valued association ends.
@@ -23,7 +27,7 @@ permalink: /CHANGELOG/
 Use uninstall/install for this release's fresh schema; no record migration is
 provided. Installation also provisions the local database agent. Refresh provisions remote MariaDB
 agents where root SSH and local MariaDB administrative access are available.
-Database inventory records and backups are not yet implemented.
+Refresh populates MariaDB software and database inventory. Backup jobs remain future work.
 
 ## [0.6.3] - 2026-09-28 @ 10:09
 

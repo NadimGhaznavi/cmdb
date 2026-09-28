@@ -10,13 +10,16 @@ class BackupDb:
     def databases(self) -> list[dict]:
         return self._db.query(
             "SELECT s.id AS modelElement, me.name AS databaseName, m.hostName, m.ipAddress, "
-            "m.id AS machine, (SELECT MAX(b.completedOn) FROM Backup b WHERE b.modelElement=s.id "
+            "m.id AS machine, bs.id AS scheduleId, COALESCE(bs.enabled, 0) AS enabled, "
+            "COALESCE(bs.frequency, 'daily') AS frequency, COALESCE(bs.retention, '1-week') AS retention, "
+            "(SELECT MAX(b.completedOn) FROM Backup b WHERE b.modelElement=s.id "
             "AND b.status='succeeded') AS lastBackup, "
             "(SELECT b.id FROM Backup b WHERE b.modelElement=s.id ORDER BY b.id DESC LIMIT 1) AS latestBackup "
             "FROM `Schema` s JOIN ModelElement me ON me.id=s.id "
             "JOIN DataManager dm ON dm.id=me.namespace JOIN DeployedComponent dc ON dc.id=dm.id "
             "JOIN Machine m ON m.id=dc.machine JOIN Component c ON c.id=dc.component "
             "JOIN ModelElement cm ON cm.id=c.id JOIN SoftwareSystem ss ON ss.id=cm.namespace "
+            "LEFT JOIN BackupSchedule bs ON bs.modelElement=s.id "
             "WHERE ss.type='DBMS' AND ss.subtype='MariaDB' "
             "AND LOWER(me.name) NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') "
             "ORDER BY m.id, me.name")
@@ -54,8 +57,3 @@ class BackupDb:
         else:
             self._db.execute("UPDATE Backup SET status='failed', completedOn=%s, error=%s "
                              "WHERE id=%s AND status='running'", (completed, error, identity))
-
-    def recover(self) -> None:
-        self._db.execute("UPDATE Backup SET status='failed', completedOn=GREATEST(startedOn, UTC_TIMESTAMP(6)), "
-                         "error='CMDB restarted before completion was recorded; the file outcome is unknown.' "
-                         "WHERE status='running'")

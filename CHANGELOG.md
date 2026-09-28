@@ -7,6 +7,20 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Enable Update to persist backup settings and manage daily noon cron entries
+  through python-crontab, preserving unrelated jobs. Disabling removes the cron
+  entry; retention is saved without deleting files.
+- Add the independent venv-based cmdb-backup.py runner, using shared backup code
+  to execute and record jobs without the web service. Install cron support and
+  give the service account read access to its database configuration.
+
+### Changed
+
+- Stop marking running backups failed when the web service restarts or reads
+  backup records, since jobs can now run independently under cron.
+
 ## [0.9.11] - 2026-09-28 @ 15:27
 
 ### Changed

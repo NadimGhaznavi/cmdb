@@ -23,8 +23,9 @@ today or a DeployedComponent later. It does not inherit from ModelElement.
 
 All columns are non-null. Deleting a referenced ModelElement is blocked until
 its schedule is explicitly removed. Inventory discovery does not create schedule
-rows. The schema and Python entity are in place; UI persistence, execution
-timing remain unimplemented. Manual execution is available through Backup Now.
+rows. Update saves policy values and manages the corresponding service-account
+cron entry. Daily execution is at noon in server-local time; retention is stored
+but not yet enforced. Manual execution is available through Backup Now.
 The table is included in the install schema; no record migration is added.
 
 ## Backup attempts

@@ -18,6 +18,7 @@ ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=@SSH_DIR@
 ReadWritePaths=-@BACKUP_DIR@
+ReadWritePaths=/var/spool/cron/crontabs
 
 [Install]
 WantedBy=multi-user.target

@@ -17,7 +17,7 @@ downloaded during installation. On Debian/Ubuntu, the maintainer can prepare
 the system with:
 
 ```sh
-sudo apt install python3 python3-venv mariadb-server mariadb-client nmap sudo openssh-client
+sudo apt install python3 python3-venv mariadb-server mariadb-client nmap sudo openssh-client cron
 sudo systemctl enable --now mariadb
 ```
 
@@ -31,7 +31,9 @@ sudo scripts/install.sh
 
 The installer creates the `cmdb` Linux service account and the `cmdb` database
 and database account. It generates `/etc/cmdb/database.env` owned by root with
-mode `600`. Repeated installation reuses the credentials without resetting an
+group `cmdb` and mode `640`, so the standalone cron runner can read it. Existing
+root-only mode `600` files are adjusted on installation or upgrade. Repeated
+installation reuses the credentials without resetting an
 existing database password. An existing account with different credentials
 causes installation to fail; it is not silently taken over.
 
@@ -71,7 +73,10 @@ executable fixed to `/usr/bin/nmap`. The service sets `NoNewPrivileges=false`
 to allow sudo; the Python server itself continues to run as `cmdb`.
 
 Application files are copied to `/opt/prod/cmdb`, with Python dependencies in
-`.venv`. The installer checks the database connection, installs
+`.venv`, including `python-crontab`. It also copies `cmdb-backup.py` and enables
+the system cron service. The CMDB service can update its own crontab through
+the standard `crontab` helper; its sandbox permits writes to
+`/var/spool/cron/crontabs`. The installer checks the database connection, installs
 `cmdb-server.service`, enables it at boot, starts it, and checks `/health` and
 `/ready`. Open `http://<server>:14444/` afterward.
 
@@ -123,7 +128,8 @@ From the separate checkout:
 sudo scripts/uninstall.sh
 ```
 
-This stops and disables the service, drops the `cmdb` database (including all
+This stops and disables the service, removes CMDB-owned backup cron entries
+while preserving unrelated entries, drops the `cmdb` database (including all
 inventory), and removes the service unit, `/opt/prod/cmdb`, and the Nmap sudoers rule.
 It retains `/etc/cmdb/database.env`, the MariaDB account and password, and the
 Linux service account and group for reinstallation. `/var/lib/cmdb`, including

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-09-28 @ 15:13
+
 ### Added
 
 - Show Elapsed Time (`HH:MM:SS`) for backup files, measured from the CMDB job's

@@ -19,23 +19,27 @@ async function loadMachines() {
     }
     const graph = cytoscape({
       container: document.getElementById("machine-graph"),
-      elements: machines.map(machine => ({ data: {
-        ...machine,
-        id: machine.ipAddress,
-        label: machine.hostName ? `${machine.hostName}\n${machine.ipAddress}` : machine.ipAddress,
-      } })),
+      elements: machines.map(machine => {
+        const name = machine.hostName && machine.hostName.length > 40
+          ? `${machine.hostName.slice(0, 37)}…` : machine.hostName;
+        return { data: {
+          ...machine,
+          id: machine.ipAddress,
+          label: name ? `${name}\n${machine.ipAddress}` : machine.ipAddress,
+        } };
+      }),
       style: [
         { selector: "node", style: {
           "background-color": "#d98124", "border-color": "#ffb454", "border-width": 2,
-          "width": 34, "height": 34, "label": "data(label)", "color": "#eee",
-          "font-size": 14, "text-valign": "bottom", "text-margin-y": 10,
-          "text-wrap": "wrap", "text-max-width": 180,
+          "width": 160, "height": 160, "label": "data(label)", "color": "#17191c",
+          "font-size": 12, "text-valign": "center", "text-halign": "center",
+          "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
         { selector: "node:selected", style: {
           "background-color": "#ffcf87", "border-color": "#fff", "border-width": 3,
         } },
       ],
-      layout: { name: "grid", padding: 40, nodeDimensionsIncludeLabels: true },
+      layout: { name: "circle", padding: 40, nodeDimensionsIncludeLabels: true },
       selectionType: "single",
       minZoom: 0.1,
       maxZoom: 3,
@@ -67,7 +71,7 @@ async function loadMachines() {
     });
     new ResizeObserver(() => {
       graph.resize();
-      graph.layout({ name: "grid", padding: 40, nodeDimensionsIncludeLabels: true }).run();
+      graph.layout({ name: "circle", padding: 40, nodeDimensionsIncludeLabels: true }).run();
     }).observe(document.getElementById("machine-graph"));
     status.textContent = `${machines.length} machine${machines.length === 1 ? "" : "s"} · Select a node to view details`;
   } catch (error) {

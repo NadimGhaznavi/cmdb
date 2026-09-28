@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Fixed
+
+- Match table names to CWM class names exactly and replace the extra deployed
+  software system layer with SoftwareSystem ownership of Component.
+- Store ownership on ModelElement and Namespace, with shared parent/child IDs,
+  rather than copying inherited fields onto software deployment classes.
+- Update backend queries and fresh-schema tests for the corrected model.
+
 ## [0.5.0] - 2026-09-28 @ 07:33
 
 ### Added

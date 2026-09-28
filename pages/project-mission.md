@@ -25,6 +25,8 @@ and database tables and schema. Each adopted CWM class maps to a Python entity
 and a corresponding database table. Preserve the specification's names,
 attribute casing, inheritance, relationships, and multiplicities across these
 layers. Do not flatten or shortcut the model in ways that lose those semantics.
+Table names match class names exactly, including capitalization and singular
+form: for example, `SoftwareSystem`, not `softwareSystems`.
 
 The initial overhead and complexity are intentional: a consistent mapping makes
 the application easier to extend and its data easier to report on. This rule

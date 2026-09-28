@@ -7,6 +7,27 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Move MachineScanner to `cmdb/activity`, keeping its lifecycle managed by the server.
+
+### Added
+
+- SSH follow-up after scanning: test port 22 and `cmdb` login, provision the remote
+  account and public key through root when needed, retest, and store its hostname.
+  New host keys are recorded in the persistent local known-hosts file.
+- Optional remote `user` for SSH commands, including direct root login using the
+  existing local `cmdb` key without local sudo.
+- SSH interface for remote commands as `cmdb`, with a persistent local Ed25519
+  key generated during installation and retained across uninstall/install.
+- `DLabel.py` maps model attribute names to readable GUI labels in machine details.
+
+### Fixed
+
+- Enforce agreement between `DeployedComponent.machine` and inherited
+  `ModelElement.namespace` with a composite foreign key; document the invariant
+  in Schema Notes.
+
 ## [0.5.2] - 2026-09-28 @ 08:12
 
 ### Fixed

@@ -26,16 +26,16 @@
       <section id="machine-details" aria-label="Selected machine" hidden>
         <table aria-label="Machine details">
           <tbody>
-            <tr><th scope="row">ipAddress:</th><td id="detail-ipAddress"></td></tr>
-            <tr><th scope="row">macAddress:</th><td id="detail-macAddress"></td></tr>
-            <tr><th scope="row"><label for="hostname-input">hostName:</label></th><td>
+            <tr><th scope="row">{{label.ipAddress}}:</th><td id="detail-ipAddress"></td></tr>
+            <tr><th scope="row">{{label.macAddress}}:</th><td id="detail-macAddress"></td></tr>
+            <tr><th scope="row"><label for="hostname-input">{{label.hostName}}:</label></th><td>
               <span id="detail-hostName"></span>
               <input id="hostname-input" type="text" maxlength="255" autocomplete="off" hidden>
             </td></tr>
-            <tr><th scope="row">site:</th><td id="detail-site"></td></tr>
-            <tr><th scope="row">deployedComponent:</th><td id="detail-deployedComponent"></td></tr>
-            <tr><th scope="row">createdOn:</th><td id="detail-createdOn"></td></tr>
-            <tr><th scope="row">updatedOn:</th><td id="detail-updatedOn"></td></tr>
+            <tr><th scope="row">{{label.site}}:</th><td id="detail-site"></td></tr>
+            <tr><th scope="row">{{label.deployedComponent}}:</th><td id="detail-deployedComponent"></td></tr>
+            <tr><th scope="row">{{label.createdOn}}:</th><td id="detail-createdOn"></td></tr>
+            <tr><th scope="row">{{label.updatedOn}}:</th><td id="detail-updatedOn"></td></tr>
           </tbody>
         </table>
         <div class="page-actions detail-actions">

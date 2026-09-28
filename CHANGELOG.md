@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-09-28 @ 10:09
+
 ### Changed
 
 - Use `cmdbagent` for managed-host inventory, retaining local `cmdb` as the

@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove the NFS filesystem check so backups also work on Wintermute's local
+  backing storage. Keep temporary files in the destination directory.
+
 ## [0.9.6] - 2026-09-28 @ 14:46
 
 - Corrected backup target directory.

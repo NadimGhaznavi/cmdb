@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-28 @ 15:57
+
 ### Added
 
 - Enable Update to persist backup settings and manage daily noon cron entries

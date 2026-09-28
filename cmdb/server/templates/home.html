@@ -16,7 +16,6 @@
   </header>
   <main aria-label="Machines">
     <div class="panel-heading">
-      <p>Last refresh: {{last_refresh}}</p>
       <label for="machine-picker">Machine
         <select id="machine-picker" disabled><option value="">Select a machine</option></select>
       </label>
@@ -35,5 +34,11 @@
       </dl>
     </section>
   </main>
+  <footer class="page-footer">
+    <form class="page-actions" action="/" method="get">
+      <button type="submit">Refresh</button>
+    </form>
+    <p>Last refresh: {{last_refresh}}</p>
+  </footer>
 </body>
 </html>

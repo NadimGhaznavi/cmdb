@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Moved Last refresh to the bottom-right corner, opposite the Refresh button.
+
+### Added
+
+- Bottom-left Refresh button to reload the machine graph and page timestamp.
+
 ## [0.3.0] - 2026-09-27 @ 20:34
 
 ### Changed

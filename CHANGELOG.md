@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-28 @ 13:51
+
+### Added
+
+- Add per-database Enabled checkboxes, fixed Daily frequency, and Retention
+  choices of 1 week, 2 weeks, 1 month, or Forever. Add disabled Update and
+  Backup Now buttons pending backup implementation; settings are not yet saved.
+
 ## [0.9.2] - 2026-09-28 @ 13:00
 
 ### Changed

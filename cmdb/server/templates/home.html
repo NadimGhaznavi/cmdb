@@ -137,10 +137,14 @@
     <p id="patching-status" role="status">Loading Debian hosts…</p>
     <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Debian hosts">
       <table class="backups-table" aria-label="Debian hosts">
-        <thead><tr><th scope="col">Machine</th><th scope="col">Actions</th><th scope="col">Status</th></tr></thead>
+        <thead><tr><th scope="col">Machine</th><th scope="col">Uptime</th><th scope="col">Actions</th><th scope="col">Status</th></tr></thead>
         <tbody id="patching-hosts"></tbody>
       </table>
     </div>
+    <footer class="page-footer">
+      <div class="page-actions"><button id="refresh-uptime" type="button">Refresh Uptime</button></div>
+      <p id="uptime-status" role="status"></p>
+    </footer>
     </section>
     <section class="backup-panel" aria-labelledby="patch-report-heading">
       <h3 id="patch-report-heading">Patch Report</h3>

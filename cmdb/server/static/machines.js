@@ -318,6 +318,9 @@ async function loadPatchingHosts() {
     updatePatchRows(body, hosts, (row, host, isNew) => {
       if (isNew) {
         const name = document.createElement('td');
+        const uptime = document.createElement('td');
+        uptime.dataset.field = 'uptime';
+        uptime.textContent = '---';
         const actions = document.createElement('td');
         const button = document.createElement('button');
         button.type = 'button';
@@ -327,14 +330,14 @@ async function loadPatchingHosts() {
         progress.className = 'patch-row-status';
         progress.setAttribute('role', 'status');
         actions.append(button);
-        row.append(name, actions, progress);
+        row.append(name, uptime, actions, progress);
       }
       updateText(row.cells[0], machineLabel(host));
       const button = row.querySelector('button');
       const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);
       if (button.disabled !== disabled) button.disabled = disabled;
       const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
-      updateText(row.cells[2], host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '');
+      updateText(row.cells[3], host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '');
     });
     updateText(status, hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.');
     if (hosts.some(host => ['queued', 'patching', 'rebooting'].includes(host.job?.status))) {
@@ -346,6 +349,42 @@ async function loadPatchingHosts() {
     patchingTimer = setTimeout(loadPatchingHosts, 5000);
   }
 }
+
+async function refreshUptime() {
+  const button = document.getElementById('refresh-uptime');
+  const status = document.getElementById('uptime-status');
+  const rows = [...document.querySelectorAll('#patching-hosts tr')];
+  let failures = 0;
+  const count = rows.length;
+  button.disabled = true;
+  updateText(status, 'Refreshing uptime…');
+  async function worker() {
+    while (rows.length) {
+      const row = rows.shift();
+      const cell = row.querySelector('[data-field="uptime"]');
+      try {
+        const response = await fetch(`/api/patching/hosts/${row.dataset.id}/uptime`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw new Error('Uptime unavailable');
+        const { uptimeSeconds: seconds } = await response.json();
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor(seconds % 86400 / 3600);
+        const minutes = Math.floor(seconds % 3600 / 60);
+        updateText(cell, `${days}d ${hours}h ${minutes}m`);
+      } catch (error) {
+        failures++;
+        updateText(cell, 'Unavailable');
+      }
+    }
+  }
+  try {
+    await Promise.all(Array.from({ length: Math.min(4, count) }, worker));
+    updateText(status, !count ? 'No Debian hosts to refresh.' : failures ? `Uptime refreshed; ${failures} host(s) unavailable.` : 'Uptime refreshed.');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById('refresh-uptime').addEventListener('click', refreshUptime);
 
 async function loadPatchReport() {
   const request = ++patchReportRequest;

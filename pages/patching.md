@@ -15,6 +15,11 @@ venv and database configuration. The web service only queues work and reads stat
 One worker processes jobs sequentially; pending jobs persist across restarts.
 Repeated clicks for a machine with an active job return the same job.
 
+Uptime starts as `---`. Refresh Uptime at the bottom left reads `/proc/uptime`
+through the existing SSH interface and displays days, hours, and minutes. Hosts
+that cannot be reached show Unavailable. Values are snapshots, preserved during
+job polling but not stored in the database or refreshed automatically.
+
 ## Patch Report
 
 The separate Patch Report panel shows the most recent 100 jobs, newest first,

@@ -5,11 +5,20 @@ import ipaddress
 import os
 import pwd
 import socket
+import re
 
 from cmdb.constants.DCmdb import DCmdb
 
 
 class SSH:
+    def uptime(self, host: str) -> int:
+        """Read elapsed boot time through the existing inventory identity."""
+        result = self.run(host, 'cat /proc/uptime', timeout=10, connect_timeout=5)
+        fields = result.stdout.split()
+        if len(fields) != 2 or not re.fullmatch(r'[0-9]+(?:\.[0-9]+)?', fields[0]):
+            raise ValueError('Invalid uptime response.')
+        return int(fields[0].split('.')[0])
+
     def is_local(self, host: str) -> bool:
         """Recognize addresses assigned here without launching a command."""
         try:

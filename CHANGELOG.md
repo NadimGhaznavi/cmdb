@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-09-28 @ 18:02
+
 ### Changed
 
 - Update patching status and report cells in place while polling, preserving rows

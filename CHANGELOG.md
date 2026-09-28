@@ -7,6 +7,21 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-09-28 @ 06:49
+
+### Added
+
+- Optional Machine `macAddress`, populated from Nmap when available, persisted
+  across scans, and displayed in machine details; includes existing-table migration.
+- Standalone ProviderConnection entity with a required `dataProvider` owner reference.
+- DataProvider entity inheriting from DataManager, with a `resourceConnection`
+  list supporting zero or more ProviderConnection objects.
+- DataManager entity inheriting `pathname` and `machine` from DeployedComponent.
+
+- DeployedComponent entity with required `pathname` and `machine` attributes,
+  and a `deployedComponents` table linking multiple components to stable `machines.id` values.
+- Auto-increment machine IDs, including migration of existing machine records.
+
 ## [0.3.13] - 2026-09-27 @ 21:52
 
 ### Changed

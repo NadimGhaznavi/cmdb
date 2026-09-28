@@ -12,3 +12,5 @@ class Machine:
     deployedComponent: str | None = None
     createdOn: datetime | None = None
     updatedOn: datetime | None = None
+    id: int | None = None
+    macAddress: str | None = None

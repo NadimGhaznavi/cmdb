@@ -79,7 +79,8 @@ class MachineScanner(Thread):
                 return
             if host["status"]["state"] != "up":
                 continue
-            machines.append(Machine(ipAddress=address))
+            mac_address = host.get("addresses", {}).get("mac") or None
+            machines.append(Machine(ipAddress=address, macAddress=mac_address))
         if not machines:
             return
         db = DbMgr()

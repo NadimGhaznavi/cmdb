@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-09-28 @ 18:14
+
+### Added
+
+- Add Uptime to Debian Hosts and a bottom-left Refresh Uptime button that reads
+  current uptime through SSH without storing it in the database.
+
 ## [0.11.3] - 2026-09-28 @ 18:02
 
 ### Changed

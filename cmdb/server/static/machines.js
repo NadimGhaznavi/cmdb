@@ -23,23 +23,23 @@ async function loadBackups() {
     const sortedHosts = [...groups.keys()].sort((left, right) =>
       machineLabel(hosts.get(left)).localeCompare(machineLabel(hosts.get(right))));
     const template = document.getElementById("backup-host-template");
+    const rowTemplate = document.getElementById("backup-row-template");
     for (const id of sortedHosts) {
       const names = groups.get(id).sort((left, right) => left.localeCompare(right));
       const host = machineLabel(hosts.get(id));
       const section = template.content.cloneNode(true);
       section.querySelector("summary").textContent = `${host} - ${names.length} DB${names.length === 1 ? "" : "s"}`;
       section.querySelector("table").setAttribute("aria-label", `${host} database backups`);
+      section.querySelector(".backup-table-scroll").setAttribute("aria-label", `${host} backup settings`);
       for (const name of names) {
-        const row = document.createElement("tr");
-        for (const value of [name, "---"]) {
-          const cell = document.createElement("td");
-          cell.textContent = value;
-          row.append(cell);
-        }
+        const row = rowTemplate.content.cloneNode(true);
+        row.querySelector('[data-field="database"]').textContent = name;
+        row.querySelector('[data-field="enabled"]').setAttribute("aria-label", `Enable backups for ${name} on ${host}`);
+        row.querySelector('[data-field="retention"]').setAttribute("aria-label", `Retention for ${name} on ${host}`);
         section.querySelector("tbody").append(row);
       }
       section.querySelector(".backup-empty").hidden = names.length > 0;
-      section.querySelector("table").hidden = names.length === 0;
+      section.querySelector(".backup-table-scroll").hidden = names.length === 0;
       body.append(section);
     }
     status.textContent = groups.size ? "" : "No databases discovered yet.";

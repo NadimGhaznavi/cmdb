@@ -28,7 +28,13 @@ The Databases section groups stored databases into collapsible host sections,
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
 as the inventory graph, or the IP address when unnamed. Each section contains
-Database and Last Backup columns. The system databases `mysql`,
+Database, Enabled, Frequency, Retention, Last Backup, and Actions columns.
+Enabled starts unchecked, Frequency is fixed to Daily, and Retention offers
+1 week (the default), 2 weeks, 1 month, and Forever. These controls are currently
+a UI preview: values are not saved and reset when the view reloads. Update and
+Backup Now appear after Last Backup and remain disabled until their operations
+are implemented. Wide tables scroll horizontally on narrow screens.
+The system databases `mysql`,
 `information_schema`, `performance_schema`, and `sys` are excluded from both
 the rows and counts. DBMS hosts without user databases show `0 DBs` and an empty
 state when expanded. Last Backup displays `---` for now;

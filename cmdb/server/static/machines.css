@@ -3,7 +3,15 @@
 .header-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .header-heading a { color: #ffb454; }
 .header-heading a:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
-.backups-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.backup-table-scroll { overflow-x: auto; }
+.backups-table { width: 100%; min-width: 54rem; border-collapse: collapse; table-layout: auto; }
+.backups-table td:first-child { max-width: 20rem; }
+.backup-actions { display: flex; gap: .5rem; white-space: nowrap; }
+.backups-table select, .backups-table button { background: #24272c; color: #eee; border: 1px solid #d98124; padding: .4rem .6rem; font: inherit; }
+.backups-table button:disabled { opacity: .5; cursor: not-allowed; }
+.backups-table input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: #ffb454; cursor: pointer; }
+.backups-table select:focus-visible, .backups-table input:focus-visible, .backup-table-scroll:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+#backups-page { min-width: 0; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
 .backup-host { margin: 1rem 0; }

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.12.7] - 2026-09-28 @ 19:07
+
 ### Added
 
 - Add the same 20-character Cron Schedule field to Live Databases. Backup schedules

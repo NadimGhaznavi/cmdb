@@ -38,7 +38,7 @@ browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 An empty inventory and an unavailable database show distinct status messages.
 
-Selecting a machine reveals Edit beside Refresh. Edit turns `hostName` into a
+Selecting a machine reveals Edit below the details table. Edit turns `hostName` into a
 text box and offers Save and Cancel. Save updates the database, node label,
 selector, and details; Cancel discards the draft. A failed save keeps the draft
 available to retry. Names are trimmed and limited to 255 characters; an empty

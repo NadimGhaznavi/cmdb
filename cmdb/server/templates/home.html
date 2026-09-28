@@ -26,17 +26,24 @@
     <section id="machine-details" aria-label="Selected machine" hidden>
       <dl>
         <div><dt>ipAddress</dt><dd id="detail-ipAddress"></dd></div>
-        <div><dt>hostName</dt><dd id="detail-hostName"></dd></div>
+        <div><dt><label for="hostname-input">hostName</label></dt><dd>
+          <span id="detail-hostName"></span>
+          <input id="hostname-input" type="text" maxlength="255" autocomplete="off" hidden>
+        </dd></div>
         <div><dt>site</dt><dd id="detail-site"></dd></div>
         <div><dt>deployedComponent</dt><dd id="detail-deployedComponent"></dd></div>
         <div><dt>createdOn</dt><dd id="detail-createdOn"></dd></div>
         <div><dt>updatedOn</dt><dd id="detail-updatedOn"></dd></div>
       </dl>
+      <p id="edit-status" role="status"></p>
     </section>
   </main>
   <footer class="page-footer">
     <form class="page-actions" action="/" method="get">
-      <button type="submit">Refresh</button>
+      <button id="refresh-button" type="submit">Refresh</button>
+      <button id="edit-button" type="button" hidden>Edit</button>
+      <button id="save-button" type="button" hidden>Save</button>
+      <button id="cancel-button" type="button" hidden>Cancel</button>
     </form>
     <p>Last refresh: {{last_refresh}}</p>
   </footer>

@@ -63,11 +63,42 @@
         <details class="backup-host">
           <summary></summary>
           <p class="backup-empty" hidden>No user databases discovered yet.</p>
-          <table class="backups-table">
-            <thead><tr><th scope="col">Database</th><th scope="col">Last Backup</th></tr></thead>
-            <tbody></tbody>
-          </table>
+          <div class="backup-table-scroll" tabindex="0" role="region">
+            <table class="backups-table">
+              <thead>
+                <tr>
+                  <th scope="col">Database</th>
+                  <th scope="col">Enabled</th>
+                  <th scope="col">Frequency</th>
+                  <th scope="col">Retention</th>
+                  <th scope="col">Last Backup</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </details>
+      </template>
+      <template id="backup-row-template">
+        <tr>
+          <td data-field="database"></td>
+          <td><input type="checkbox" data-field="enabled"></td>
+          <td>Daily</td>
+          <td>
+            <select data-field="retention">
+              <option value="1-week">1 week</option>
+              <option value="2-weeks">2 weeks</option>
+              <option value="1-month">1 month</option>
+              <option value="forever">Forever</option>
+            </select>
+          </td>
+          <td>---</td>
+          <td><div class="backup-actions">
+            <button type="button" disabled title="Saving backup settings is not available yet.">Update</button>
+            <button type="button" disabled title="Running backups is not available yet.">Backup Now</button>
+          </div></td>
+        </tr>
       </template>
     </section>
   </main>

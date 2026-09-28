@@ -11,6 +11,7 @@ title: Configuration Management Database
 ## Project
 
 * [Server installation]({{ site.baseurl }}{% link pages/installation.md %})
+* [Debian patching]({{ site.baseurl }}{% link pages/patching.md %})
 * [CMDB server]({{ site.baseurl }}{% link pages/server.md %})
 * [Schema notes]({{ site.baseurl }}{% link pages/schema-notes.md %})
 * [Project mission]({{ site.baseurl }}{% link pages/project-mission.md %})

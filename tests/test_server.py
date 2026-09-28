@@ -30,6 +30,25 @@ class ServerTests(unittest.TestCase):
         self.thread.join()
         self.server.server_close()
 
+    @patch('cmdb.server.CmdbHandler.PatchDb')
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_patching_hosts_and_queue(self, db, records):
+        records.return_value.hosts.return_value = [{'id': 7, 'hostName': 'debian.example', 'job': None}]
+        status, body = self.get('/api/patching/hosts')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['hosts'][0]['id'], 7)
+        records.return_value.request.return_value = 12
+        for values, expected in [({'machine': 7}, 202), ({'machine': True}, 400), ({'machine': -1}, 400)]:
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('POST', '/api/patching', json.dumps(values), {'Content-Type': 'application/json'})
+                response = connection.getresponse()
+                self.assertEqual(response.status, expected)
+                response.read()
+            finally:
+                connection.close()
+        records.return_value.request.assert_called_once_with(7)
+
     def get(self, path):
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
         try:

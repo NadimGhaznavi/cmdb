@@ -36,6 +36,16 @@ class SoftwareDeploymentDb:
             deployment["databases"] = databases.get(deployment["id"], [])
         return deployments
 
+    def debian_hosts(self) -> list[dict]:
+        """List machines whose deployed operating system is identified as Debian."""
+        return self._db.query(
+            "SELECT DISTINCT m.id, m.hostName, m.ipAddress FROM Machine m "
+            "JOIN DeployedComponent dc ON dc.machine=m.id "
+            "JOIN Component c ON c.id=dc.component JOIN ModelElement me ON me.id=c.id "
+            "JOIN SoftwareSystem ss ON ss.id=me.namespace "
+            "WHERE dc.pathname='/' AND ss.type='linux' AND ss.subtype='debian' "
+            "ORDER BY m.hostName, m.ipAddress")
+
     def record_operating_system(self, machine: int, system: SoftwareSystem) -> None:
         """Refresh the scanner's OS deployment at / within the caller's transaction.
 

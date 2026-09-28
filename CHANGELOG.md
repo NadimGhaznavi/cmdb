@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-28 @ 17:23
+
+### Added
+
+- Add Patching with Debian hosts and Patch Now, backed by an independent runner
+  that records updates, reboots every successfully patched host, and verifies
+  its return. Resume reboot verification after the CMDB host itself restarts.
+
 ## [0.10.4] - 2026-09-28 @ 16:25
 
 ### Changed

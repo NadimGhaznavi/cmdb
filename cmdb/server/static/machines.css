@@ -2,7 +2,7 @@
 [hidden] { display: none !important; }
 .header-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .header-heading h1 { white-space: nowrap; font-size: clamp(1.5rem, 8vw, 2em); }
-.header-heading nav { margin-left: auto; }
+.header-heading nav { margin-left: auto; display: flex; gap: 1rem; }
 .header-heading a { color: #ffb454; }
 .header-heading a:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
 .backup-table-scroll { overflow-x: auto; }
@@ -22,6 +22,10 @@
 .backup-panel > h3 { margin: 0 0 1rem; }
 .backup-vault { flex: 1; display: flex; flex-direction: column; }
 .backup-vault > .backup-table-scroll { flex: 1; }
+#patching-page { min-width: 0; }
+#patching-page .backups-table { min-width: 30rem; }
+.patch-row-status { max-width: 32rem; white-space: pre-wrap; }
+.patch-row-status:empty { display: none; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }

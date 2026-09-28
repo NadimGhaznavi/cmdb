@@ -61,6 +61,26 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             "JOIN ModelElement me ON me.id = c.id "
             "JOIN SoftwareSystem ss ON ss.id = me.namespace ORDER BY dc.machine")
 
+    def test_debian_patch_queue_and_reboot_records(self):
+        from cmdb.interface.PatchDb import PatchDb
+        debian = self.machines.upsert(Machine('192.0.2.80', hostName='debian.example'))
+        other = self.machines.upsert(Machine('192.0.2.81', hostName='ubuntu.example'))
+        self.software.record_operating_system(debian, operating_system('ID=debian\nVERSION_ID=13'))
+        self.software.record_operating_system(other, operating_system('ID=ubuntu\nVERSION_ID=24'))
+        records = PatchDb(self.db)
+        self.assertEqual([host['id'] for host in records.hosts()], [debian])
+        with self.assertRaises(LookupError):
+            records.request(other)
+        identity = records.request(debian)
+        self.assertEqual(records.request(debian), identity)
+        records.start(identity, '11111111-1111-1111-1111-111111111111')
+        records.rebooting(identity, '0 upgraded')
+        self.assertEqual(records.next()['status'], 'rebooting')
+        records.finish(identity)
+        self.assertIsNone(records.next())
+        self.assertEqual(records.hosts()[0]['job']['status'], 'succeeded')
+        self.assertNotEqual(records.request(debian), identity)
+
     def test_discovery_populates_relationships_and_repeat_scans_reuse_records(self):
         machine = self.machines.upsert(Machine("192.168.0.7", hostName="worker"))
         self.record(machine)
@@ -233,7 +253,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"Patch", "Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
         for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}

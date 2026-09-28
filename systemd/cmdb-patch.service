@@ -1,0 +1,18 @@
+[Unit]
+Description=CMDB Debian patch runner
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+WorkingDirectory=@APP@
+EnvironmentFile=@DATABASE_ENV@
+ExecStart=@APP@/.venv/bin/python -B -u @APP@/cmdb-patch.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

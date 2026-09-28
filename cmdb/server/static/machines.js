@@ -2,6 +2,8 @@
 
 let refreshing = false;
 let backupFilesRequest = 0;
+let patchingTimer;
+let patchingRequest = 0;
 
 function elapsedTime(seconds) {
   const pad = value => String(value).padStart(2, "0");
@@ -231,19 +233,88 @@ async function watchBackup(row, identity, refreshFiles = false) {
 }
 
 function showPage() {
+  clearTimeout(patchingTimer);
+  ++patchingRequest;
   const backups = window.location.hash === "#backups";
+  const patching = window.location.hash === '#patching';
   document.getElementById("backups-heading").hidden = !backups;
-  document.getElementById("inventory-heading").hidden = backups;
-  document.getElementById("inventory-page").hidden = backups;
-  document.getElementById("inventory-footer").hidden = backups;
+  document.getElementById("inventory-heading").hidden = backups || patching;
+  document.getElementById("inventory-page").hidden = backups || patching;
+  document.getElementById("inventory-footer").hidden = backups || patching;
   document.getElementById("backups-page").hidden = !backups;
+  document.getElementById('patching-page').hidden = !patching;
+  document.getElementById('patching-heading').hidden = !patching;
   const link = document.getElementById("page-link");
-  link.textContent = backups ? "Inventory" : "Backups";
-  link.href = backups ? "#inventory" : "#backups";
-  document.title = backups ? "Backups — CMDB" : "CMDB";
+  link.textContent = backups || patching ? "Inventory" : "Backups";
+  link.href = backups || patching ? "#inventory" : "#backups";
+  const patchingLink = document.getElementById('patching-link');
+  patchingLink.textContent = patching ? 'Backups' : 'Patching';
+  patchingLink.href = patching ? '#backups' : '#patching';
+  document.title = patching ? 'Patching — CMDB' : backups ? "Backups — CMDB" : "CMDB";
+  if (patching) loadPatchingHosts();
   if (backups) {
     loadBackups();
     loadBackupFiles();
+  }
+}
+
+async function loadPatchingHosts() {
+  const request = ++patchingRequest;
+  const status = document.getElementById('patching-status');
+  const body = document.getElementById('patching-hosts');
+  body.replaceChildren();
+  status.textContent = 'Loading Debian hosts…';
+  try {
+    const response = await fetch('/api/patching/hosts', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Debian hosts are unavailable. Reopen Patching to try again.');
+    const { hosts } = await response.json();
+    if (request !== patchingRequest) return;
+    hosts.sort((left, right) => machineLabel(left).localeCompare(machineLabel(right)));
+    for (const host of hosts) {
+      const row = document.createElement('tr');
+      for (const value of [machineLabel(host), host.ipAddress]) {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.append(cell);
+      }
+      const actions = document.createElement('td');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Patch Now';
+      button.disabled = ['queued', 'patching', 'rebooting'].includes(host.job?.status);
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        clearTimeout(patchingTimer);
+        try {
+          const response = await fetch('/api/patching', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ machine: host.id }), signal: AbortSignal.timeout(15000),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Could not queue patch job.');
+          loadPatchingHosts();
+        } catch (error) {
+          status.textContent = `${error.message} Reopen Patching to check job status.`;
+          button.disabled = false;
+        }
+      });
+      const progress = document.createElement('p');
+      progress.className = 'patch-row-status';
+      progress.setAttribute('role', 'status');
+      const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
+      progress.textContent = host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '';
+      actions.append(button, progress);
+      row.append(actions);
+      body.append(row);
+    }
+    status.textContent = hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.';
+    if (hosts.some(host => ['queued', 'patching', 'rebooting'].includes(host.job?.status))) {
+      patchingTimer = setTimeout(loadPatchingHosts, 5000);
+    }
+  } catch (error) {
+    if (request !== patchingRequest) return;
+    status.textContent = error.message;
+    patchingTimer = setTimeout(loadPatchingHosts, 5000);
   }
 }
 

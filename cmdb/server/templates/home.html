@@ -11,8 +11,8 @@
 <body>
   <header>
     <div class="header-heading">
-      <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span></h1>
-      <nav aria-label="Main navigation"><a id="page-link" href="#backups">Backups</a></nav>
+      <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="patching-heading" hidden>Patching</span></h1>
+      <nav aria-label="Main navigation"><a id="page-link" href="#backups">Backups</a> <a id="patching-link" href="#patching">Patching</a></nav>
     </div>
     <p>Configuration Management Database</p>
   </header>
@@ -130,6 +130,16 @@
         </div>
       </footer>
     </section>
+  </main>
+  <main id="patching-page" aria-labelledby="patching-heading" hidden>
+    <h3>Debian Hosts</h3>
+    <p id="patching-status" role="status">Loading Debian hosts…</p>
+    <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Debian hosts">
+      <table class="backups-table" aria-label="Debian hosts">
+        <thead><tr><th scope="col">Machine</th><th scope="col">IP Address</th><th scope="col">Actions</th></tr></thead>
+        <tbody id="patching-hosts"></tbody>
+      </table>
+    </div>
   </main>
 </body>
 </html>

@@ -36,6 +36,9 @@ state = subprocess.run(
     capture_output=True, text=True, check=True).stdout.strip()
 if unit.exists() or unit.is_symlink() or state != 'not-found':
     subprocess.run(['systemctl', 'disable', '--now', DCmdb.SERVICE_UNIT], check=True)
+patch_unit = Path('/etc/systemd/system/cmdb-patch.service')
+if patch_unit.exists():
+    subprocess.run(['systemctl', 'disable', '--now', 'cmdb-patch.service'], check=True)
 
 if (application / 'cmdb/interface/Cron.py').exists():
     subprocess.run([str(application / '.venv/bin/python'), '-B', '-c',
@@ -45,6 +48,7 @@ if (application / 'cmdb/interface/Cron.py').exists():
 # Retain the database user and its password so installation can reuse the credentials.
 subprocess.run(mariadb, input=f'DROP DATABASE IF EXISTS `{DCmdb.DATABASE_NAME}`;\n',
                text=True, check=True)
+patch_unit.unlink(missing_ok=True)
 unit.unlink(missing_ok=True)
 Path('/etc/sudoers.d/cmdb-nmap').unlink(missing_ok=True)
 subprocess.run(['systemctl', 'daemon-reload'], check=True)

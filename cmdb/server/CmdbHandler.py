@@ -18,6 +18,7 @@ from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupFiles import BackupFiles
+from cmdb.interface.PatchDb import PatchDb
 from cmdb.activity.Scheduler import Scheduler
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -73,6 +74,17 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
                 return
             self.respond(200, json.dumps(scanner.scan_status()).encode("utf-8"), "application/json")
+        elif path == '/api/patching/hosts':
+            try:
+                db = DbMgr()
+                try:
+                    hosts = PatchDb(db).hosts()
+                finally:
+                    db.close()
+            except pymysql.MySQLError:
+                self.respond(503, b'{"error":"Debian hosts are unavailable."}', 'application/json')
+                return
+            self.respond(200, json.dumps({'hosts': hosts}, default=backup_json).encode(), 'application/json')
         elif path == "/api/machines":
             try:
                 db = DbMgr()
@@ -123,6 +135,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == '/api/patching':
+            self.request_patch()
+            return
         if urlsplit(self.path).path == '/api/backups/files/scan':
             self.scan_backup_files()
             return
@@ -183,6 +198,38 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Machine no longer exists."}', "application/json")
             return
         self.respond(200, json.dumps({"machine": machine_record(machine)}).encode("utf-8"), "application/json")
+
+    def request_patch(self) -> None:
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError
+            values = json.loads(self.rfile.read(length))
+            if (not isinstance(values, dict) or values.keys() != {'machine'}
+                    or type(values['machine']) is not int or not 0 < values['machine'] < 2**64):
+                raise ValueError
+        except (ValueError, UnicodeError):
+            self.respond(400, b'{"error":"Provide a valid machine ID."}', 'application/json')
+            return
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
+            return
+        try:
+            db = DbMgr()
+            try:
+                identity = PatchDb(db).request(values['machine'])
+            finally:
+                db.close()
+        except LookupError:
+            self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+            return
+        except pymysql.MySQLError:
+            self.respond(503, b'{"error":"Could not queue patch job."}', 'application/json')
+            return
+        self.respond(202, json.dumps({'jobId': identity}).encode(), 'application/json')
 
     def request_backup(self) -> None:
         if self.headers.get_content_type() != 'application/json':

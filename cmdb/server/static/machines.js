@@ -259,63 +259,90 @@ function showPage() {
   }
 }
 
+function updateText(element, value) {
+  if (element.textContent !== value) element.textContent = value;
+}
+
+function updatePatchRows(body, items, render) {
+  const existing = new Map([...body.rows].map(row => [row.dataset.id, row]));
+  items.forEach((item, index) => {
+    const key = String(item.id);
+    let row = existing.get(key);
+    const isNew = !row;
+    if (isNew) {
+      row = document.createElement('tr');
+      row.dataset.id = key;
+    }
+    render(row, item, isNew);
+    if (body.rows[index] !== row) body.insertBefore(row, body.rows[index] || null);
+    existing.delete(key);
+  });
+  for (const row of existing.values()) row.remove();
+}
+
+async function queuePatch(row, identity) {
+  const button = row.querySelector('button');
+  const status = document.getElementById('patching-status');
+  button.disabled = true;
+  row.dataset.submitting = 'true';
+  clearTimeout(patchingTimer);
+  ++patchingRequest;
+  try {
+    const response = await fetch('/api/patching', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ machine: identity }), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not queue patch job.');
+    delete row.dataset.submitting;
+    if (window.location.hash === '#patching') loadPatchingHosts();
+  } catch (error) {
+    updateText(status, `${error.message} Reopen Patching to check job status.`);
+    delete row.dataset.submitting;
+    button.disabled = false;
+  }
+}
+
 async function loadPatchingHosts() {
+  clearTimeout(patchingTimer);
   loadPatchReport();
   const request = ++patchingRequest;
   const status = document.getElementById('patching-status');
   const body = document.getElementById('patching-hosts');
-  body.replaceChildren();
-  status.textContent = 'Loading Debian hosts…';
   try {
     const response = await fetch('/api/patching/hosts', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error('Debian hosts are unavailable. Reopen Patching to try again.');
+    if (!response.ok) throw new Error('Debian hosts are unavailable. Retrying…');
     const { hosts } = await response.json();
     if (request !== patchingRequest) return;
     hosts.sort((left, right) => machineLabel(left).localeCompare(machineLabel(right)));
-    for (const host of hosts) {
-      const row = document.createElement('tr');
-      for (const value of [machineLabel(host)]) {
-        const cell = document.createElement('td');
-        cell.textContent = value;
-        row.append(cell);
+    updatePatchRows(body, hosts, (row, host, isNew) => {
+      if (isNew) {
+        const name = document.createElement('td');
+        const actions = document.createElement('td');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Patch Now';
+        button.addEventListener('click', () => queuePatch(row, host.id));
+        const progress = document.createElement('td');
+        progress.className = 'patch-row-status';
+        progress.setAttribute('role', 'status');
+        actions.append(button);
+        row.append(name, actions, progress);
       }
-      const actions = document.createElement('td');
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = 'Patch Now';
-      button.disabled = ['queued', 'patching', 'rebooting'].includes(host.job?.status);
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        clearTimeout(patchingTimer);
-        try {
-          const response = await fetch('/api/patching', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ machine: host.id }), signal: AbortSignal.timeout(15000),
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Could not queue patch job.');
-          loadPatchingHosts();
-        } catch (error) {
-          status.textContent = `${error.message} Reopen Patching to check job status.`;
-          button.disabled = false;
-        }
-      });
-      const progress = document.createElement('td');
-      progress.className = 'patch-row-status';
-      progress.setAttribute('role', 'status');
+      updateText(row.cells[0], machineLabel(host));
+      const button = row.querySelector('button');
+      const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);
+      if (button.disabled !== disabled) button.disabled = disabled;
       const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
-      progress.textContent = host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '';
-      actions.append(button);
-      row.append(actions, progress);
-      body.append(row);
-    }
-    status.textContent = hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.';
+      updateText(row.cells[2], host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '');
+    });
+    updateText(status, hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.');
     if (hosts.some(host => ['queued', 'patching', 'rebooting'].includes(host.job?.status))) {
       patchingTimer = setTimeout(loadPatchingHosts, 5000);
     }
   } catch (error) {
     if (request !== patchingRequest) return;
-    status.textContent = error.message;
+    updateText(status, error.message);
     patchingTimer = setTimeout(loadPatchingHosts, 5000);
   }
 }
@@ -329,31 +356,20 @@ async function loadPatchReport() {
     if (!response.ok) throw new Error('Patch report is unavailable. Reopen Patching to try again.');
     const { runs } = await response.json();
     if (request !== patchReportRequest) return;
-    body.replaceChildren();
-    for (const run of runs) {
-      const row = document.createElement('tr');
-      for (const value of [localTimestamp(run.patchTime), machineLabel(run),
+    updatePatchRows(body, runs, (row, run, isNew) => {
+      if (isNew) {
+        for (let index = 0; index < 5; index++) row.append(document.createElement('td'));
+      }
+      const values = [localTimestamp(run.patchTime), machineLabel(run),
         run.elapsedSeconds == null ? '---' : elapsedTime(run.elapsedSeconds),
-        { queued: 'Queued', patching: 'Patching', rebooting: 'Rebooting', succeeded: 'Succeeded', failed: 'Failed' }[run.status]]) {
-        const cell = document.createElement('td');
-        cell.textContent = value;
-        row.append(cell);
-      }
-      const cell = document.createElement('td');
-      if (run.error) {
-        const error = document.createElement('p');
-        error.textContent = run.error;
-        cell.append(error);
-      }
-      if (!run.error) cell.textContent = '---';
-      row.append(cell);
-      body.append(row);
-    }
-    status.textContent = runs.length ? 'Most recent 100 patch runs, newest first.' : 'No patch runs yet.';
+        { queued: 'Queued', patching: 'Patching', rebooting: 'Rebooting', succeeded: 'Succeeded', failed: 'Failed' }[run.status],
+        run.error || '---'];
+      values.forEach((value, index) => updateText(row.cells[index], value));
+    });
+    updateText(status, runs.length ? 'Most recent 100 patch runs, newest first.' : 'No patch runs yet.');
   } catch (error) {
     if (request !== patchReportRequest) return;
-    body.replaceChildren();
-    status.textContent = error.message;
+    updateText(status, error.message);
   }
 }
 

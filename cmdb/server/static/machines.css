@@ -31,8 +31,6 @@
 .debian-hosts-table thead tr:last-child th:nth-child(-n+3),
 .debian-hosts-table tbody td:nth-child(-n+3) { white-space: nowrap; overflow-wrap: normal; width: 1%; }
 .debian-hosts-table thead th { vertical-align: bottom; }
-.debian-hosts-table thead tr:last-child th:nth-child(n+4):nth-child(-n+8) { font-size: calc(1em - 2pt); }
-.debian-hosts-table thead tr:first-child td { border-bottom: 0; }
 .debian-hosts-table .patch-row-status { width: 100%; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }
 .backup-host { margin: 1rem 0; }
@@ -99,3 +97,6 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 .software-detail { margin-top: 1.5rem; }
 
 [data-field="databases"] hr { border-top: 1px solid #6e502e; margin: .5rem 0; }
+
+.backups-table input[type="text"] { box-sizing: content-box; width: 20ch; font-family: monospace; font-size: inherit; background: #24272c; color: #eee; border: 1px solid #d98124; padding: .4rem .6rem; }
+.backups-table input[type="text"]:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }

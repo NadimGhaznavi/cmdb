@@ -11,7 +11,7 @@ class BackupDb:
         return self._db.query(
             "SELECT s.id AS modelElement, me.name AS databaseName, m.hostName, m.ipAddress, "
             "m.id AS machine, bs.id AS scheduleId, COALESCE(bs.enabled, 0) AS enabled, "
-            "COALESCE(bs.frequency, 'daily') AS frequency, COALESCE(bs.retention, '1-week') AS retention, "
+            "COALESCE(bs.expression, '0 12 * * *') AS expression, COALESCE(bs.retention, '1-week') AS retention, "
             "(SELECT MAX(b.completedOn) FROM Backup b WHERE b.modelElement=s.id "
             "AND b.status='succeeded') AS lastBackup, "
             "(SELECT b.id FROM Backup b WHERE b.modelElement=s.id ORDER BY b.id DESC LIMIT 1) AS latestBackup "

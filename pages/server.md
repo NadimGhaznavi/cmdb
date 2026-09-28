@@ -23,7 +23,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
 | `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |
 | `DELETE /api/backups/files/<id>` | Rechecks a missing file and deletes its Backup record only. |
-| `POST /api/backup-schedules` | Saves modelElement, enabled, daily frequency, and retention; creates or removes the schedule's cron entry. |
+| `POST /api/backup-schedules` | Saves modelElement, enabled, cron expression, and retention; creates or removes the schedule's cron entry. |
 | `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
@@ -41,10 +41,10 @@ The Live Databases section groups stored databases into collapsible host section
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
 as the inventory graph, or the IP address when unnamed. Each section contains
-Database, Enabled, Retention, Last Backup, and Actions columns.
-Backups run daily at noon. For a new policy, Enabled starts unchecked, and Retention offers
+Database, Enabled, Cron Schedule, Retention, Last Backup, and Actions columns.
+The default cron expression runs daily at noon. For a new policy, Enabled starts unchecked, and Retention offers
 1 week (the default), 2 weeks, 1 month, and Forever. Update persists these settings
-and creates or removes the noon cron job. Existing settings are loaded when the
+and creates or removes the configured cron job. Existing settings are loaded when the
 page opens. Retention deletion remains unimplemented.
 Backup Now runs a manual backup independently of Enabled, displays
 progress or failure, and updates Last Backup after success. Wide tables scroll

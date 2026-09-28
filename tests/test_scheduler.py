@@ -31,8 +31,8 @@ class SchedulerTests(unittest.TestCase):
 
     def test_invalid_policy_never_touches_cron_or_database(self):
         with patch('cmdb.activity.Scheduler.DbMgr') as db, patch('cmdb.activity.Scheduler.Cron') as cron:
-            for values in ((True, True, 'daily', 'forever'), (1, 1, 'daily', 'forever'),
-                           (1, True, 'weekly', 'forever'), (1, True, 'daily', 'invalid')):
+            for values in ((True, True, '0 12 * * *', 'forever'), (1, 1, '0 12 * * *', 'forever'),
+                           (1, True, 'weekly', 'forever'), (1, True, '0 12 * * *', 'invalid')):
                 with self.assertRaises(ValueError):
                     Scheduler().update(*values)
             db.assert_not_called()
@@ -47,7 +47,7 @@ class SchedulerTests(unittest.TestCase):
             records.return_value.save.return_value = {'id': 12}
             cron.return_value.update.side_effect = OSError('Permission denied')
             with self.assertRaises(OSError):
-                Scheduler().update(4, True, 'daily', 'forever')
+                Scheduler().update(4, True, '0 12 * * *', 'forever')
             self.assertIs(db.return_value.transaction.return_value.__exit__.call_args.args[0], OSError)
             db.return_value.close.assert_called_once()
 

@@ -50,6 +50,9 @@ to fail without replacing it. The service can write its SSH directory under
 the otherwise read-only system filesystem configuration.
 
 Remote accounts and public-key authorization are not configured by the installer.
+The same key supports remote `cmdb` or root login when authorized by the remote
+account. Selecting remote root in the SSH interface requires no additional local
+sudoers rule or separate key.
 See [SSH interface]({{ site.baseurl }}{% link pages/ssh.md %}) for usage.
 
 Installation and upgrade validate and install `/etc/sudoers.d/cmdb-nmap`, owned

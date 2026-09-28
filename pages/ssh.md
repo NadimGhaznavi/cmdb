@@ -5,7 +5,7 @@ title: SSH Interface
 [Documentation index]({{ site.baseurl }}{% link index.md %})
 
 `cmdb/interface/SSH.py` wraps the system OpenSSH client for remote commands.
-It connects as `cmdb`, using the local service account's private key generated
+It defaults to remote user `cmdb`, using the local service account's private key generated
 by the [installer]({{ site.baseurl }}{% link pages/installation.md %}). It does
 not use the database credentials or require a Python SSH package.
 
@@ -15,7 +15,16 @@ from cmdb.interface.SSH import SSH
 # Example host; its remote cmdb account must already authorize the public key.
 result = SSH().run("192.168.1.10", "uname -a")
 print(result.stdout)
+
+# Direct root login uses the same local cmdb key.
+result = SSH().run("192.168.1.10", "id -u", user="root")
 ```
+
+The `user` argument selects the remote login account. Direct root login requires
+the remote root account to authorize the public key and its SSH server to permit
+root key authentication. Local sudo permissions are not required: the client
+still runs as local `cmdb`. Remote account configuration remains outside the
+installer's scope.
 
 Run the calling process as the local `cmdb` account so it can read the private
 key. Defaults are port `22`, connection timeout `10` seconds, and overall

@@ -9,6 +9,8 @@ permalink: /CHANGELOG/
 
 ### Added
 
+- Optional remote `user` for SSH commands, including direct root login using the
+  existing local `cmdb` key without local sudo.
 - SSH interface for remote commands as `cmdb`, with a persistent local Ed25519
   key generated during installation and retained across uninstall/install.
 - `DLabel.py` maps model attribute names to readable GUI labels in machine details.

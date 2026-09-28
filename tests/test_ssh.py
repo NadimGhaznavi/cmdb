@@ -36,6 +36,16 @@ class SSHTests(unittest.TestCase):
         self.assertNotIn('shell', options)
 
     @patch('cmdb.interface.SSH.subprocess.run')
+    def test_root_login_uses_same_local_identity_without_sudo(self, run):
+        SSH().run('192.168.0.7', 'id -u', user='root')
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[0], '/usr/bin/ssh')
+        self.assertEqual(argv[argv.index('-l') + 1], 'root')
+        self.assertEqual(argv[argv.index('-i') + 1], DCmdb.SSH_KEY)
+        self.assertIn(f'UserKnownHostsFile={DCmdb.SSH_KNOWN_HOSTS}', argv)
+        self.assertEqual(argv[-3:], ['--', '192.168.0.7', 'id -u'])
+
+    @patch('cmdb.interface.SSH.subprocess.run')
     def test_invalid_target_or_options_do_not_launch_ssh(self, run):
         for host in ('', '-oProxyCommand=anything', 'root@server', 'server name', 'host\0'):
             with self.subTest(host=host), self.assertRaises(ValueError):
@@ -45,6 +55,9 @@ class SSHTests(unittest.TestCase):
                 SSH().run('server', 'true', **options)
         with self.assertRaises(ValueError):
             SSH().run('server', ' ')
+        for user in ('', '-root', 'root@server', 'root user', 'root\0'):
+            with self.subTest(user=user), self.assertRaises(ValueError):
+                SSH().run('server', 'true', user=user)
         run.assert_not_called()
 
     @patch('cmdb.interface.SSH.subprocess.run')

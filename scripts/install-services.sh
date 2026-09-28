@@ -32,6 +32,37 @@ account=${settings[1]}
 unit=${settings[2]}
 getent passwd "$account" >/dev/null
 command -v systemd-analyze >/dev/null
+command -v sudo >/dev/null
+command -v visudo >/dev/null
+[[ -x /usr/bin/nmap ]] || { printf 'Install /usr/bin/nmap before deploying CMDB.\n' >&2; exit 1; }
+
+# Validate the complete rule before atomically installing it.
+python3 -B - <<'PY'
+from pathlib import Path
+import os
+import re
+import subprocess
+from tempfile import NamedTemporaryFile
+from cmdb.constants.DCmdb import DCmdb
+
+if re.fullmatch(r'[a-z_][a-z0-9_]*', DCmdb.SERVICE_USER) is None:
+    raise SystemExit('Invalid CMDB service account name.')
+rule = Path('sudoers/cmdb-nmap').read_text().replace('@USER@', DCmdb.SERVICE_USER)
+target = Path('/etc/sudoers.d/cmdb-nmap')
+target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+with NamedTemporaryFile(mode='w', prefix='.cmdb-nmap-', dir=target.parent, delete=False) as stream:
+    candidate = Path(stream.name)
+    try:
+        stream.write(rule)
+        stream.flush()
+        os.fchown(stream.fileno(), 0, 0)
+        os.fchmod(stream.fileno(), 0o440)
+        subprocess.run(['visudo', '-cf', str(candidate)], check=True)
+        candidate.replace(target)
+    finally:
+        candidate.unlink(missing_ok=True)
+PY
+
 if [[ -e /etc/systemd/system/$unit ]]; then
     systemctl stop "$unit"
 fi

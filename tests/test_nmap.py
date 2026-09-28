@@ -15,10 +15,11 @@ class NmapTests(unittest.TestCase):
                   "scan": {"192.168.1.10": {"status": {"state": "up"}}}}
         factory.return_value.scan.return_value = result
         scanner = Nmap()
+        factory.assert_called_once_with(nmap_search_path=("/usr/bin/nmap",))
         self.assertEqual(scanner.scan("192.168.1.10", "22,80", arguments="-sT -n",
                                       timeout=30), result)
         factory.return_value.scan.assert_called_once_with(
-            hosts="192.168.1.10", ports="22,80", arguments="-sT -n", timeout=30)
+            hosts="192.168.1.10", ports="22,80", arguments="-sT -n", timeout=30, sudo=True)
 
     @patch("cmdb.interface.Nmap.nmap.PortScanner")
     def test_empty_hosts_do_not_start_a_scan(self, factory):

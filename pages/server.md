@@ -89,7 +89,12 @@ layer as inventory features are added.
 `cmdb/interface/Nmap.py` wraps
 [python-nmap](https://pypi.org/project/python-nmap/). Install the Python
 dependencies above and ensure the `nmap` executable is installed on the scanning
-host and available on `PATH`; the Python package does not install that executable.
+host at `/usr/bin/nmap`; the Python package does not install that executable.
+Scans use sudo through python-nmap. Installation grants the `cmdb` account
+passwordless root access to Nmap with unrestricted arguments, enabling LAN ARP
+discovery and MAC collection. See
+[installation]({{ site.baseurl }}{% link pages/installation.md %}) for the sudoers
+rule. Manual development scans require sudo permission for the invoking user.
 
 The following uses an example LAN address, not the current network configuration:
 

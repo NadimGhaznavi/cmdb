@@ -41,9 +41,10 @@ if unit.exists() or unit.is_symlink() or state != 'not-found':
 subprocess.run(mariadb, input=f'DROP DATABASE IF EXISTS `{DCmdb.DATABASE_NAME}`;\n',
                text=True, check=True)
 unit.unlink(missing_ok=True)
+Path('/etc/sudoers.d/cmdb-nmap').unlink(missing_ok=True)
 subprocess.run(['systemctl', 'daemon-reload'], check=True)
 if application.exists():
     shutil.rmtree(application)
-print('Removed CMDB service, application, and database.')
+print('Removed CMDB service, application, database, and Nmap sudoers rule.')
 print('Preserved credentials, database account, Linux account, and system packages.')
 PYTHON

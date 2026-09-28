@@ -17,7 +17,7 @@ downloaded during installation. On Debian/Ubuntu, the maintainer can prepare
 the system with:
 
 ```sh
-sudo apt install python3 python3-venv mariadb-server mariadb-client nmap
+sudo apt install python3 python3-venv mariadb-server mariadb-client nmap sudo
 sudo systemctl enable --now mariadb
 ```
 
@@ -34,6 +34,18 @@ and database account. It generates `/etc/cmdb/database.env` owned by root with
 mode `600`. Repeated installation reuses the credentials without resetting an
 existing database password. An existing account with different credentials
 causes installation to fail; it is not silently taken over.
+
+Installation and upgrade validate and install `/etc/sudoers.d/cmdb-nmap`, owned
+by root with mode `0440`, containing:
+
+```sudoers
+cmdb ALL=(root) NOPASSWD: /usr/bin/nmap
+```
+
+This grants the `cmdb` user passwordless root access to Nmap with unrestricted
+arguments. The Nmap interface uses python-nmap's `sudo=True` option, with the
+executable fixed to `/usr/bin/nmap`. The service sets `NoNewPrivileges=false`
+to allow sudo; the Python server itself continues to run as `cmdb`.
 
 Application files are copied to `/opt/prod/cmdb`, with Python dependencies in
 `.venv`. The installer checks the database connection, installs
@@ -80,7 +92,7 @@ sudo scripts/uninstall.sh
 ```
 
 This stops and disables the service, drops the `cmdb` database (including all
-inventory), and removes the service unit and `/opt/prod/cmdb`.
+inventory), and removes the service unit, `/opt/prod/cmdb`, and the Nmap sudoers rule.
 It retains `/etc/cmdb/database.env`, the MariaDB account and password, and the
 Linux service account and group for reinstallation.
 

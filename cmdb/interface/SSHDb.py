@@ -46,6 +46,19 @@ class SSHDb:
             raise ValueError('The backup command did not return valid file metadata.')
         return {'pathname': pathname, 'sizeBytes': int(fields[0]), 'checksum': fields[1]}
 
+    def drop_db(self, host: str, database: str) -> None:
+        if (not database or len(database) > 64 or '\0' in database
+                or database.lower() in ('cmdb', 'mysql', 'information_schema', 'performance_schema', 'sys')):
+            raise ValueError('This database cannot be deleted.')
+        script = Path(__file__).parent / 'scripts/drop-database.py'
+        if self._ssh.is_local(host):
+            installed = str(Path(DCmdb.BASE_DIR) / 'cmdb/interface/scripts/drop-database.py')
+            subprocess.run(['/usr/bin/sudo', '-n', '/usr/bin/python3', installed, database],
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True, timeout=40)
+        else:
+            self._ssh.run(host, shlex.join(['python3', '-c', script.read_text(), database]),
+                          user='root', timeout=40, connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
+
     def _run(self, host: str, command: str, **options):
         if self._stop_requested.is_set():
             raise InterruptedError('Database provisioning stopped.')

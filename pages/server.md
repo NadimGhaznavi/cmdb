@@ -20,6 +20,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `GET /api/patching/hosts` | Lists Debian hosts and their latest patch job status. |
 | `POST /api/patch-schedules` | Saves a machine's enabled flag and five-field cron expression. |
 | `POST /api/patching` | Queues a patch-and-reboot job for a machine ID; returns HTTP 202 and jobId. |
+| `DELETE /api/databases/<id>` | Drops an inventoried user database after exact-name confirmation; protects cmdb and system databases. |
 | `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
 | `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |
 | `DELETE /api/backups/files/<id>` | Rechecks a missing file and deletes its Backup record only. |

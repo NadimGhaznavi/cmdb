@@ -17,6 +17,7 @@ class BackupDb:
             "(SELECT b.id FROM Backup b WHERE b.modelElement=s.id ORDER BY b.id DESC LIMIT 1) AS latestBackup "
             "FROM `Schema` s JOIN ModelElement me ON me.id=s.id "
             "JOIN DataManager dm ON dm.id=me.namespace JOIN DeployedComponent dc ON dc.id=dm.id "
+            "JOIN DataManagerDataPackage dp ON dp.dataManager=dm.id AND dp.dataPackage=s.id "
             "JOIN Machine m ON m.id=dc.machine JOIN Component c ON c.id=dc.component "
             "JOIN ModelElement cm ON cm.id=c.id JOIN SoftwareSystem ss ON ss.id=cm.namespace "
             "LEFT JOIN BackupSchedule bs ON bs.modelElement=s.id "
@@ -48,6 +49,12 @@ class BackupDb:
 
     def start(self, target: int, started) -> int:
         return self._db.insert('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)', (target, started))
+
+    def is_running(self, target: int) -> bool:
+        return bool(self._db.query("SELECT id FROM Backup WHERE modelElement=%s AND status='running' LIMIT 1", (target,)))
+
+    def remove_database(self, target: int) -> None:
+        self._db.execute('DELETE FROM DataManagerDataPackage WHERE dataPackage=%s', (target,))
 
     def delete(self, identity: int) -> None:
         self._db.execute("DELETE FROM Backup WHERE id=%s AND status='succeeded'", (identity,))

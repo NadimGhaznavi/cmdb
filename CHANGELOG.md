@@ -7,6 +7,18 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-28 @ 19:25
+
+### Added
+
+- Add confirmed database deletion to Live Databases, protecting cmdb and system
+  databases, disabling its schedule, and retaining backup history and files.
+
+### Changed
+
+- Move Update beside Cron Schedule in an unlabeled column; retain Actions for
+  Backup Now and Delete.
+
 ## [0.12.7] - 2026-09-28 @ 19:07
 
 ### Added

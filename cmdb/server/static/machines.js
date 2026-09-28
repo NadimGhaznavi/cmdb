@@ -144,6 +144,10 @@ async function loadBackups() {
           ? localTimestamp(database.lastBackup) : "---";
         const button = element.querySelector('[data-action="backup"]');
         button.addEventListener("click", () => backupNow(element, database.modelElement));
+        const remove = element.querySelector('[data-action="delete-database"]');
+        remove.disabled = name.toLowerCase() === 'cmdb';
+        if (remove.disabled) remove.title = 'The CMDB database cannot be deleted.';
+        remove.addEventListener('click', () => deleteDatabase(element, database, host));
         section.querySelector("tbody").append(row);
         if (database.latestBackup) element.dataset.backupId = database.latestBackup;
       }
@@ -159,6 +163,32 @@ async function loadBackups() {
     status.textContent = groups.size ? "" : "No databases discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Databases could not be loaded. Return to Inventory and try again.";
+  }
+}
+
+async function deleteDatabase(row, database, host) {
+  const confirmation = window.prompt(`Permanently drop database ${database.databaseName} on ${host}? This deletes its data. Type the database name to confirm:`);
+  if (confirmation === null) return;
+  const status = row.querySelector('.backup-row-status');
+  if (confirmation !== database.databaseName) {
+    updateText(status, 'Database name did not match. Nothing was deleted.');
+    return;
+  }
+  const controls = [...row.querySelectorAll('button, input, select')];
+  const states = controls.map(control => control.disabled);
+  controls.forEach(control => { control.disabled = true; });
+  updateText(status, 'Deleting database…');
+  try {
+    const response = await fetch(`/api/databases/${database.modelElement}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmation }), signal: AbortSignal.timeout(60000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not delete database.');
+    await loadBackups();
+  } catch (error) {
+    updateText(status, error.message);
+    controls.forEach((control, index) => { control.disabled = states[index]; });
   }
 }
 

@@ -129,5 +129,40 @@ are rejected; supported legacy homes are `/home/cmdb` and `/var/lib/cmdb`.
 Busy accounts are not forcibly killed. Failures are reported per host with a
 nonzero final exit status; successful removals are safe to retry.
 
-The next scan provisions `cmdbagent` where needed. No database-account setup,
-database inventory, or backup jobs are included in this identity change.
+The next scan provisions `cmdbagent` where needed. The Linux-account cleanup does not remove database accounts.
+
+
+## MariaDB agent account
+
+`cmdb/interface/SSHDb.py` provisions `'cmdbagent'@'localhost'` for database
+inventory. It uses MariaDB's
+[unix_socket authentication](https://mariadb.com/docs/server/reference/plugins/authentication-plugins/authentication-plugin-unix-socket)
+to authenticate the matching Linux identity, with no database password.
+Commands run through SSH as `cmdbagent` and connect to the host's default local
+MariaDB socket. TCP database access is not required.
+
+After successful host inventory, the scanner checks for the MariaDB client and
+tests the database agent identity and grants. When setup is needed on a remote
+host, it connects as root using the existing SSH key, verifies that the local
+server is MariaDB, applies `schema/cmdbagent.sql`, and retests as `cmdbagent`.
+This also handles hosts whose Linux agent account already existed. Remote
+root must have local administrative MariaDB socket access.
+
+Install and upgrade apply the same SQL locally as root after creating the Linux
+agent, then verify database access under that Linux identity. Runtime local
+checks do not attempt root access. For an absent or unavailable MariaDB server,
+failed administrative access, or failed agent verification, remote discovery
+retains the machine information and retries on the next scan.
+
+The initial grant is
+[`SHOW DATABASES`](https://mariadb.com/docs/server/reference/sql-statements/account-management-sql-statements/grant),
+which allows listing all database names. Provisioning is repeatable and does
+not revoke additional grants. It sets the agent's authentication to `unix_socket`;
+the application's existing `cmdb` database account is unaffected. SQL stays in
+the external schema folder and is copied with the installed application.
+
+After verification, `SSHDb.inventory()` reads the server version, data directory,
+and schema names using `schema/mariadb-inventory.sql`. The activity persists the
+[MariaDB inventory]({{ site.baseurl }}{% link pages/software-deployment.md %}#mariadb-discovery)
+through DataManagerDb after completing the remote commands. Backup jobs and
+backup privileges remain future work.

@@ -7,6 +7,33 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-28 @ 10:45
+
+### Added
+
+- Display MariaDB below the OS inside each machine, using the same rounded
+  software box style regardless of discovery order.
+
+- Collect MariaDB server version, data directory, and database names through
+  the local/SSH agent path. Store software releases, DataManager deployments,
+  and linked Schema records, reusing identities on repeated scans.
+
+- Prepare database inventory storage with ModelElement.name, Package, Schema,
+  DataManager, and the CWM DataManagerDataPackage association. Keep inherited
+  fields on their parents and preserve both many-valued association ends.
+
+- Provision MariaDB `cmdbagent@localhost` with Unix-socket authentication and
+  `SHOW DATABASES` access. SSHDb checks existing agents and provisions remote
+  accounts through root SSH when needed; install/upgrade handles the local account.
+- Keep repeatable database-account SQL in `schema/cmdbagent.sql`.
+
+### Installation
+
+Use uninstall/install for this release's fresh schema; no record migration is
+provided. Installation also provisions the local database agent. Refresh provisions remote MariaDB
+agents where root SSH and local MariaDB administrative access are available.
+Refresh populates MariaDB software and database inventory. Backup jobs remain future work.
+
 ## [0.6.3] - 2026-09-28 @ 10:09
 
 ### Changed

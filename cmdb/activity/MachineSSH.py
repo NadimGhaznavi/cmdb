@@ -11,8 +11,10 @@ from threading import Event
 
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SSH import SSH
+from cmdb.interface.SSHDb import SSHDb
 from cmdb.interface.HostOperatingSystem import operating_system
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.entity.SoftwareSystem import SoftwareSystem
@@ -51,6 +53,15 @@ class MachineSSH:
                         SoftwareDeploymentDb(db).record_operating_system(machine_id, system)
             finally:
                 db.close()
+            if not self._stop_requested.is_set():
+                observation = SSHDb(self._ssh, self._stop_requested).inventory(address)
+                if observation is not None and not self._stop_requested.is_set():
+                    db = DbMgr()
+                    try:
+                        with db.transaction():
+                            DataManagerDb(db).record_mariadb(machine_id, **observation)
+                    finally:
+                        db.close()
 
     def _run(self, address: str, command: str, **options) -> subprocess.CompletedProcess[str]:
         if self._stop_requested.is_set():

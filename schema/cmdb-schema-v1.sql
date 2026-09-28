@@ -1,6 +1,7 @@
--- Only the adopted CWM classes, with exact class names and attribute casing.
+-- Adopted CWM classes and associations, with exact names and attribute casing.
 CREATE TABLE IF NOT EXISTS ModelElement (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) COLLATE utf8mb4_bin NULL,
     namespace BIGINT UNSIGNED NULL,
     UNIQUE KEY ModelElement_id_namespace_uq (id, namespace)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -8,6 +9,16 @@ CREATE TABLE IF NOT EXISTS ModelElement (
 CREATE TABLE IF NOT EXISTS Namespace (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT Namespace_ModelElement_fk FOREIGN KEY (id) REFERENCES ModelElement (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS Package (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+    CONSTRAINT Package_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `Schema` (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+    CONSTRAINT Schema_Package_fk FOREIGN KEY (id) REFERENCES Package (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS TaggedValue (
@@ -41,7 +52,7 @@ CREATE TABLE IF NOT EXISTS SoftwareSystem (
     subtype VARCHAR(255) NULL,
     supplier VARCHAR(255) NULL,
     version VARCHAR(255) NULL,
-    CONSTRAINT SoftwareSystem_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id)
+    CONSTRAINT SoftwareSystem_Package_fk FOREIGN KEY (id) REFERENCES Package (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS Component (
@@ -54,10 +65,24 @@ CREATE TABLE IF NOT EXISTS DeployedComponent (
     pathname TEXT NOT NULL,
     machine BIGINT UNSIGNED NOT NULL,
     component BIGINT UNSIGNED NOT NULL,
-    CONSTRAINT DeployedComponent_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id),
+    CONSTRAINT DeployedComponent_Package_fk FOREIGN KEY (id) REFERENCES Package (id),
     -- The explicit machine reference must equal the inherited owner.
     CONSTRAINT DeployedComponent_owner_fk
         FOREIGN KEY (id, machine) REFERENCES ModelElement (id, namespace),
     CONSTRAINT DeployedComponent_machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
     CONSTRAINT DeployedComponent_component_fk FOREIGN KEY (component) REFERENCES Component (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS DataManager (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+    CONSTRAINT DataManager_DeployedComponent_fk FOREIGN KEY (id) REFERENCES DeployedComponent (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The CWM DataManagerDataPackage association preserves both many-valued ends.
+CREATE TABLE IF NOT EXISTS DataManagerDataPackage (
+    dataManager BIGINT UNSIGNED NOT NULL,
+    dataPackage BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (dataManager, dataPackage),
+    CONSTRAINT DataManagerDataPackage_manager_fk FOREIGN KEY (dataManager) REFERENCES DataManager (id),
+    CONSTRAINT DataManagerDataPackage_package_fk FOREIGN KEY (dataPackage) REFERENCES Package (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

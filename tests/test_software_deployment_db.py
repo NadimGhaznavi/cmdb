@@ -10,6 +10,7 @@ import pymysql
 from cmdb.entity.Machine import Machine
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.NamespaceDb import NamespaceDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -157,7 +158,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         machine = self.machines.upsert(Machine("192.168.0.7"))
         with self.assertRaises(pymysql.IntegrityError):
             with self.db.transaction():
-                identity = NamespaceDb(self.db).create(namespace=machine)
+                identity = NamespaceDb(self.db).create_package(namespace=machine)
                 self.db.execute("INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
                                 (identity, "/", machine, 999999))
 
@@ -169,7 +170,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         with self.db.transaction():
             component = namespaces.create(namespace=first["softwareSystem"])
             self.db.execute("INSERT INTO Component (id) VALUES (%s)", (component,))
-            deployment = namespaces.create(namespace=machine)
+            deployment = namespaces.create_package(namespace=machine)
             self.db.execute(
                 "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
                 (deployment, "/boot", machine, component))
@@ -192,7 +193,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         for owner in (None, other_machine):
             with self.subTest(owner=owner), self.assertRaises(pymysql.IntegrityError):
                 with self.db.transaction():
-                    identity = NamespaceDb(self.db).create(namespace=owner)
+                    identity = NamespaceDb(self.db).create_package(namespace=owner)
                     self.db.execute(
                         "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
                         (identity, "/invalid", machine, deployment["component"]),
@@ -214,7 +215,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         deployment = self.inventory()[0]
         with self.assertRaises(pymysql.IntegrityError):
             with self.db.transaction():
-                identity = NamespaceDb(self.db).create(namespace=deployment["softwareSystem"])
+                identity = NamespaceDb(self.db).create_package(namespace=deployment["softwareSystem"])
                 self.db.execute(
                     "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
                     (identity, "/invalid", deployment["softwareSystem"], deployment["component"]),
@@ -222,9 +223,71 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
-        for table in ("Component", "SoftwareSystem", "Machine", "DeployedComponent"):
-            columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM {table}")}
+        self.assertEqual(tables, {"Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
+        for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
+            columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}
             self.assertNotIn("namespace", columns)
             self.assertNotIn("ownedElement", columns)
             self.assertNotIn("name", columns)
+
+    def test_mariadb_inventory_reuses_instances_and_keeps_schema_names_scoped(self):
+        first = self.machines.upsert(Machine('192.168.0.7'))
+        second = self.machines.upsert(Machine('192.168.0.8'))
+        self.record(first)
+        inventory = DataManagerDb(self.db)
+        def record(machine, version='11.8.3-MariaDB', names=None):
+            with self.db.transaction():
+                return inventory.record_mariadb(machine, version, '/var/lib/mysql/',
+                                                names if names is not None else ['cmdb', 'mysql', 'Mixed', 'mixed'])
+        a = record(first)
+        b = record(second)
+        self.assertEqual(record(first), a)
+        self.assertNotEqual(a, b)
+        schemas = self.db.query('SELECT s.id, me.name, me.namespace FROM `Schema` s '
+                                'JOIN ModelElement me ON me.id=s.id ORDER BY s.id')
+        self.assertEqual(len(schemas), 8)
+        self.assertEqual({row['namespace'] for row in schemas}, {a, b})
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DataManagerDataPackage')[0]['n'], 8)
+        self.assertEqual(record(first, '11.8.4-MariaDB', ['newdb']), a)
+        self.assertEqual(len(self.db.query('SELECT id FROM `Schema`')), 9)
+        versions = self.db.query('SELECT dc.id, ss.version FROM DataManager dm '
+            'JOIN DeployedComponent dc ON dc.id=dm.id JOIN Component c ON c.id=dc.component '
+            'JOIN ModelElement me ON me.id=c.id JOIN SoftwareSystem ss ON ss.id=me.namespace ORDER BY dc.id')
+        self.assertEqual(versions, [{'id': a, 'version': '11.8.4-MariaDB'}, {'id': b, 'version': '11.8.3-MariaDB'}])
+        self.assertEqual(len(self.inventory()), 3)  # OS plus two MariaDB deployments.
+
+    def test_mariadb_failure_rolls_back_its_whole_observation(self):
+        with self.assertRaises(pymysql.IntegrityError), self.db.transaction():
+            DataManagerDb(self.db).record_mariadb(999999, '11.8.3-MariaDB', '/data/', ['cmdb'])
+        for table in ('SoftwareSystem', 'Component', 'DeployedComponent', 'DataManager', 'Schema'):
+            self.assertEqual(self.db.query(f'SELECT COUNT(*) AS n FROM `{table}`')[0]['n'], 0)
+
+    def test_data_packages_preserve_many_to_many_and_parent_identity(self):
+        managers = []
+        for address in ('192.168.0.7', '192.168.0.8'):
+            machine = self.machines.upsert(Machine(address))
+            self.record(machine)
+        for deployment in self.inventory():
+            self.db.execute('INSERT INTO DataManager (id) VALUES (%s)', (deployment['id'],))
+            managers.append(deployment['id'])
+        packages = []
+        for name in ('cmdb', 'reporting'):
+            identity = NamespaceDb(self.db).create_package(name=name)
+            self.db.execute('INSERT INTO `Schema` (id) VALUES (%s)', (identity,))
+            packages.append(identity)
+        for manager in managers:
+            for package in packages:
+                self.db.execute('INSERT INTO DataManagerDataPackage (dataManager, dataPackage) VALUES (%s, %s)',
+                                (manager, package))
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DataManagerDataPackage')[0]['n'], 4)
+        names = self.db.query('SELECT me.name FROM `Schema` s JOIN ModelElement me ON me.id = s.id ORDER BY s.id')
+        self.assertEqual([row['name'] for row in names], ['cmdb', 'reporting'])
+        for pair in ((managers[0], packages[0]), (packages[0], packages[1]), (managers[0], 999999)):
+            with self.assertRaises(pymysql.IntegrityError):
+                self.db.execute('INSERT INTO DataManagerDataPackage (dataManager, dataPackage) VALUES (%s, %s)', pair)
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('INSERT INTO `Schema` (id) VALUES (%s)',
+                            (NamespaceDb(self.db).create(name='not a package'),))
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('INSERT INTO DataManager (id) VALUES (%s)', (packages[0],))

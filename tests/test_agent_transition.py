@@ -55,4 +55,6 @@ class AgentTransitionTests(TestCase):
             self.assertEqual(commands[0][-1], 'cmdbagent')
             self.assertIn('/var/lib/cmdbagent', commands[0])
             self.assertEqual(commands[1][-2:], ['cmdbagent', 'ssh-ed25519 TEST cmdb'])
-            self.assertEqual(commands[1], commands[2])
+            self.assertEqual(commands[1], commands[4])
+            self.assertEqual(commands[2][0], "mariadb")
+            self.assertEqual(commands[3][:3], ["runuser", "-u", "cmdbagent"])

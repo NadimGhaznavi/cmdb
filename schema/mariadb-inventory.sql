@@ -1,0 +1,2 @@
+SELECT JSON_OBJECT('version', VERSION(), 'pathname', @@datadir);
+SELECT JSON_QUOTE(SCHEMA_NAME) FROM information_schema.SCHEMATA ORDER BY SCHEMA_NAME;

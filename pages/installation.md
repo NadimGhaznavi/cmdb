@@ -157,3 +157,9 @@ uses `cmdbagent` with the existing key. See the
 [one-time remote account cleanup]({{ site.baseurl }}{% link pages/ssh.md %}#account-transition)
 for removing the old remote `cmdb` accounts and homes after upgrade.
 Uninstall retains both local accounts and their homes.
+
+
+The installer also provisions MariaDB's `cmdbagent@localhost` using socket
+authentication and grants `SHOW DATABASES`. It verifies access as Linux
+`cmdbagent`. This runs on upgrade as well as fresh installation and uses
+`schema/cmdbagent.sql`. The existing application database credentials are retained.

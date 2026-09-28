@@ -74,6 +74,12 @@ function softwareLabel(system) {
     + (system.version ? ` ${system.version}` : "");
 }
 
+function compareSoftware(left, right) {
+  const order = system => ["OS", "linux"].includes(system.type) ? 0
+    : system.type === "DBMS" && system.subtype === "MariaDB" ? 1 : 2;
+  return order(left) - order(right) || left.id - right.id;
+}
+
 async function loadMachines() {
   const status = document.getElementById("graph-status");
   const picker = document.getElementById("machine-picker");
@@ -106,7 +112,8 @@ async function loadMachines() {
     machines.forEach((machine, index) => {
       const angle = 2 * Math.PI * index / machines.length - Math.PI / 2;
       const center = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
-      const systems = softwareDeployments.filter(system => system.machine === machine.id);
+      const systems = softwareDeployments.filter(system => system.machine === machine.id)
+        .sort(compareSoftware);
       elements.push({ data: { ...machine, id: machine.ipAddress, label: machineLabel(machine) },
         classes: "machine", position: center });
       systems.forEach((system, offset) => {

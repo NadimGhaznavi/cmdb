@@ -13,12 +13,15 @@ use those IDs rather than IP addresses.
 
 | Entity and table | Stored attributes and relationships |
 | --- | --- |
-| ModelElement | Auto-increment `id`; optional `namespace`; inherited `taggedValue` collection |
+| ModelElement | Auto-increment `id`; `name`; optional `namespace`; inherited `taggedValue` collection |
 | TaggedValue | Technical `id`; `tag`, `value`, optional `modelElement` reference |
 | Namespace | Shared `id` referencing ModelElement; `ownedElement` is the inverse of `ModelElement.namespace` |
-| SoftwareSystem | Shared Namespace identity; `type`, `subtype`, `supplier`, `version` |
+| Package | Shared Namespace identity; target of `DataManager.dataPackage` |
+| SoftwareSystem | Shared Package identity; `type`, `subtype`, `supplier`, `version` |
 | Component | Shared Namespace identity; inherited `namespace` identifies its owning SoftwareSystem when present; `deployment` is the inverse of `DeployedComponent.component` |
-| DeployedComponent | Shared Namespace identity; `pathname`, required `machine` and `component` references |
+| DeployedComponent | Shared Package identity; `pathname`, required `machine` and `component` references |
+| DataManager | Shared DeployedComponent identity; `dataPackage` references through DataManagerDataPackage |
+| Schema | Shared Package identity; database name inherited from ModelElement |
 | Machine | Shared Namespace identity; `deployedComponent` is the collection of deployments referencing the machine |
 
 The stored path is `SoftwareSystem → Component → DeployedComponent → Machine`.
@@ -33,12 +36,17 @@ subclass shares its parent's ID through foreign keys. The scanner assigns a
 Component's namespace to its SoftwareSystem and a DeployedComponent's namespace
 to its Machine.
 
-Only ModelElement and Namespace are needed from the core hierarchy to store
-this ownership. Intermediate core classes with no currently needed fields
-(such as Classifier, Package, and Subsystem) remain omitted; the Python entities
-inherit from their nearest implemented ancestor, Namespace. No inherited
-`name` or other unused parent attribute is copied onto a child.
+ModelElement, Namespace, and Package supply the adopted core hierarchy.
+Intermediate classes with no currently needed fields, such as Classifier and
+Subsystem, remain omitted; entities inherit from their nearest implemented
+ancestor. The newly needed `name` attribute stays on ModelElement.
 There is no DeployedSoftwareSystem entity or association table in this subset.
+
+MariaDB discovery creates a deployed DataManager linked to relational Schema
+objects through `DataManagerDataPackage`. DataProvider describes
+client software, rather than the MariaDB server itself. See
+[Schema Notes]({{ site.baseurl }}{% link pages/schema-notes.md %}) for association
+multiplicities and naming decisions.
 
 ## Discovery mapping
 
@@ -111,3 +119,30 @@ JOIN ModelElement AS me ON me.id = c.id
 JOIN SoftwareSystem AS ss ON ss.id = me.namespace
 WHERE ss.type IN ('OS', 'linux');
 ```
+
+
+## MariaDB discovery
+
+After host inventory, SSHDb verifies or provisions agent access and executes
+`schema/mariadb-inventory.sql` over the default local MariaDB socket. It collects
+`VERSION()`, `@@datadir`, and database names from `information_schema.SCHEMATA`.
+The local machine uses the same command path as remote machines.
+
+SoftwareSystem uses `type="DBMS"`, `subtype="MariaDB"`, `supplier="MariaDB"`
+(the inventory convention), and the complete server-reported version string.
+Its Component is deployed as a DataManager on the discovered Machine. The
+DataManager inherits `pathname`, populated with the reported data directory.
+Machine ID and that path identify the observed instance across version changes.
+Only the default socket instance is queried in this increment.
+
+Each database, including system databases, becomes a Schema with its exact name
+on ModelElement. Its namespace is the DataManager, which keeps identical names
+on different instances distinct. DataManagerDataPackage links the manager to
+each schema. Repeated observations reuse identities; new releases share a new
+software definition without changing another machine's release. Existing
+schemas absent from a later observation are retained for now.
+
+Commands finish before opening the inventory write connection. A complete
+observation is saved in one transaction; failed or invalid reads leave prior
+records untouched. The existing software graph also displays the new MariaDB
+deployment; database schemas are stored for reporting.

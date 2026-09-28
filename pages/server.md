@@ -33,6 +33,7 @@ rectangles of size 160 × 80 when empty; unnamed machines have grey circles.
 Machines with deployed software expand into rounded containers with the machine
 name above nested software rectangles. Software labels include the subtype,
 codename when present, and version, such as `Debian (trixie) 13.6`.
+MariaDB appears in a matching box below the OS, regardless of discovery order.
 Machines remain arranged in a circle. Clicking an inner rectangle selects its
 containing machine; the dropdown continues to list only machines. Selection
 lightens the corresponding color.

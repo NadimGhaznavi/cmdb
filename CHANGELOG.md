@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-27 @ 20:39
+
 ### Changed
 
 - Moved Last refresh to the bottom-right corner, opposite the Refresh button.

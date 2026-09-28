@@ -37,6 +37,10 @@ class ServerTests(unittest.TestCase):
         status, body = self.get('/api/patching/hosts')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['hosts'][0]['id'], 7)
+        records.return_value.report.return_value = [{'id': 12, 'patchTime': datetime(2026, 9, 28, 12), 'elapsedSeconds': 90}]
+        status, body = self.get('/api/patching/report')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['runs'][0]['patchTime'], '2026-09-28T12:00:00+00:00')
         records.return_value.request.return_value = 12
         for values, expected in [({'machine': 7}, 202), ({'machine': True}, 400), ({'machine': -1}, 400)]:
             connection = HTTPConnection(*self.server.server_address)

@@ -8,13 +8,22 @@ title: Debian Patching
 
 Patching lists machines whose root operating system is identified as Debian by
 inventory. Generic Linux fingerprints and Debian derivatives are excluded.
-Patch Now queues a job and shows progress beside that host. There is no patch
-schedule or history panel. Reopening the page loads the last recorded job status.
+Patch Now queues a job and shows progress beside that host. Status appears in a separate column beside Patch Now. There is no patch schedule. Reopening the page loads the last recorded job status.
 
 The independent `cmdb-patch.service` runs `cmdb-patch.py` using the application
 venv and database configuration. The web service only queues work and reads status.
 One worker processes jobs sequentially; pending jobs persist across restarts.
 Repeated clicks for a machine with an active job return the same job.
+
+## Patch Report
+
+The separate Patch Report panel shows the most recent 100 jobs, newest first,
+including queued, running, successful, and failed jobs. Columns show Patch Time
+(browser-local time), Machine, Elapsed Time (`HH:MM:SS`), Status, and Details.
+Patch Time uses the start time, or queue time before execution begins. Elapsed
+time covers execution through reboot verification and is blank until completion.
+Details show any error and expandable package output. The report refreshes when
+the page opens and with active job polling.
 
 ## Execution and constraints
 

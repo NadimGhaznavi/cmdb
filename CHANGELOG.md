@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-28 @ 17:46
+
+### Changed
+
+- Simplify Debian Hosts to Machine, Actions, and Status columns.
+- Add a separate Patch Report panel with the most recent 100 runs, elapsed time,
+  outcomes, errors, and expandable package output.
+
 ## [0.11.0] - 2026-09-28 @ 17:23
 
 ### Added

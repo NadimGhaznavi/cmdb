@@ -12,6 +12,7 @@ case "${1:-}" in
         timeout --kill-after=10 3500 apt-get -o APT::Update::Error-Mode=any update </dev/null
         timeout --kill-after=10 3500 apt-get -y --with-new-pkgs -o Dpkg::Options::=--force-confdef \
             -o Dpkg::Options::=--force-confold upgrade </dev/null
+        timeout --kill-after=10 3500 apt-get -y autoremove </dev/null
         audit=$(dpkg --audit)
         [ -z "$audit" ] || { printf '%s\n' "$audit" >&2; exit 1; }
         ;;

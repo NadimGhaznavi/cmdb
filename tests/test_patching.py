@@ -99,7 +99,7 @@ class PatchScriptTests(unittest.TestCase):
             script.write_text(source.replace('PATH=/usr/sbin:/usr/bin:/sbin:/bin', f'PATH={root}:/usr/bin:/bin')
                              .replace('. /etc/os-release', f'. {release}'))
             for name, body in {
-                'apt-get': 'echo "$*" >> "$LOG"\ncase "$*" in *update*) exit "${UPDATE_EXIT:-0}";; esac\n',
+                'apt-get': 'echo "$*" >> "$LOG"\ncase "$*" in *update*) exit "${UPDATE_EXIT:-0}";; *autoremove*) exit "${AUTOREMOVE_EXIT:-0}";; esac\n',
                 'dpkg': 'exit 0\n',
                 'shutdown': 'echo reboot >> "$LOG"\n',
                 'systemctl': 'echo running\n',
@@ -113,10 +113,16 @@ class PatchScriptTests(unittest.TestCase):
             commands = log.read_text()
             self.assertIn('APT::Update::Error-Mode=any update', commands)
             self.assertIn('--with-new-pkgs', commands)
+            self.assertIn('-y autoremove', commands)
+            self.assertLess(commands.index(' upgrade'), commands.index(' autoremove'))
             self.assertNotIn('reboot', commands)
             log.write_text('')
             self.assertNotEqual(subprocess.run(['sh', str(script), 'patch'], env=dict(env, UPDATE_EXIT='100')).returncode, 0)
             self.assertNotIn('upgrade', log.read_text())
+            self.assertNotIn('autoremove', log.read_text())
+            log.write_text('')
+            self.assertNotEqual(subprocess.run(['sh', str(script), 'patch'], env=dict(env, AUTOREMOVE_EXIT='100')).returncode, 0)
+            self.assertNotIn('reboot', log.read_text())
             release.write_text('ID=ubuntu\n')
             log.write_text('')
             self.assertNotEqual(subprocess.run(['sh', str(script), 'patch'], env=env).returncode, 0)

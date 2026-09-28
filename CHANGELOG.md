@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Run apt-get autoremove after patch upgrades and before rebooting; stop before
+  reboot if package cleanup fails.
+- Replace the patch cron text field with five labeled dropdowns and remove the
+  explanatory text. Existing backend validation handles invalid selections.
+
 ## [0.12.0] - 2026-09-28 @ 18:33
 
 ### Added

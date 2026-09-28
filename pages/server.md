@@ -38,8 +38,10 @@ rectangle loads the machine and its available software systems in the left panel
 The OS appears first, then MariaDB. Each software section starts collapsed with
 a heading such as `Software System: Linux` or `Software System: RDBMS`; click
 the heading to expand its fields. MariaDB details end with a Database(s) row,
-listing stored Schema names for that deployment in alphabetical order, one per
-line (or a dash when none are recorded).
+listing stored Schema names for that deployment, one per line (or a dash when
+none are recorded). User databases appear first, followed by a horizontal rule
+when any are present, then system databases: `mysql`, `information_schema`,
+`performance_schema`, and `sys` when recorded.
 Selection lightens the containing machine’s color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines

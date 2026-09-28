@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-09-28 @ 11:38
+
 ### Changed
 
 - Clicking a machine or its software loads all its software details below the

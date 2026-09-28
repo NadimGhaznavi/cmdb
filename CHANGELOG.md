@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-09-28 @ 18:14
+
 ### Added
 
 - Add Uptime to Debian Hosts and a bottom-left Refresh Uptime button that reads

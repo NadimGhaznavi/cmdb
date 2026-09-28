@@ -18,7 +18,6 @@ class BackupDumpTests(unittest.TestCase):
             binaries = root / 'bin'
             binaries.mkdir()
             for name, contents in {
-                'findmnt': '#!/bin/sh\nprintf "nfs4\\n"\n',
                 'mariadb-dump': '#!/bin/sh\nprintf "database dump\\n"\nexit "${DUMP_EXIT:-0}"\n',
             }.items():
                 executable = binaries / name
@@ -38,7 +37,3 @@ class BackupDumpTests(unittest.TestCase):
             self.assertNotEqual(subprocess.run(command, env=dict(env, DUMP_EXIT='1'), capture_output=True).returncode, 0)
             self.assertFalse((final.parent / 'failed.dump').exists())
             self.assertEqual(list(final.parent.glob('.backup-*')), [])
-            (binaries / 'findmnt').write_text('#!/bin/sh\nprintf "ext4\\n"\n')
-            rejected = subprocess.run(command, env=env, text=True, capture_output=True)
-            self.assertNotEqual(rejected.returncode, 0)
-            self.assertIn('not mounted as NFS', rejected.stderr)

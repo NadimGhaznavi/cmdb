@@ -308,9 +308,8 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             root = Path(directory)
             binaries = root / 'bin'
             binaries.mkdir()
-            # Only the mount check and socket routing are fixtures; dump and restore are real.
+            # Only socket routing is a fixture; dump and restore are real.
             fixtures = {
-                'findmnt': '#!/bin/sh\necho nfs4\n',
                 'mariadb-dump': '#!/bin/sh\nshift\nexec /usr/bin/mariadb-dump --no-defaults --socket='
                     + shlex.quote(os.environ['CMDB_TEST_DB_SOCKET']) + ' "$@"\n',
             }

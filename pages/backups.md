@@ -27,8 +27,10 @@ characters are percent-encoded. The database part is limited to 80 encoded
 characters. UTC start timestamps include seconds and microseconds to distinguish
 attempts. The record stores the relative pathname, size, and SHA-256 checksum.
 
-The host first accesses the base directory to trigger autofs and verifies an NFS
-mount. It creates its temporary file in the destination host's `db` directory,
+The host first accesses the base directory, triggering autofs where configured.
+Local storage is also supported, including the backing directory on Wintermute,
+the NFS server. No filesystem-type check is performed.
+It creates its temporary file in the destination host's `db` directory,
 dumps directly there, then computes the size and checksum on that host. It
 publishes the completed file with a hard link and removes the temporary name,
 without copying the file across filesystems or through the CMDB server.
@@ -42,8 +44,8 @@ See [mariadb-dump](https://mariadb.com/docs/server/clients-and-utilities/backup-
 
 ## Prerequisites and outcomes
 
-Every database host must provide the autofs/NFS mount and allow `cmdbagent` to
-write its backup directory. Ownership and permissions must work with the NFS
+Every database host must provide the backup directory and allow `cmdbagent` to
+write to it. For NFS mounts, ownership and permissions must work with the NFS
 server's UID/GID mapping. Installation does not change NFS configuration.
 Install/upgrade grants the local agent database dump privileges. Remote agents
 with old grants are reprovisioned through the existing root SSH path.

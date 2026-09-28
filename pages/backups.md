@@ -8,7 +8,8 @@ Expand a host on Backups and click Backup Now beside a user database. This actio
 does not depend on Enabled or a saved schedule. Scheduling, Update, and retention
 deletion are not implemented.
 
-The Backups heading appears beneath the subtitle in the CMDB title box.
+The title box reads CMDB Backups, with both words at the same heading size.
+The Inventory view similarly reads CMDB Inventory.
 Live Databases and Backup Vault have their own bordered panels below it.
 Backup Vault lists all recorded successful database backups,
 newest completion first (newest record first when times match). Its columns are

@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Combine the application and view names into one heading: CMDB Inventory or
+  CMDB Backups, with matching text sizes.
+
 ## [0.9.10] - 2026-09-28 @ 15:24
 
 ### Added

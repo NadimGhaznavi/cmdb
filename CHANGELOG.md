@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-09-28 @ 11:16
+
+### Removed
+
+- Remove the Machine dropdown; select machines by clicking their graph nodes.
+
 ## [0.7.2] - 2026-09-28 @ 10:52
 
 ### Changed

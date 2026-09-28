@@ -7,10 +7,8 @@ async function refreshMachines() {
   refreshing = true;
   const refresh = document.getElementById("refresh-button");
   const edit = document.getElementById("edit-button");
-  const picker = document.getElementById("machine-picker");
   const status = document.getElementById("graph-status");
-  const pickerWasDisabled = picker.disabled;
-  refresh.disabled = edit.disabled = picker.disabled = true;
+  refresh.disabled = edit.disabled = true;
   refresh.textContent = "Scanning…";
   status.textContent = "Scanning the LAN…";
   try {
@@ -33,7 +31,6 @@ async function refreshMachines() {
   } finally {
     refreshing = false;
     refresh.disabled = edit.disabled = false;
-    picker.disabled = pickerWasDisabled;
     refresh.textContent = "Refresh";
   }
 }
@@ -43,19 +40,6 @@ document.getElementById("refresh-button").addEventListener("click", refreshMachi
 function machineLabel(machine) {
   const shortName = machine.hostName ? machine.hostName.split(".")[0] : "";
   return shortName ? shortName.charAt(0).toUpperCase() + shortName.slice(1) : machine.ipAddress;
-}
-
-function machineOption(machine) {
-  return machine.hostName ? `${machine.hostName} (${machine.ipAddress})` : machine.ipAddress;
-}
-
-function compareMachines(left, right) {
-  const leftName = left.hostName ? left.hostName.split(".")[0] : "";
-  const rightName = right.hostName ? right.hostName.split(".")[0] : "";
-  if (Boolean(leftName) !== Boolean(rightName)) return leftName ? -1 : 1;
-  const nameOrder = leftName.localeCompare(rightName, undefined, { sensitivity: "base" });
-  if (nameOrder) return nameOrder;
-  return left.ipAddress.localeCompare(right.ipAddress, undefined, { numeric: true });
 }
 
 function localTimestamp(value) {
@@ -85,7 +69,6 @@ function compareSoftware(left, right) {
 
 async function loadMachines() {
   const status = document.getElementById("graph-status");
-  const picker = document.getElementById("machine-picker");
   const details = document.getElementById("machine-details");
   const editButton = document.getElementById("edit-button");
   const saveButton = document.getElementById("save-button");
@@ -168,7 +151,6 @@ async function loadMachines() {
       selectedNode = node;
       graph.nodes().unselect();
       node.select();
-      picker.value = node.id();
       for (const field of ["ipAddress", "macAddress", "hostName", "deployedComponent", "createdOn", "updatedOn"]) {
         const value = field === "createdOn" || field === "updatedOn"
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
@@ -180,30 +162,6 @@ async function loadMachines() {
     }
     graph.on("tap", "node", event => selectMachine(
       event.target.hasClass("software") ? event.target.parent() : event.target));
-    function updatePicker() {
-      const selected = picker.value;
-      while (picker.options.length > 1) picker.remove(1);
-      const records = graph.nodes(".machine").map(node => node.data()).sort(compareMachines);
-      for (const machine of records) {
-        const option = document.createElement("option");
-        option.value = machine.ipAddress;
-        option.textContent = machineOption(machine);
-        picker.append(option);
-      }
-      picker.value = selected;
-    }
-    updatePicker();
-    picker.disabled = false;
-    picker.addEventListener("change", () => {
-      if (picker.value) {
-        selectMachine(graph.getElementById(picker.value));
-      } else {
-        graph.nodes().unselect();
-        details.hidden = true;
-        selectedNode = null;
-        editButton.hidden = true;
-      }
-    });
     function setEditing(value) {
       editing = value;
       hostnameInput.hidden = !value;
@@ -211,7 +169,6 @@ async function loadMachines() {
       editButton.hidden = value || !selectedNode;
       saveButton.hidden = !value;
       cancelButton.hidden = !value;
-      picker.disabled = value;
       refreshButton.disabled = value;
       graph.autounselectify(value);
     }
@@ -242,7 +199,6 @@ async function loadMachines() {
         if (!response.ok) throw new Error(result.error || "Could not save the hostname.");
         const machine = result.machine;
         selectedNode.data({ ...machine, label: machineLabel(machine) });
-        updatePicker();
         setEditing(false);
         selectMachine(selectedNode);
         editStatus.textContent = "Hostname saved.";

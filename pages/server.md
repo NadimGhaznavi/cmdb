@@ -35,12 +35,12 @@ name above nested software rectangles. Software labels include the subtype,
 codename when present, and version, such as `Debian (trixie) 13.6`.
 MariaDB appears in a matching box below the OS, regardless of discovery order.
 Machines remain arranged in a circle. Clicking an inner rectangle selects its
-containing machine; the dropdown continues to list only machines. Selection
+containing machine. Selection
 lightens the corresponding color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.
-Click a node or use the machine selector to see its fields and timestamps in
+Click a node to see its fields and timestamps in
 browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 An empty inventory and an unavailable database show distinct status messages.
@@ -48,12 +48,10 @@ Detail labels come from `DLabel.ATTRIBUTES` in `cmdb/constants/DLabel.py`,
 for example `ipAddress` displays as IP Address and `hostName` as Host Name.
 The mapping affects presentation only; model attributes, API keys, and database
 columns retain their original names.
-The dropdown sorts named machines by unqualified hostname, ignoring case, then
-unnamed machines by numeric IP octet. Saving a hostname re-sorts the dropdown.
 
 Selecting a machine reveals Edit below the details table. Edit turns `hostName` into a
 text box and offers Save and Cancel. Save updates the database, node label,
-selector, and details; Cancel discards the draft. A failed save keeps the draft
+and details; Cancel discards the draft. A failed save keeps the draft
 available to retry. Names are trimmed and limited to 255 characters; an empty
 name clears the field. Hostnames can be edited, but successful SSH discovery
 replaces them with the hostname reported by the machine. Saving updates

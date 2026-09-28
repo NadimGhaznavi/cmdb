@@ -70,6 +70,8 @@ function compareSoftware(left, right) {
 async function loadMachines() {
   const status = document.getElementById("graph-status");
   const details = document.getElementById("machine-details");
+  const selectionDetails = document.getElementById("selection-details");
+  const softwareDetails = document.getElementById("software-details");
   const editButton = document.getElementById("edit-button");
   const saveButton = document.getElementById("save-button");
   const cancelButton = document.getElementById("cancel-button");
@@ -156,12 +158,29 @@ async function loadMachines() {
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
         document.getElementById(`detail-${field}`).textContent = value;
       }
-      details.hidden = false;
+      selectionDetails.hidden = false;
+      details.open = true;
+      document.getElementById("machine-heading").textContent = `Machine: ${machineLabel(node.data())}`;
+      softwareDetails.hidden = true;
       editButton.hidden = false;
       editStatus.textContent = "";
     }
-    graph.on("tap", "node", event => selectMachine(
-      event.target.hasClass("software") ? event.target.parent() : event.target));
+    graph.on("tap", "node", event => {
+      if (editing || refreshing) return;
+      const node = event.target;
+      if (!node.hasClass("software")) {
+        selectMachine(node);
+        return;
+      }
+      selectMachine(node.parent());
+      const type = node.data("type") || "Unknown";
+      const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
+      document.getElementById("software-heading").textContent = `Software System: ${title}`;
+      for (const field of ["type", "subtype", "supplier", "version", "codename"]) {
+        document.getElementById(`software-${field}`).textContent = node.data(field) ?? "—";
+      }
+      softwareDetails.hidden = false;
+    });
     function setEditing(value) {
       editing = value;
       hostnameInput.hidden = !value;

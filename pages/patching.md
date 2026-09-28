@@ -23,11 +23,13 @@ job polling but not stored in the database or refreshed by those polls.
 
 ## Scheduling
 
-Each host has Enabled and Schedule controls. Schedule uses five standard cron
-fields: minute, hour, day-of-month, month, day-of-week. Ranges, lists, steps, and
+Each host has Enabled and five Schedule dropdowns: minute, hour, day-of-month,
+month, and day-of-week. Every (*) is available for each field. Selections are
+submitted to the existing backend validation; errors appear beside the controls. Ranges, lists, steps, and
 month/weekday names are accepted; shortcuts such as `@reboot` are not. For example,
 `0 12 * * 0` queues a patch on Sundays at noon in the server's local time.
-The example is a placeholder; no schedule is enabled by default.
+Unset fields display `---`; no schedule is enabled by default. Existing saved
+ranges, lists, steps, and names remain available as selected dropdown options.
 
 Update saves the settings and creates or replaces that host's service-account
 cron entry. Clearing Enabled and pressing Update removes the entry while retaining
@@ -62,7 +64,10 @@ Apt failures stop the job before rebooting.
 
 Updates use `apt-get update` with repository errors treated as failures, followed
 by `apt-get --with-new-pkgs upgrade`. This allows new dependencies, including kernel
-packages, without removing installed packages or changing Debian releases.
+packages, without changing Debian releases. The runner then runs
+`apt-get -y autoremove` to remove automatically installed packages that are no
+longer needed, including old kernels eligible for removal, before the audit and
+reboot. An autoremove failure stops the job before rebooting.
 Held packages remain held. Debian's noninteractive configuration keeps existing
 modified configuration files when dpkg cannot choose a default. See the
 [apt-get reference](https://manpages.debian.org/bookworm/apt/apt-get.8.en.html) and

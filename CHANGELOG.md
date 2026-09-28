@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-28 @ 13:00
+
 ### Changed
 
 - Remove the horizontal rule beneath the main page title.

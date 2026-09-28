@@ -85,11 +85,40 @@ class ServerTests(unittest.TestCase):
             status, body = self.get('/api/backups/files')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['files'][0]['backupTime'], '2026-09-28T14:00:00+00:00')
-        self.assertEqual(json.loads(body)['files'][0]['filename'], '/configured/backups/sally/db/recorded.dump')
+        self.assertEqual(json.loads(body)['files'][0]['filename'], 'recorded.dump')
+        self.assertEqual(json.loads(body)['directory'], '/configured/backups')
         records.return_value.get.assert_not_called()
         records.return_value.get.return_value = None
         self.assertEqual(self.get('/api/backups/42')[0], 404)
         self.assertEqual(self.get('/api/backups/invalid')[0], 404)
+
+    @patch('cmdb.server.CmdbHandler.BackupFiles')
+    @patch('cmdb.server.CmdbHandler.BackupDb')
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_vault_scan_and_delete_only_missing_records(self, db, records, files):
+        records.return_value.files.return_value = [{'id': 42, 'pathname': 'host/db/db/file.dump'}]
+        records.return_value.get.return_value = dict(id=42, status='succeeded', pathname='host/db/db/file.dump')
+        for method, path, statuses, expected in [
+            ('POST', '/api/backups/files/scan', ['Missing'], 200),
+            ('DELETE', '/api/backups/files/42', ['Found'], 409),
+            ('DELETE', '/api/backups/files/42', PermissionError('denied'), 503),
+            ('DELETE', '/api/backups/files/42', ['Missing'], 200),
+        ]:
+            files.return_value.scan.side_effect = statuses if isinstance(statuses, Exception) else None
+            files.return_value.scan.return_value = statuses
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request(method, path)
+                response = connection.getresponse()
+                self.assertEqual(response.status, expected)
+                result = json.loads(response.read())
+                if method == 'POST':
+                    self.assertEqual(result, {'files': [{'id': 42, 'status': 'Missing'}]})
+                if expected != 200:
+                    records.return_value.delete.assert_not_called()
+            finally:
+                connection.close()
+        records.return_value.delete.assert_called_once_with(42)
 
     @patch('cmdb.server.CmdbHandler.Scheduler')
     def test_schedule_update_and_delete(self, scheduler):

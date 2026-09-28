@@ -71,6 +71,24 @@ data. The service stops before dependencies and application files are updated.
 A failure can leave it stopped; correct the reported issue and rerun the
 command. Deployment does not provide automatic rollback.
 
+## Uninstall
+
+From the separate checkout:
+
+```sh
+sudo scripts/uninstall.sh
+```
+
+This stops and disables the service, drops the `cmdb` database (including all
+inventory), and removes the service unit and `/opt/prod/cmdb`.
+It retains `/etc/cmdb/database.env`, the MariaDB account and password, and the
+Linux service account and group for reinstallation.
+
+The checkout and system packages (including MariaDB and Nmap) remain installed.
+Uninstall requires local MariaDB root access. It can be rerun from the checkout
+after a partial uninstall and stops on errors. If dropping the database fails,
+the service remains stopped and the application files remain in place.
+
 ## Runtime configuration
 
 Paths, account names, and the default listener `0.0.0.0:14444` are defined in

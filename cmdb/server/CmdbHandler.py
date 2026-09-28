@@ -21,6 +21,7 @@ from cmdb.interface.BackupFiles import BackupFiles
 from cmdb.interface.PatchDb import PatchDb
 from cmdb.interface.SSH import SSH
 from cmdb.activity.Scheduler import Scheduler
+from cmdb.activity.PatchScheduler import PatchScheduler
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.entity.Machine import Machine
@@ -139,6 +140,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == '/api/patch-schedules':
+            self.update_patch_schedule()
+            return
         if urlsplit(self.path).path == '/api/patching':
             self.request_patch()
             return
@@ -285,6 +289,33 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(503, b'{"error":"Could not start the backup."}', 'application/json')
             return
         self.respond(202, json.dumps({'backupId': identity}).encode(), 'application/json')
+
+    def update_patch_schedule(self) -> None:
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError('Provide patch schedule settings.')
+            values = json.loads(self.rfile.read(length))
+            if not isinstance(values, dict) or values.keys() != {'machine', 'enabled', 'expression'}:
+                raise ValueError('Provide machine, enabled, and expression.')
+            schedule = PatchScheduler().update(**values)
+        except (ValueError, UnicodeError) as error:
+            self.respond(400, json.dumps({'error': str(error)}).encode(), 'application/json')
+            return
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
+            return
+        except LookupError:
+            self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+            return
+        except (OSError, RuntimeError, pymysql.MySQLError):
+            logging.exception('Could not save patch schedule')
+            self.respond(503, b'{"error":"Could not save the patch schedule and cron entry."}', 'application/json')
+            return
+        self.respond(200, json.dumps({'schedule': schedule}).encode(), 'application/json')
 
     def update_schedule(self) -> None:
         if self.headers.get_content_type() != 'application/json':

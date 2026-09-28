@@ -26,6 +26,8 @@
 #patching-page .backups-table { min-width: 30rem; }
 .patch-row-status { max-width: 32rem; white-space: pre-wrap; }
 .patch-row-status:empty { display: none; }
+#patching-hosts input[type="text"] { width: 13rem; background: #24272c; color: #eee; border: 1px solid #d98124; padding: .4rem .6rem; font: inherit; }
+#patching-hosts input[type="text"]:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }

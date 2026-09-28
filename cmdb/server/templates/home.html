@@ -134,10 +134,12 @@
   <main id="patching-page" aria-labelledby="patching-heading" hidden>
     <section class="backup-panel" aria-labelledby="debian-hosts-heading">
     <h3 id="debian-hosts-heading">Debian Hosts</h3>
+    <p id="patch-schedule-help">Schedule: minute hour day-of-month month day-of-week (server local time). Example: <code>0 12 * * 0</code> — Sundays at noon.</p>
+    <p>Jobs are scheduled using cron. Run <code>man 5 crontab</code> for more information.</p>
     <p id="patching-status" role="status">Loading Debian hosts…</p>
     <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Debian hosts">
       <table class="backups-table" aria-label="Debian hosts">
-        <thead><tr><th scope="col">Machine</th><th scope="col">Uptime</th><th scope="col">Actions</th><th scope="col">Status</th></tr></thead>
+        <thead><tr><th scope="col">Machine</th><th scope="col">Uptime</th><th scope="col">Enabled</th><th scope="col">Schedule</th><th scope="col">Actions</th><th scope="col">Status</th></tr></thead>
         <tbody id="patching-hosts"></tbody>
       </table>
     </div>

@@ -7,6 +7,19 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-28 @ 18:33
+
+### Added
+
+- Add per-host patch scheduling with Enabled, a five-field cron expression, and
+  Update. Cron queues jobs independently of the web service using the existing
+  patch runner; disabling removes the cron entry.
+- Add PatchSchedule storage, created by the normal installer.
+
+### Changed
+
+- Refresh uptime automatically when the Patching page opens, retaining manual refresh.
+
 ## [0.11.4] - 2026-09-28 @ 18:14
 
 ### Added

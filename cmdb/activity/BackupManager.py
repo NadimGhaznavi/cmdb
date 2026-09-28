@@ -57,9 +57,9 @@ class BackupManager:
         try:
             host = quote((item['hostName'] or item['ipAddress']).split('.')[0]
                          if item['hostName'] else item['ipAddress'], safe='-_.')
-            name = quote(item['databaseName'], safe='-_.')[:80]
-            filename = f"mariadb-{host[:63]}-{name}-{started:%Y-%m-%d_%H:%M:%S}.dump"
-            pathname = f'{host}/db/{filename}'
+            name = quote(item['databaseName'], safe='-_.')
+            filename = f"mariadb-{host[:63]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.dump"
+            pathname = f'{host}/db/{name}/{filename}'
             result = SSHDb(SSH(), Event()).backup_db(item['ipAddress'], item['databaseName'], pathname)
         except subprocess.CalledProcessError as failure:
             error = (failure.stderr or f'Backup command exited with status {failure.returncode}.')[-4000:]

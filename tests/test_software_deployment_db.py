@@ -321,10 +321,10 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 path.write_text(contents)
                 path.chmod(0o755)
             script = Path(__file__).resolve().parents[1] / 'cmdb/interface/scripts/backup-db.sh'
-            result = subprocess.run(['sh', str(script), directory, 'host/db/real.dump', self.database, 'root'],
+            result = subprocess.run(['sh', str(script), directory, f'host/db/{self.database}/real.dump', self.database, 'root'],
                                     env=dict(os.environ, PATH=str(binaries) + ':' + os.environ['PATH']),
                                     text=True, capture_output=True, check=True)
-            dump = (root / 'host/db/real.dump').read_bytes()
+            dump = (root / f'host/db/{self.database}/real.dump').read_bytes()
             self.assertEqual(result.stdout.split(), [str(len(dump)), hashlib.sha256(dump).hexdigest()])
             self.db.execute('DELETE FROM backup_payload')
             subprocess.run(['/usr/bin/mariadb', '--no-defaults', '--socket=' + os.environ['CMDB_TEST_DB_SOCKET'],

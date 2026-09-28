@@ -8,6 +8,13 @@ class MachineDb:
     def __init__(self, db: DbMgr) -> None:
         self._db = db
 
+    def list_machines(self) -> list[Machine]:
+        rows = self._db.query(
+            "SELECT ipAddress, hostName, site, deployedComponent, createdOn, updatedOn "
+            "FROM machines ORDER BY INET6_ATON(ipAddress), ipAddress"
+        )
+        return [Machine(**row) for row in rows]
+
     def upsert(self, machine: Machine) -> None:
         """Refresh discovery fields while preserving manually assigned values."""
         self._db.execute(

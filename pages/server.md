@@ -10,13 +10,23 @@ connection and transaction layer, adapted to the `cmdb` package.
 
 | Endpoint | Behavior |
 | --- | --- |
-| `/` | CMDB landing page and documentation link. |
+| `/` | Boxed machine graph with clickable nodes and stored machine details. |
+| `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
 | `/health` | HTTP 200 JSON identifying `cmdb-server`; checks HTTP availability without querying MariaDB. |
 | `/ready` | Queries MariaDB; HTTP 200 when connected, HTTP 503 on a database error. |
 
 Database errors are logged to the service journal; the HTTP response contains
 only a short status. Each readiness request opens and closes its own database
 connection. The server foundation has no inventory editing endpoints yet.
+
+The main panel fills the remaining window below the title. It loads database
+records when the page opens; reload the page to see subsequent scan updates.
+Nodes show the hostname and IP address, or just the address when unnamed.
+Click a node or use the machine selector to see its fields and UTC timestamps.
+An empty inventory and an unavailable database show distinct status messages.
+
+[Cytoscape.js](https://js.cytoscape.org/) 3.34.3 and its MIT license are bundled
+under `cmdb/server/static/vendor/`, so the graph needs no CDN connection.
 
 ## Service status
 

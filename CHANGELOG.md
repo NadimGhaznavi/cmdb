@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-27 @ 20:54
+
 ### Changed
 
 - Changed the machine graph to a circle layout, including when the panel resizes.

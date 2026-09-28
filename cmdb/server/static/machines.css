@@ -25,10 +25,10 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 .machine-workspace { flex: 1; display: flex; gap: 1.5rem; min-width: 0; }
 .graph-area { flex: 1; min-width: 0; min-height: 20rem; position: relative; }
 #machine-graph { position: absolute; inset: 0; }
-#machine-details { flex: 0 0 24rem; max-width: 40%; border-right: 1px solid #6e502e; padding-right: 1.5rem; }
-#machine-details table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .9rem; }
-#machine-details th, #machine-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
-#machine-details th { width: 45%; color: #ffb454; font-weight: normal; }
+#selection-details { flex: 0 0 24rem; max-width: 40%; border-right: 1px solid #6e502e; padding-right: 1.5rem; }
+#selection-details table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .9rem; }
+#selection-details th, #selection-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
+#selection-details th { width: 45%; color: #ffb454; font-weight: normal; }
 .page-actions { margin: 0; }
 .detail-actions { margin-top: 1rem; text-align: left; }
 .page-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
@@ -47,5 +47,11 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
   body { padding: .5rem; gap: .5rem; }
   header, main { padding: 1rem; }
   .machine-workspace { flex-direction: column; }
-  #machine-details { flex-basis: auto; max-width: none; border-right: 0; border-bottom: 1px solid #6e502e; padding: 0 0 1rem; }
+  #selection-details { flex-basis: auto; max-width: none; border-right: 0; border-bottom: 1px solid #6e502e; padding: 0 0 1rem; }
 }
+
+#machine-heading, #software-heading { font-size: 1rem; font-weight: bold; margin: 0 0 .75rem; overflow-wrap: anywhere; }
+#machine-heading { cursor: pointer; }
+#machine-heading:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+#machine-details:not([open]) > summary { margin-bottom: 0; }
+#software-details { margin-top: 1.5rem; }

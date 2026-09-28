@@ -22,7 +22,8 @@ connection. The server foundation has no inventory editing endpoints yet.
 The main panel fills the remaining window below the title. It loads database
 records when the page opens; use Refresh at the bottom left to reload the page
 and see subsequent scan updates.
-Nodes show the hostname and IP address, or just the address when unnamed.
+Nodes show the hostname and IP address inside the bubble, or just the address
+when unnamed. Long hostnames are abbreviated in the bubble; details retain the full name.
 Click a node or use the machine selector to see its fields and UTC timestamps.
 An empty inventory and an unavailable database show distinct status messages.
 
@@ -93,10 +94,11 @@ The server starts a background machine scanner immediately, then waits
 The worker uses host discovery (`-sn`) and upserts responding hosts into
 `machines`. Each observation refreshes `updatedOn`, even when no attributes
 change; `createdOn` stays fixed. A discovered hostname updates `hostName`;
-missing hostnames preserve the existing value. Existing `site` and
+when Nmap supplies no hostname, a reverse lookup through the system resolver
+tries to populate it. Lookup failures preserve the existing value. Existing `site` and
 `deployedComponent` values and machines absent from a scan are retained.
 
 The worker prints its startup message to the journal. Scan and database failures
 are retried on the next interval without logging. It owns a database connection
 per scan and stops with the server, waiting for any active scan to finish or
-reach its timeout.
+reach its timeout. Reverse DNS lookups use the operating system's resolver timeout.

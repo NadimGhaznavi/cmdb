@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-27 @ 20:54
+
+### Changed
+
+- Changed the machine graph to a circle layout, including when the panel resizes.
+
+- Resolve missing scan hostnames through reverse DNS, retaining records when lookup fails.
+- Place hostname and IP labels inside larger machine bubbles.
+
 ## [0.3.2] - 2026-09-27 @ 20:48
 
 ### Fixed

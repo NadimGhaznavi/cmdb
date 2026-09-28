@@ -22,18 +22,23 @@ class BackupManager:
         self._lock = Lock()
         self._active = {}
         self._closed = False
-        self._recovered = False
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='backup')
 
-    def recover(self) -> None:
-        with self._lock:
-            if not self._recovered:
-                db = DbMgr()
-                try:
-                    BackupDb(db).recover()
-                    self._recovered = True
-                finally:
-                    db.close()
+    def _prepare(self, target: int):
+        db = DbMgr()
+        try:
+            inventory = BackupDb(db)
+            item = next((row for row in inventory.databases() if row['modelElement'] == target), None)
+            if item is None:
+                raise LookupError('User database not found.')
+            started = now()
+            return item, inventory.start(target, started), started
+        finally:
+            db.close()
+
+    def execute(self, target: int) -> bool:
+        """Run one complete job in the calling process, including bookkeeping."""
+        return self._run(*self._prepare(target))
 
     def request_backup(self, target: int) -> int:
         with self._lock:
@@ -41,24 +46,12 @@ class BackupManager:
                 raise RuntimeError('Backup manager is stopping.')
             if target in self._active:
                 return self._active[target]
-            db = DbMgr()
-            try:
-                inventory = BackupDb(db)
-                if not self._recovered:
-                    inventory.recover()
-                    self._recovered = True
-                item = next((row for row in inventory.databases() if row['modelElement'] == target), None)
-                if item is None:
-                    raise LookupError('User database not found.')
-                started = now()
-                identity = inventory.start(target, started)
-            finally:
-                db.close()
+            item, identity, started = self._prepare(target)
             self._active[target] = identity
             self._executor.submit(self._run, item, identity, started)
             return identity
 
-    def _run(self, item: dict, identity: int, started) -> None:
+    def _run(self, item: dict, identity: int, started) -> bool:
         result = None
         error = None
         try:
@@ -83,10 +76,12 @@ class BackupManager:
                 db.close()
         except Exception:
             logging.exception('Could not record completion of backup %s', identity)
-            # Keep the target blocked until restart rather than permit an uncertain retry.
-            return
+            return False
         with self._lock:
             self._active.pop(item['modelElement'], None)
+        if error:
+            logging.error('Backup %s failed: %s', identity, error)
+        return error is None
 
     def stop(self) -> None:
         with self._lock:

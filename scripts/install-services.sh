@@ -8,6 +8,7 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 settings_output=$(python3 -B - <<'PY'
 from pathlib import Path
 import stat
+import grp
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 
@@ -16,8 +17,9 @@ if installation.is_symlink() or Path.cwd().resolve() == installation.resolve():
     raise SystemExit('Run deployment from a separate checkout; installation must not be a symlink.')
 path = Path(DCmdb.DATABASE_ENV)
 info = path.lstat()
-if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o600:
-    raise SystemExit('Credentials must be a root-owned regular file with mode 600.')
+if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o640
+        or info.st_gid != grp.getgrnam(DCmdb.SERVICE_USER).gr_gid):
+    raise SystemExit('Credentials must be a root:cmdb regular file with mode 640; run install.sh first.')
 values = DatabaseEnvironment.read(path)
 if values['DB_NAME'] != DCmdb.DATABASE_NAME or values['DB_USER'] != DCmdb.DATABASE_USER:
     raise SystemExit('Credentials do not belong to CMDB; run install.sh first.')
@@ -38,6 +40,7 @@ command -v sudo >/dev/null
 command -v visudo >/dev/null
 command -v ssh >/dev/null
 command -v ssh-keygen >/dev/null
+command -v crontab >/dev/null
 [[ -x /usr/bin/nmap ]] || { printf 'Install /usr/bin/nmap before deploying CMDB.\n' >&2; exit 1; }
 
 # Validate the complete rule before atomically installing it.
@@ -93,7 +96,7 @@ destination = Path(DCmdb.BASE_DIR)
 shutil.copytree('cmdb', destination / 'cmdb', dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
 shutil.copytree('schema', destination / 'schema', dirs_exist_ok=True)
-for name in ('cmdb-server.py', 'requirements.txt', 'VERSION'):
+for name in ('cmdb-server.py', 'cmdb-backup.py', 'requirements.txt', 'VERSION'):
     shutil.copy2(name, destination / name)
 template = Path('systemd', DCmdb.SERVICE_UNIT).read_text()
 unit = template.replace('@APP@', DCmdb.BASE_DIR).replace('@USER@', DCmdb.SERVICE_USER)
@@ -125,6 +128,7 @@ PY
 
 systemd-analyze verify "/etc/systemd/system/$unit"
 systemctl daemon-reload
+systemctl enable --now cron
 systemctl enable --now "$unit"
 
 python3 -B - <<'PY'

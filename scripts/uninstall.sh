@@ -37,6 +37,11 @@ state = subprocess.run(
 if unit.exists() or unit.is_symlink() or state != 'not-found':
     subprocess.run(['systemctl', 'disable', '--now', DCmdb.SERVICE_UNIT], check=True)
 
+if (application / 'cmdb/interface/Cron.py').exists():
+    subprocess.run([str(application / '.venv/bin/python'), '-B', '-c',
+                    'from cmdb.interface.Cron import Cron; '
+                    f'Cron(user={DCmdb.SERVICE_USER!r}).clear()'], cwd=application, check=True)
+
 # Retain the database user and its password so installation can reuse the credentials.
 subprocess.run(mariadb, input=f'DROP DATABASE IF EXISTS `{DCmdb.DATABASE_NAME}`;\n',
                text=True, check=True)

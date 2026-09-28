@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from datetime import datetime
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 import pymysql
@@ -15,6 +16,8 @@ import pymysql
 from cmdb.entity.Machine import Machine
 from cmdb.entity.Backup import Backup
 from cmdb.interface.BackupDb import BackupDb
+from cmdb.activity.Scheduler import Scheduler
+from crontab import CronTab
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.DataManagerDb import DataManagerDb
@@ -343,10 +346,47 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         row = backups.databases()[0]
         self.assertEqual(row['lastBackup'], started)
         self.assertEqual(row['latestBackup'], failed)
-        abandoned = backups.start(target, started)
-        backups.recover()
-        self.assertEqual(backups.get(abandoned)['status'], 'failed')
+        running = backups.start(target, started)
+        self.assertEqual(backups.get(running)['status'], 'running')
         self.assertEqual(backups.get(identity)['status'], 'succeeded')
+
+    def test_cron_policy_and_independent_runner_persist_outcomes_without_web_service(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='sally.example'))
+        DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
+        target = BackupDb(self.db).databases()[0]['modelElement']
+        def connection():
+            db = DbMgr.__new__(DbMgr)
+            db._connection = pymysql.connect(unix_socket=os.environ['CMDB_TEST_DB_SOCKET'],
+                user='root', database=self.database, autocommit=True, cursorclass=pymysql.cursors.DictCursor)
+            return db
+        tab = CronTab(tab='15 4 * * * /bin/true # unrelated\n')
+        with patch('cmdb.activity.Scheduler.DbMgr', side_effect=connection), \
+                patch('cmdb.activity.BackupManager.DbMgr', side_effect=connection), \
+                patch('cmdb.interface.Cron.CronTab', return_value=tab), \
+                patch('cmdb.activity.BackupManager.SSHDb') as remote:
+            scheduler = Scheduler()
+            schedule = scheduler.update(target, True, 'daily', '2-weeks')
+            self.assertEqual(BackupDb(self.db).databases()[0]['retention'], '2-weeks')
+            same = scheduler.update(target, True, 'daily', 'forever')
+            self.assertEqual(schedule['id'], same['id'])
+            self.assertEqual(len(list(tab.find_comment('cmdb-backup-schedule-' + str(schedule['id'])))), 1)
+            existing = BackupDb(self.db).start(target, datetime(2026, 9, 28))
+            remote.return_value.backup_db.return_value = dict(pathname='sally/db/test.dump', sizeBytes=42, checksum='a' * 64)
+            self.assertTrue(scheduler.run(schedule['id']))
+            self.assertEqual(BackupDb(self.db).get(existing)['status'], 'running')
+            stored = self.db.query("SELECT * FROM Backup WHERE status='succeeded'")[0]
+            self.assertEqual((stored['modelElement'], stored['sizeBytes']), (target, 42))
+            remote.return_value.backup_db.side_effect = subprocess.CalledProcessError(1, 'dump', stderr='Permission denied')
+            self.assertFalse(scheduler.run(schedule['id']))
+            self.assertEqual(self.db.query("SELECT error FROM Backup WHERE status='failed'")[0]['error'], 'Permission denied')
+            scheduler.update(target, False, 'daily', 'forever')
+            self.assertEqual(len(tab), 1)
+            remote.reset_mock()
+            self.assertTrue(scheduler.run(schedule['id']))
+            remote.assert_not_called()
+            scheduler.delete(schedule['id'])
+            self.assertTrue(scheduler.run(schedule['id']))
+            self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM Backup')[0]['n'], 3)
 
     def test_backup_files_include_only_successes_in_completion_order(self):
         machine = self.machines.upsert(Machine('192.0.2.7', hostName='sally.example'))

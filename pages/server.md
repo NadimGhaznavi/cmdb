@@ -16,6 +16,8 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
 | `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
+| `POST /api/backup-schedules` | Saves modelElement, enabled, daily frequency, and retention; creates or removes the schedule's cron entry. |
+| `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
@@ -33,10 +35,11 @@ initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
 as the inventory graph, or the IP address when unnamed. Each section contains
 Database, Enabled, Frequency, Retention, Last Backup, and Actions columns.
-Enabled starts unchecked, Frequency is fixed to Daily, and Retention offers
-1 week (the default), 2 weeks, 1 month, and Forever. These controls are currently
-a UI preview: values are not saved and reset when the view reloads. Update stays
-disabled. Backup Now runs a manual backup independently of Enabled, displays
+For a new policy, Enabled starts unchecked, Frequency is fixed to Daily, and Retention offers
+1 week (the default), 2 weeks, 1 month, and Forever. Update persists these settings
+and creates or removes the noon cron job. Existing settings are loaded when the
+page opens. Retention deletion remains unimplemented.
+Backup Now runs a manual backup independently of Enabled, displays
 progress or failure, and updates Last Backup after success. Wide tables scroll
 horizontally on narrow screens. See [manual backups]({{ site.baseurl }}{% link pages/backups.md %}).
 The system databases `mysql`,

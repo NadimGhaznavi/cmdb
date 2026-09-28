@@ -70,6 +70,9 @@ async function loadBackups() {
         row.querySelector('[data-field="enabled"]').setAttribute("aria-label", `Enable backups for ${name} on ${host}`);
         row.querySelector('[data-field="retention"]').setAttribute("aria-label", `Retention for ${name} on ${host}`);
         const element = row.querySelector("tr");
+        element.querySelector('[data-field="enabled"]').checked = Boolean(database.enabled);
+        element.querySelector('[data-field="retention"]').value = database.retention || "1-week";
+        element.querySelector('[data-action="update"]').addEventListener("click", () => updateSchedule(element, database.modelElement));
         element.querySelector('[data-field="lastBackup"]').textContent = database.lastBackup
           ? localTimestamp(database.lastBackup) : "---";
         const button = element.querySelector('[data-action="backup"]');
@@ -89,6 +92,29 @@ async function loadBackups() {
     status.textContent = groups.size ? "" : "No databases discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Databases could not be loaded. Return to Inventory and try again.";
+  }
+}
+
+async function updateSchedule(row, modelElement) {
+  const button = row.querySelector('[data-action="update"]');
+  const enabled = row.querySelector('[data-field="enabled"]');
+  const retention = row.querySelector('[data-field="retention"]');
+  const status = row.querySelector('.schedule-row-status');
+  const settings = { modelElement, enabled: enabled.checked, frequency: "daily", retention: retention.value };
+  button.disabled = enabled.disabled = retention.disabled = true;
+  status.textContent = "Saving schedule…";
+  try {
+    const response = await fetch('/api/backup-schedules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not save the schedule.");
+    status.textContent = result.schedule.enabled ? "Daily schedule saved." : "Schedule disabled.";
+  } catch (error) {
+    status.textContent = `${error.message} Reopen Backups to check saved settings before retrying.`;
+  } finally {
+    button.disabled = enabled.disabled = retention.disabled = false;
   }
 }
 

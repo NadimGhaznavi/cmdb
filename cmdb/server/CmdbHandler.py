@@ -16,6 +16,7 @@ from cmdb.constants.DCmdb import DCmdb
 from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.BackupDb import BackupDb
+from cmdb.activity.Scheduler import Scheduler
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.entity.Machine import Machine
@@ -86,9 +87,6 @@ class CmdbHandler(BaseHTTPRequestHandler):
                          .encode("utf-8"), "application/json")
         elif path == '/api/backups' or path.startswith('/api/backups/'):
             try:
-                manager = getattr(self.server, 'backup_manager', None)
-                if manager is not None:
-                    manager.recover()
                 db = DbMgr()
                 try:
                     backups = BackupDb(db)
@@ -123,6 +121,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == '/api/backup-schedules':
+            self.update_schedule()
+            return
         if urlsplit(self.path).path == '/api/backups':
             self.request_backup()
             return
@@ -209,6 +210,45 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(503, b'{"error":"Could not start the backup."}', 'application/json')
             return
         self.respond(202, json.dumps({'backupId': identity}).encode(), 'application/json')
+
+    def update_schedule(self) -> None:
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError
+            values = json.loads(self.rfile.read(length))
+            if not isinstance(values, dict) or values.keys() != {'modelElement', 'enabled', 'frequency', 'retention'}:
+                raise ValueError
+            schedule = Scheduler().update(**values)
+        except (ValueError, UnicodeError):
+            self.respond(400, b'{"error":"Provide valid daily backup settings."}', 'application/json')
+            return
+        except LookupError:
+            self.respond(404, b'{"error":"User database not found."}', 'application/json')
+            return
+        except (OSError, RuntimeError, pymysql.MySQLError):
+            logging.exception('Could not update backup schedule')
+            self.respond(503, b'{"error":"Could not save the schedule and cron entry. Check the service log and retry."}', 'application/json')
+            return
+        self.respond(200, json.dumps({'schedule': schedule}).encode(), 'application/json')
+
+    def do_DELETE(self) -> None:
+        path = urlsplit(self.path).path
+        identity = path.removeprefix('/api/backup-schedules/')
+        if (not path.startswith('/api/backup-schedules/') or not identity.isdecimal()
+                or len(identity) > 20 or not 0 < int(identity) < 2**64):
+            self.respond(404, b'{"error":"Schedule not found."}', 'application/json')
+            return
+        try:
+            Scheduler().delete(int(identity))
+        except (OSError, RuntimeError, pymysql.MySQLError):
+            logging.exception('Could not delete backup schedule')
+            self.respond(503, b'{"error":"Could not delete the schedule and cron entry."}', 'application/json')
+            return
+        self.respond(200, b'{"status":"deleted"}', 'application/json')
 
     def respond(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)

@@ -43,6 +43,8 @@ class UninstallTests(unittest.TestCase):
             (['mariadb', '--protocol=socket', '--user=root'], 'SELECT 1;\n'),
             (['systemctl', 'show', DCmdb.SERVICE_UNIT, '--property=LoadState', '--value'], None),
             (['systemctl', 'disable', '--now', DCmdb.SERVICE_UNIT], None),
+            (['/opt/prod/cmdb/.venv/bin/python', '-B', '-c',
+              "from cmdb.interface.Cron import Cron; Cron(user='cmdb').clear()"], None),
             (['mariadb', '--protocol=socket', '--user=root'], 'DROP DATABASE IF EXISTS `cmdb`;\n'),
             (['systemctl', 'daemon-reload'], None),
         ])

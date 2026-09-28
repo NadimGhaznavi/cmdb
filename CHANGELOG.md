@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-28 @ 17:23
+
 ### Added
 
 - Add Patching with Debian hosts and Patch Now, backed by an independent runner

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-09-28 @ 06:49
+
 ### Added
 
 - Optional Machine `macAddress`, populated from Nmap when available, persisted

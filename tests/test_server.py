@@ -91,6 +91,39 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.get('/api/backups/42')[0], 404)
         self.assertEqual(self.get('/api/backups/invalid')[0], 404)
 
+    @patch('cmdb.server.CmdbHandler.Scheduler')
+    def test_schedule_update_and_delete(self, scheduler):
+        values = dict(modelElement=7, enabled=True, frequency='daily', retention='2-weeks')
+        scheduler.return_value.update.return_value = dict(id=12, **values)
+        connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
+        try:
+            connection.request('POST', '/api/backup-schedules', json.dumps(values), {'Content-Type': 'application/json'})
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(json.loads(response.read())['schedule']['id'], 12)
+            scheduler.return_value.update.assert_called_once_with(**values)
+            connection.request('DELETE', '/api/backup-schedules/12')
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            response.read()
+            scheduler.return_value.delete.assert_called_once_with(12)
+        finally:
+            connection.close()
+
+    @patch('cmdb.server.CmdbHandler.Scheduler')
+    def test_invalid_schedule_body_and_cron_error(self, scheduler):
+        for values, status in [({'modelElement': 7}, 400),
+                               (dict(modelElement=7, enabled=True, frequency='daily', retention='forever'), 503)]:
+            scheduler.return_value.update.side_effect = OSError('cron denied')
+            connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
+            try:
+                connection.request('POST', '/api/backup-schedules', json.dumps(values), {'Content-Type': 'application/json'})
+                response = connection.getresponse()
+                self.assertEqual(response.status, status)
+                self.assertIn('error', json.loads(response.read()))
+            finally:
+                connection.close()
+
     def test_refresh_signals_server_worker_and_exposes_completion(self):
         scanner = self.server.machine_scanner = Mock()
         scanner.request_scan.return_value = 7

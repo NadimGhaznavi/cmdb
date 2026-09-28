@@ -17,6 +17,7 @@ command -v sudo >/dev/null
 command -v visudo >/dev/null
 command -v ssh >/dev/null
 command -v ssh-keygen >/dev/null
+command -v crontab >/dev/null
 [[ -x /usr/bin/nmap ]] || { printf 'Install /usr/bin/nmap before installing CMDB.\n' >&2; exit 1; }
 python3 -B - <<'PY'
 import sys
@@ -54,6 +55,7 @@ from pathlib import Path
 import re
 import secrets
 import stat
+import grp
 import subprocess
 from cmdb.constants.DDbMgr import DDbMgr
 from cmdb.constants.DCmdb import DCmdb
@@ -66,8 +68,10 @@ if path.is_symlink():
     raise SystemExit('Credentials must not be a symbolic link.')
 if path.exists():
     info = path.stat()
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o600:
-        raise SystemExit('Existing credentials must be root-owned with mode 600.')
+    mode = stat.S_IMODE(info.st_mode)
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or mode not in (0o600, 0o640)
+            or (mode == 0o640 and info.st_gid != grp.getgrnam(DCmdb.SERVICE_USER).gr_gid)):
+        raise SystemExit('Existing credentials must be root-owned with mode 600 or root:cmdb mode 640.')
     values = DatabaseEnvironment.read(path)
     if any(values[key] != value for key, value in expected.items()):
         raise SystemExit('Existing credentials do not match CMDB.')
@@ -81,6 +85,10 @@ else:
     with os.fdopen(descriptor, 'w') as stream:
         for key, value in {**expected, 'DB_PASSWORD': password}.items():
             stream.write(f'{key}={value}\n')
+
+# The independent cron runner needs read access without access to modify credentials.
+os.chown(path, 0, grp.getgrnam(DCmdb.SERVICE_USER).gr_gid)
+path.chmod(0o640)
 
 database, user = DCmdb.DATABASE_NAME, DCmdb.DATABASE_USER
 sql = (f'CREATE DATABASE IF NOT EXISTS `{database}` CHARACTER SET utf8mb4;\n'

@@ -331,14 +331,21 @@ async function loadPatchingHosts() {
         enabled.addEventListener('change', () => { row.dataset.scheduleDirty = 'true'; });
         enabledCell.append(enabled);
         const scheduleCell = document.createElement('td');
-        const expression = document.createElement('input');
-        expression.type = 'text';
-        expression.maxLength = 255;
-        expression.placeholder = '0 12 * * 0';
-        expression.dataset.field = 'expression';
-        expression.setAttribute('aria-label', `Cron schedule for ${machineLabel(host)}`);
-        expression.setAttribute('aria-describedby', 'patch-schedule-help');
-        expression.addEventListener('input', () => { row.dataset.scheduleDirty = 'true'; });
+        const expression = document.createElement('div');
+        expression.className = 'cron-fields';
+        for (const [name, maximum] of [['Minute', 59], ['Hour', 23], ['Day of month', 31], ['Month', 12], ['Day of week', 7]]) {
+          const label = document.createElement('label');
+          label.textContent = name;
+          const select = document.createElement('select');
+          select.dataset.field = 'cron';
+          select.setAttribute('aria-label', `${name} for ${machineLabel(host)}`);
+          select.add(new Option('---', ''));
+          select.add(new Option('Every (*)', '*'));
+          for (let value = 0; value <= maximum; value++) select.add(new Option(String(value), String(value)));
+          select.addEventListener('change', () => { row.dataset.scheduleDirty = 'true'; });
+          label.append(select);
+          expression.append(label);
+        }
         const scheduleStatus = document.createElement('p');
         scheduleStatus.className = 'schedule-row-status';
         scheduleStatus.setAttribute('role', 'status');
@@ -366,9 +373,8 @@ async function loadPatchingHosts() {
       updateText(row.cells[0], machineLabel(host));
       if (!row.dataset.scheduleDirty && !row.dataset.scheduleSaving) {
         const enabled = row.querySelector('[data-field="scheduleEnabled"]');
-        const expression = row.querySelector('[data-field="expression"]');
         enabled.checked = Boolean(host.schedule?.enabled);
-        if (expression.value !== (host.schedule?.expression || '')) expression.value = host.schedule?.expression || '';
+        setCronFields(row, host.schedule?.expression || '');
       }
       const button = row.querySelector('[data-action="patch"]');
       const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);
@@ -391,24 +397,35 @@ async function loadPatchingHosts() {
   }
 }
 
+function setCronFields(row, expression) {
+  const values = expression.trim().split(/\s+/);
+  row.querySelectorAll('[data-field="cron"]').forEach((select, index) => {
+    const value = values[index] || '';
+    // Preserve existing ranges, steps, lists, and names when loading saved cron.
+    if (![...select.options].some(option => option.value === value)) select.add(new Option(value, value));
+    if (select.value !== value) select.value = value;
+  });
+}
+
 async function savePatchSchedule(row, machine) {
   const enabled = row.querySelector('[data-field="scheduleEnabled"]');
-  const expression = row.querySelector('[data-field="expression"]');
+  const fields = [...row.querySelectorAll('[data-field="cron"]')];
   const button = row.querySelector('[data-action="schedule"]');
   const status = row.querySelector('.schedule-row-status');
   row.dataset.scheduleSaving = 'true';
-  enabled.disabled = expression.disabled = button.disabled = true;
+  enabled.disabled = button.disabled = true;
+  fields.forEach(field => { field.disabled = true; });
   updateText(status, 'Saving schedule…');
   try {
     const response = await fetch('/api/patch-schedules', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ machine, enabled: enabled.checked, expression: expression.value }),
+      body: JSON.stringify({ machine, enabled: enabled.checked, expression: fields.map(field => field.value).join(' ') }),
       signal: AbortSignal.timeout(15000),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not save patch schedule.');
     enabled.checked = Boolean(result.schedule.enabled);
-    expression.value = result.schedule.expression;
+    setCronFields(row, result.schedule.expression);
     delete row.dataset.scheduleDirty;
     // Discard any host response started before this save completed.
     ++patchingRequest;
@@ -418,7 +435,8 @@ async function savePatchSchedule(row, machine) {
     updateText(status, error.message);
   } finally {
     delete row.dataset.scheduleSaving;
-    enabled.disabled = expression.disabled = button.disabled = false;
+    enabled.disabled = button.disabled = false;
+    fields.forEach(field => { field.disabled = false; });
   }
 }
 

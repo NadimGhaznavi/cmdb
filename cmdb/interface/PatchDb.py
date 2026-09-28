@@ -10,7 +10,7 @@ class PatchDb:
     def hosts(self):
         hosts = SoftwareDeploymentDb(self.db).debian_hosts()
         for host in hosts:
-            rows = self.db.query('SELECT * FROM Patch WHERE machine=%s ORDER BY id DESC LIMIT 1', (host['id'],))
+            rows = self.db.query('SELECT id, status, error FROM Patch WHERE machine=%s ORDER BY id DESC LIMIT 1', (host['id'],))
             host['job'] = rows[0] if rows else None
         return hosts
 
@@ -30,7 +30,7 @@ class PatchDb:
         return self.db.query(
             "SELECT p.id, COALESCE(p.startedOn, p.createdOn) AS patchTime, "
             "TIMESTAMPDIFF(SECOND, p.startedOn, p.completedOn) AS elapsedSeconds, "
-            "m.hostName, p.address AS ipAddress, p.status, p.error, p.output "
+            "m.hostName, p.address AS ipAddress, p.status, p.error "
             "FROM Patch p JOIN Machine m ON m.id=p.machine ORDER BY p.id DESC LIMIT 100")
 
     def next(self):
@@ -40,8 +40,8 @@ class PatchDb:
     def start(self, identity, boot):
         self.db.execute("UPDATE Patch SET status='patching', startedOn=UTC_TIMESTAMP(), bootId=%s WHERE id=%s", (boot, identity))
 
-    def rebooting(self, identity, output):
-        self.db.execute("UPDATE Patch SET status='rebooting', rebootOn=UTC_TIMESTAMP(), output=%s WHERE id=%s", (output[-60000:], identity))
+    def rebooting(self, identity):
+        self.db.execute("UPDATE Patch SET status='rebooting', rebootOn=UTC_TIMESTAMP() WHERE id=%s", (identity,))
 
     def finish(self, identity, error=None):
         self.db.execute('UPDATE Patch SET status=%s, completedOn=UTC_TIMESTAMP(), error=%s WHERE id=%s',

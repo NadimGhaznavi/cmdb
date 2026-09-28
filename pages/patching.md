@@ -22,7 +22,7 @@ including queued, running, successful, and failed jobs. Columns show Patch Time
 (browser-local time), Machine, Elapsed Time (`HH:MM:SS`), Status, and Details.
 Patch Time uses the start time, or queue time before execution begins. Elapsed
 time covers execution through reboot verification and is blank until completion.
-Details show any error and expandable package output. The report refreshes when
+Details show any error. Apt output is not stored. The report refreshes when
 the page opens and with active job polling.
 
 ## Execution and constraints
@@ -46,7 +46,7 @@ an empty `dpkg --audit`, and a successful `apt-get check`. A degraded system fai
 verification, including when a service was already failing before patching.
 These are host/package health checks, not application-specific health checks.
 
-The runner stores job stages, timestamps, bounded package output, and errors.
+The runner stores job stages, timestamps, and errors.
 Elapsed time can be derived from the start and completion timestamps.
 If Neuromancer reboots, the runner service starts at boot and resumes the recorded
 reboot verification without applying updates again. An interruption during apt

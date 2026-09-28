@@ -14,6 +14,5 @@ class Patch:
     rebootOn: datetime | None = None
     completedOn: datetime | None = None
     bootId: str | None = None
-    output: str | None = None
     error: str | None = None
     id: int | None = None

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-09-28 @ 09:03
+
 ### Changed
 
 - Move MachineScanner to `cmdb/activity`, keeping its lifecycle managed by the server.

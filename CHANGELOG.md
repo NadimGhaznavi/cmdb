@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-28 @ 12:51
+
 ### Added
 
 - Add a top-right Backups link that replaces the inventory panel with a database

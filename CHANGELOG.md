@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-27 @ 20:48
+
+### Fixed
+
+- Limited the generated-site vendor ignore rule to the repository root so the
+  bundled Cytoscape.js library and license can be included in deployments.
+
 ## [0.3.1] - 2026-09-27 @ 20:39
 
 ### Changed

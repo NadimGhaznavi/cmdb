@@ -7,6 +7,17 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Show deployed software as rounded rectangles inside machine nodes, with
+  labels such as `Debian (trixie) 13.6` from SoftwareSystem and its codename tag.
+
+### Changed
+
+- Hide Site in the machine details display.
+
+- Set SoftwareSystem supplier to `Debian` for host releases with `ID=debian`.
+
 ## [0.6.0] - 2026-09-28 @ 09:30
 
 ### Added

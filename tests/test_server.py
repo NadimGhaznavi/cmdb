@@ -165,7 +165,7 @@ class ServerTests(unittest.TestCase):
             'site': None,
             'createdOn': datetime(2026, 9, 27, 12, 0), 'updatedOn': datetime(2026, 9, 27, 13, 0),
         }], [{'id': 21, 'machine': 7}, {'id': 22, 'machine': 7}],
-            [{'id': 21, 'namespace': 7}, {'id': 22, 'namespace': 7}]]
+            [{'id': 21, 'namespace': 7}, {'id': 22, 'namespace': 7}], []]
         status, body = self.get('/api/machines')
         self.assertEqual(status, 200)
         record = json.loads(body)['machines'][0]
@@ -181,7 +181,7 @@ class ServerTests(unittest.TestCase):
     def test_empty_machine_inventory(self, factory):
         factory.return_value.query.return_value = []
         status, body = self.get('/api/machines')
-        self.assertEqual((status, json.loads(body)), (200, {'machines': []}))
+        self.assertEqual((status, json.loads(body)), (200, {'machines': [], 'softwareDeployments': []}))
         factory.return_value.close.assert_called_once()
 
     @patch('cmdb.server.CmdbHandler.DbMgr')

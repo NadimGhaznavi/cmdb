@@ -29,7 +29,12 @@ the page. It shows Scanning while waiting and an error if the scan fails.
 Requests during an active scan share that scan; scans never overlap.
 Save or cancel a hostname edit before refreshing.
 Nodes use bold white 16px labels. Named machines have dark green rounded
-rectangles of size 160 × 80; unnamed machines have grey circles. Selection
+rectangles of size 160 × 80 when empty; unnamed machines have grey circles.
+Machines with deployed software expand into rounded containers with the machine
+name above nested software rectangles. Software labels include the subtype,
+codename when present, and version, such as `Debian (trixie) 13.6`.
+Machines remain arranged in a circle. Clicking an inner rectangle selects its
+containing machine; the dropdown continues to list only machines. Selection
 lightens the corresponding color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines

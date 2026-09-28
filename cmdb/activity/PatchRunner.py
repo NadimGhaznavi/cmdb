@@ -32,8 +32,8 @@ class PatchRunner:
             if job['status'] == 'queued':
                 job['bootId'] = str(UUID(remote.run(address, 'probe').strip()))
                 self.record('start', identity, job['bootId'])
-                output = remote.run(address, 'patch')
-                self.record('rebooting', identity, output)
+                remote.run(address, 'patch')
+                self.record('rebooting', identity)
                 job['rebootOn'] = now()
                 remote.run(address, 'reboot')
             deadline = job['rebootOn'] + timedelta(minutes=15)

@@ -345,16 +345,7 @@ async function loadPatchReport() {
         error.textContent = run.error;
         cell.append(error);
       }
-      if (run.output) {
-        const details = document.createElement('details');
-        const summary = document.createElement('summary');
-        summary.textContent = 'Package output';
-        const output = document.createElement('pre');
-        output.textContent = run.output;
-        details.append(summary, output);
-        cell.append(details);
-      }
-      if (!run.error && !run.output) cell.textContent = '---';
+      if (!run.error) cell.textContent = '---';
       row.append(cell);
       body.append(row);
     }

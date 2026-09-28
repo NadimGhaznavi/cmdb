@@ -74,7 +74,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         identity = records.request(debian)
         self.assertEqual(records.request(debian), identity)
         records.start(identity, '11111111-1111-1111-1111-111111111111')
-        records.rebooting(identity, '0 upgraded')
+        records.rebooting(identity)
         self.assertEqual(records.next()['status'], 'rebooting')
         records.finish(identity)
         self.assertIsNone(records.next())
@@ -87,7 +87,8 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertIsNone(report[0]['elapsedSeconds'])
         self.assertEqual(report[1]['status'], 'succeeded')
         self.assertGreaterEqual(report[1]['elapsedSeconds'], 0)
-        self.assertEqual(report[1]['output'], '0 upgraded')
+        self.assertNotIn('output', report[1])
+        self.assertNotIn('output', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM Patch')})
 
     def test_discovery_populates_relationships_and_repeat_scans_reuse_records(self):
         machine = self.machines.upsert(Machine("192.168.0.7", hostName="worker"))

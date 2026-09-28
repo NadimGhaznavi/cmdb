@@ -7,6 +7,24 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-09-28 @ 17:53
+
+### Changed
+
+- Remove stored apt output from patch jobs and Patch Report; retain status, timing,
+  and errors. Remove the Patch output column from the schema.
+
+### Upgrade instructions
+
+After upgrading the application, run this once in the existing CMDB database to
+remove the old apt output column and its stored contents:
+
+```sql
+ALTER TABLE Patch DROP COLUMN output;
+```
+
+Fresh installations already omit this column and need no manual change.
+
 ## [0.11.1] - 2026-09-28 @ 17:46
 
 ### Changed

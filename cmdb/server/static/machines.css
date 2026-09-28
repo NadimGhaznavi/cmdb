@@ -26,7 +26,6 @@
 #patching-page .backups-table { min-width: 30rem; }
 .patch-row-status { max-width: 32rem; white-space: pre-wrap; }
 .patch-row-status:empty { display: none; }
-#patch-report-rows pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 40rem; max-height: 20rem; overflow-y: auto; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }

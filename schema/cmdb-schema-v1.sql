@@ -137,7 +137,6 @@ CREATE TABLE IF NOT EXISTS Patch (
     rebootOn DATETIME(6) NULL,
     completedOn DATETIME(6) NULL,
     bootId CHAR(36) NULL,
-    output MEDIUMTEXT NULL,
     error TEXT NULL,
     KEY Patch_queue_idx (status, id),
     CONSTRAINT Patch_Machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),

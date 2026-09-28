@@ -7,6 +7,20 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Show Elapsed Time (`HH:MM:SS`) for backup files, measured from the CMDB job's
+  start through completion, including queue time and preparation.
+- Add a Backup Files table beneath Live Databases, showing successful backups
+  newest first with backup time, machine, database, and FQDN. Refresh it after
+  a manual backup completes.
+
+### Changed
+
+- Use “Processing backup job...” while a backup is starting or running.
+- Simplify dump filenames to `YYYY-MM-DD_HH:MM:SS`, removing fractional seconds
+  and the attempt-ID suffix.
+
 ## [0.9.7] - 2026-09-28 @ 14:52
 
 ### Fixed

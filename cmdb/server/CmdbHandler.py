@@ -94,6 +94,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
                     backups = BackupDb(db)
                     if path == '/api/backups':
                         result = {'databases': backups.databases(), 'hosts': backups.hosts()}
+                    elif path == '/api/backups/files':
+                        result = {'files': backups.files()}
                     else:
                         identity = path.removeprefix('/api/backups/')
                         result = backups.get(int(identity)) if identity.isdecimal() and len(identity) <= 20 and 0 < int(identity) < 2**64 else None

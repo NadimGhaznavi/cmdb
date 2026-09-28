@@ -24,6 +24,8 @@
 .backup-host[open] summary { margin-bottom: .5rem; }
 #backups-status { color: #bbb; }
 #backups-status:empty { display: none; }
+#backup-files-status { color: #bbb; }
+#backup-files-status:empty { display: none; }
 body {
   background: #17191c;
   color: #eee;

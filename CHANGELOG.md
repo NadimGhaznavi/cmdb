@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.11] - 2026-09-28 @ 15:27
+
 ### Changed
 
 - Combine the application and view names into one heading: CMDB Inventory or

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-28 @ 19:25
+
 ### Added
 
 - Add confirmed database deletion to Live Databases, protecting cmdb and system

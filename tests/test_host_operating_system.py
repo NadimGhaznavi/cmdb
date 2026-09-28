@@ -16,7 +16,7 @@ class HostOperatingSystemTests(TestCase):
     def test_debian_full_version_and_codename(self):
         self.assertEqual(operating_system(
             'ID=debian\nVERSION_ID=13\nDEBIAN_VERSION_FULL=13.6\nVERSION_CODENAME=trixie\n'),
-            SoftwareSystem(type="linux", subtype="debian", version="13.6",
+            SoftwareSystem(type="linux", subtype="debian", supplier="Debian", version="13.6",
                            taggedValue=[TaggedValue(tag="VERSION_CODENAME", value="trixie")]))
 
     def test_other_distributions_use_version_id(self):

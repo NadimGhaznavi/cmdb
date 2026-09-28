@@ -27,10 +27,12 @@ def operating_system(contents: str) -> SoftwareSystem | None:
     if not fields.get("ID"):
         return None
     version = fields.get("VERSION_ID")
+    supplier = fields.get("VENDOR_NAME")
     if fields["ID"] == "debian":
         version = fields.get("DEBIAN_VERSION_FULL") or version
+        supplier = "Debian"
     tags = []
     if fields.get("VERSION_CODENAME"):
         tags.append(TaggedValue(tag="VERSION_CODENAME", value=fields["VERSION_CODENAME"]))
     return SoftwareSystem(type="linux", subtype=fields["ID"],
-                          supplier=fields.get("VENDOR_NAME"), version=version, taggedValue=tags)
+                          supplier=supplier, version=version, taggedValue=tags)

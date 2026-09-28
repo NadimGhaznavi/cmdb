@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Set SoftwareSystem supplier to `Debian` for host releases with `ID=debian`.
+
 ## [0.6.0] - 2026-09-28 @ 09:30
 
 ### Added

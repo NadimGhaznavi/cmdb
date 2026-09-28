@@ -103,7 +103,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             self.assertEqual(rows[0]["id"], deployment)
             self.assertEqual(rows[0]["subtype"], "debian")
             self.assertEqual(rows[0]["version"], "13")
-            self.assertIsNone(rows[0]["supplier"])
+            self.assertEqual(rows[0]["supplier"], "Debian")
         self.assertEqual(self.db.query("SELECT COUNT(*) AS n FROM SoftwareSystem")[0]["n"], 2)
 
     def test_ssh_hostname_updates_only_the_identified_machine(self):

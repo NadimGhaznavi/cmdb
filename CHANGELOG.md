@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Move Scan Filesystem to the bottom-left corner of the Backup Vault panel.
+- Move Refresh and its timestamp inside the inventory panel, below the machine view.
+- Match Backup Vault's Scan Filesystem and Delete Record buttons to Inventory's
+  Refresh button styling.
+
 ## [0.10.3] - 2026-09-28 @ 16:19
 
 ### Changed

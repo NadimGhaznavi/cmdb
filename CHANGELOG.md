@@ -7,6 +7,16 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Show stored database names as the final Database(s) row in MariaDB details,
+  one name per line.
+
+### Removed
+
+- Remove Deployed Components from machine details and Codename from MariaDB
+  details in the GUI.
+
 ## [0.7.5] - 2026-09-28 @ 11:38
 
 ### Changed

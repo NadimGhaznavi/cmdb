@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-09-28 @ 16:19
+
 ### Changed
 
 - Show filenames in Backup Vault with the configured backup directory above the table.

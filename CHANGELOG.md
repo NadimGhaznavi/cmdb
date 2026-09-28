@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-09-28 @ 10:52
+
 ### Changed
 
 - Shorten MariaDB graph labels to the release number (for example, `MariaDB

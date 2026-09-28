@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-28 @ 11:47
+
 ### Added
 
 - Show stored database names as the final Database(s) row in MariaDB details,

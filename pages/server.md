@@ -15,6 +15,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `GET /api/backups` | Lists MariaDB user databases, model IDs, latest attempts, and last successful completion times. |
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
+| `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
@@ -27,7 +28,7 @@ connection.
 
 The homepage keeps the machine inventory graph. A Backups link at the top right
 switches the main panel to a Backups page and becomes an Inventory link to return.
-The Databases section groups stored databases into collapsible host sections,
+The Live Databases section groups stored databases into collapsible host sections,
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
 as the inventory graph, or the IP address when unnamed. Each section contains

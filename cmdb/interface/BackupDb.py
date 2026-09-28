@@ -32,6 +32,16 @@ class BackupDb:
         rows = self._db.query('SELECT * FROM Backup WHERE id=%s', (identity,))
         return rows[0] if rows else None
 
+    def files(self) -> list[dict]:
+        """Recorded successful database dumps, newest completion first."""
+        return self._db.query(
+            "SELECT b.id, b.completedOn AS backupTime, me.name AS databaseName, "
+            "m.hostName, m.ipAddress FROM Backup b "
+            "JOIN `Schema` s ON s.id=b.modelElement JOIN ModelElement me ON me.id=s.id "
+            "JOIN DataManager dm ON dm.id=me.namespace JOIN DeployedComponent dc ON dc.id=dm.id "
+            "JOIN Machine m ON m.id=dc.machine WHERE b.status='succeeded' "
+            "ORDER BY b.completedOn DESC, b.id DESC")
+
     def start(self, target: int, started) -> int:
         return self._db.insert('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)', (target, started))
 

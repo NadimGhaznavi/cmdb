@@ -8,6 +8,14 @@ Expand a host on Backups and click Backup Now beside a user database. This actio
 does not depend on Enabled or a saved schedule. Scheduling, Update, and retention
 deletion are not implemented.
 
+Below Live Databases, Backup Files lists all recorded successful database backups,
+newest completion first (newest record first when times match). Its columns are
+Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Machine (short hostname
+or IP address), Database, and FQDN (the full stored hostname, or a dash when absent).
+The table refreshes when the view opens and after an observed backup completes.
+It uses backup records and current inventory names; it does not scan the filesystem
+or verify that recorded files still exist. Failed and running attempts are excluded.
+
 ## Execution
 
 BackupManager records an attempt and queues it on a single worker. Duplicate
@@ -19,13 +27,14 @@ MariaDB socket. Neuromancer uses the existing local command path without SSH.
 `DCmdb.BACKUP_DIR` is `/imports/backups`. The output location is:
 
 ```text
-/imports/backups/<host>/db/mariadb-<host>-<database>-<UTC timestamp>-<attempt ID>.dump
+/imports/backups/<host>/db/mariadb-<host>-<database>-YYYY-MM-DD_HH:MM:SS.dump
 ```
 
 The host is the short inventory hostname, falling back to its IP. Unsafe filename
 characters are percent-encoded. The database part is limited to 80 encoded
-characters. UTC start timestamps include seconds and microseconds to distinguish
-attempts. The record stores the relative pathname, size, and SHA-256 checksum.
+characters. Filenames use the UTC start date and time to the second, without
+fractional seconds or an attempt-ID suffix. An existing filename is never
+overwritten. The record stores the relative pathname, size, and SHA-256 checksum.
 
 The host first accesses the base directory, triggering autofs where configured.
 Local storage is also supported, including the backing directory on Wintermute,

@@ -348,6 +348,27 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(backups.get(abandoned)['status'], 'failed')
         self.assertEqual(backups.get(identity)['status'], 'succeeded')
 
+    def test_backup_files_include_only_successes_in_completion_order(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='sally.example'))
+        DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
+        backups = BackupDb(self.db)
+        target = backups.databases()[0]['modelElement']
+        self.assertEqual(backups.files(), [])
+        earlier, later = datetime(2026, 9, 28, 12), datetime(2026, 9, 28, 13)
+        identities = []
+        for completed in (later, earlier, later):
+            identity = backups.start(target, earlier)
+            backups.finish(identity, completed, result=dict(pathname=f'host/db/{identity}.dump',
+                                                            sizeBytes=1, checksum='a' * 64))
+            identities.append(identity)
+        failed = backups.start(target, later)
+        backups.finish(failed, later, error='Dump failed')
+        backups.start(target, later)
+        files = backups.files()
+        self.assertEqual([row['id'] for row in files], [identities[2], identities[0], identities[1]])
+        self.assertEqual(files[0], dict(id=identities[2], backupTime=later, databaseName='cmdb',
+                                       hostName='sally.example', ipAddress='192.0.2.7'))
+
     def test_backup_schedule_rejects_invalid_policy_values(self):
         target = NamespaceDb(self.db).create(name='backup target')
         self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))

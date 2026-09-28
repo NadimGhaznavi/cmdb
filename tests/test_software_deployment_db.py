@@ -124,6 +124,42 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         with self.assertRaises(pymysql.IntegrityError):
             self.db.execute("UPDATE ModelElement SET namespace=%s WHERE id=%s", (999999, standalone))
 
+    def test_deployment_owner_must_match_on_insert_and_updates_to_either_table(self):
+        machine = self.machines.upsert(Machine("192.168.0.7"))
+        other_machine = self.machines.upsert(Machine("192.168.0.8"))
+        self.record(machine)
+        deployment = self.inventory()[0]
+        for owner in (None, other_machine):
+            with self.subTest(owner=owner), self.assertRaises(pymysql.IntegrityError):
+                with self.db.transaction():
+                    identity = NamespaceDb(self.db).create(namespace=owner)
+                    self.db.execute(
+                        "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
+                        (identity, "/invalid", machine, deployment["component"]),
+                    )
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute("UPDATE DeployedComponent SET machine=%s WHERE id=%s",
+                            (other_machine, deployment["id"]))
+        for owner in (None, other_machine):
+            with self.subTest(owner=owner), self.assertRaises(pymysql.IntegrityError):
+                self.db.execute("UPDATE ModelElement SET namespace=%s WHERE id=%s",
+                                (owner, deployment["id"]))
+        self.assertEqual(self.inventory(), [deployment])
+        self.assertEqual(self.db.query("SELECT namespace FROM ModelElement WHERE id=%s",
+                                       (deployment["id"],))[0]["namespace"], machine)
+
+    def test_matching_owner_must_still_be_a_machine(self):
+        machine = self.machines.upsert(Machine("192.168.0.7"))
+        self.record(machine)
+        deployment = self.inventory()[0]
+        with self.assertRaises(pymysql.IntegrityError):
+            with self.db.transaction():
+                identity = NamespaceDb(self.db).create(namespace=deployment["softwareSystem"])
+                self.db.execute(
+                    "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
+                    (identity, "/invalid", deployment["softwareSystem"], deployment["component"]),
+                )
+
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
         self.assertEqual(tables, {"ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})

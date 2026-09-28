@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Fixed
+
+- Enforce agreement between `DeployedComponent.machine` and inherited
+  `ModelElement.namespace` with a composite foreign key; document the invariant
+  in Schema Notes.
+
 ## [0.5.2] - 2026-09-28 @ 08:12
 
 ### Fixed

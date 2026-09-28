@@ -106,6 +106,9 @@ async function loadMachines() {
           "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
+        { selector: "node[?hostName]", style: {
+          "shape": "round-rectangle", "width": 160, "height": 80,
+        } },
         { selector: "node:selected", style: {
           "background-color": "#14532d", "border-color": "#fff", "border-width": 3,
         } },

@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Use 18px machine labels showing the capitalized, unqualified hostname when
+  available, otherwise the IP address.
+
 ## [0.3.4] - 2026-09-27 @ 20:57
 
 ### Changed

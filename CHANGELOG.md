@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Show filenames in Backup Vault with the configured backup directory above the table.
+- Add Scan Filesystem to mark recorded dumps Found or Missing without checksum checks.
+  Missing rows offer Delete Record, which rechecks absence and removes only the record.
+
 ## [0.10.1] - 2026-09-28 @ 16:04
 
 ### Changed

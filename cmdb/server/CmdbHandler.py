@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler
 from ipaddress import ip_address
 import json
 import logging
+import subprocess
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
@@ -16,6 +17,7 @@ from cmdb.constants.DCmdb import DCmdb
 from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.BackupDb import BackupDb
+from cmdb.interface.BackupFiles import BackupFiles
 from cmdb.activity.Scheduler import Scheduler
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -93,9 +95,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
                     if path == '/api/backups':
                         result = {'databases': backups.databases(), 'hosts': backups.hosts()}
                     elif path == '/api/backups/files':
-                        result = {'files': backups.files()}
+                        result = {'files': backups.files(), 'directory': DCmdb.BACKUP_DIR}
                         for record in result['files']:
-                            record['filename'] = str(PurePosixPath(DCmdb.BACKUP_DIR) / record['pathname'])
+                            record['filename'] = PurePosixPath(record['pathname']).name
                     else:
                         identity = path.removeprefix('/api/backups/')
                         result = backups.get(int(identity)) if identity.isdecimal() and len(identity) <= 20 and 0 < int(identity) < 2**64 else None
@@ -121,6 +123,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == '/api/backups/files/scan':
+            self.scan_backup_files()
+            return
         if urlsplit(self.path).path == '/api/backup-schedules':
             self.update_schedule()
             return
@@ -237,6 +242,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         path = urlsplit(self.path).path
+        if path.startswith('/api/backups/files/'):
+            self.delete_backup_record(path.removeprefix('/api/backups/files/'))
+            return
         identity = path.removeprefix('/api/backup-schedules/')
         if (not path.startswith('/api/backup-schedules/') or not identity.isdecimal()
                 or len(identity) > 20 or not 0 < int(identity) < 2**64):
@@ -247,6 +255,45 @@ class CmdbHandler(BaseHTTPRequestHandler):
         except (OSError, RuntimeError, pymysql.MySQLError):
             logging.exception('Could not delete backup schedule')
             self.respond(503, b'{"error":"Could not delete the schedule and cron entry."}', 'application/json')
+            return
+        self.respond(200, b'{"status":"deleted"}', 'application/json')
+
+    def scan_backup_files(self) -> None:
+        try:
+            db = DbMgr()
+            try:
+                records = BackupDb(db).files()
+            finally:
+                db.close()
+            statuses = BackupFiles().scan(records)
+            result = [{'id': row['id'], 'status': status} for row, status in zip(records, statuses)]
+        except (OSError, ValueError, subprocess.SubprocessError, pymysql.MySQLError):
+            logging.exception('Could not scan backup files')
+            self.respond(503, b'{"error":"Could not scan the backup directory. Check access and retry."}', 'application/json')
+            return
+        self.respond(200, json.dumps({'files': result}).encode(), 'application/json')
+
+    def delete_backup_record(self, identity: str) -> None:
+        if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
+            self.respond(404, b'{"error":"Backup not found."}', 'application/json')
+            return
+        try:
+            db = DbMgr()
+            try:
+                backups = BackupDb(db)
+                record = backups.get(int(identity))
+                if record is None or record['status'] != 'succeeded':
+                    self.respond(404, b'{"error":"Backup file record not found."}', 'application/json')
+                    return
+                if BackupFiles().scan([record]) != ['Missing']:
+                    self.respond(409, b'{"error":"The backup file exists. Its record was kept."}', 'application/json')
+                    return
+                backups.delete(int(identity))
+            finally:
+                db.close()
+        except (OSError, ValueError, subprocess.SubprocessError, pymysql.MySQLError):
+            logging.exception('Could not delete missing backup record')
+            self.respond(503, b'{"error":"Could not check the file or delete its record. Try again."}', 'application/json')
             return
         self.respond(200, b'{"status":"deleted"}', 'application/json')
 

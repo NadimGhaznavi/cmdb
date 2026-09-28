@@ -49,6 +49,9 @@ class BackupDb:
     def start(self, target: int, started) -> int:
         return self._db.insert('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)', (target, started))
 
+    def delete(self, identity: int) -> None:
+        self._db.execute("DELETE FROM Backup WHERE id=%s AND status='succeeded'", (identity,))
+
     def finish(self, identity: int, completed, *, result: dict | None = None, error: str | None = None) -> None:
         if result is not None:
             self._db.execute("UPDATE Backup SET status='succeeded', completedOn=%s, pathname=%s, "

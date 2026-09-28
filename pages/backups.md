@@ -45,15 +45,21 @@ Live Databases and Backup Vault have their own bordered panels below it.
 Backup Vault lists all recorded successful database backups,
 newest completion first (newest record first when times match). Its columns are
 Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
-or IP address), Database, and Filename (the full path formed from `DCmdb.BACKUP_DIR`
-and the backup record's relative pathname).
+or IP address), Database, Filename (the file name only), Status, and Actions.
+The configured `Backup directory` appears below the heading, followed by Scan Filesystem.
 Elapsed Time measures whole seconds from CMDB's attempt creation to completion,
 including queue time, preparation, dumping, and checksum calculation. Hours do
 not wrap at 24. While a job is starting or running, its progress message is
 “Processing backup job...”.
 The table refreshes when the view opens and after an observed backup completes.
-It uses backup records and current inventory names; it does not scan the filesystem
-or verify that recorded files still exist. Failed and running attempts are excluded.
+Failed and running attempts are excluded. Status starts as `---` until Scan Filesystem
+checks each recorded path through the local backup agent, displaying Found or Missing.
+This checks filesystem metadata only, without reading dump contents or checking checksums.
+Access errors report a failed scan rather than marking files missing.
+Each Missing row offers Delete Record to clean up after manual file deletion.
+Deletion rechecks the path, removes only that Backup record, and never deletes a file,
+inventory item, or schedule. Deleted records stay gone on refresh. Scan status is
+temporary; reopening or refreshing the table requires another scan.
 
 ## Execution
 

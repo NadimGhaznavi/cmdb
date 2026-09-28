@@ -16,6 +16,8 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
 | `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
+| `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |
+| `DELETE /api/backups/files/<id>` | Rechecks a missing file and deletes its Backup record only. |
 | `POST /api/backup-schedules` | Saves modelElement, enabled, daily frequency, and retention; creates or removes the schedule's cron entry. |
 | `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |

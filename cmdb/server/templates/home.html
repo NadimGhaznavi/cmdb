@@ -100,6 +100,8 @@
     </section>
     <section class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
       <h3 id="backup-files-heading">Backup Vault</h3>
+      <p id="backup-directory">Backup directory: <span></span></p>
+      <button id="scan-backup-files" type="button">Scan Filesystem</button>
       <p id="backup-files-status" role="status">Loading backup files…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Backup files">
         <table class="backups-table backup-files-table" aria-label="Backup files">
@@ -110,6 +112,8 @@
               <th scope="col">Machine</th>
               <th scope="col">Database</th>
               <th scope="col">Filename</th>
+              <th scope="col">Status</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody id="backup-files-rows"></tbody>

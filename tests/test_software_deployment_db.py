@@ -349,6 +349,12 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         running = backups.start(target, started)
         self.assertEqual(backups.get(running)['status'], 'running')
         self.assertEqual(backups.get(identity)['status'], 'succeeded')
+        backups.delete(identity)
+        self.assertIsNone(backups.get(identity))
+        self.assertEqual(backups.files(), [])
+        self.assertIsNone(backups.databases()[0]['lastBackup'])
+        backups.delete(running)
+        self.assertEqual(backups.get(running)['status'], 'running')
 
     def test_cron_policy_and_independent_runner_persist_outcomes_without_web_service(self):
         machine = self.machines.upsert(Machine('192.0.2.7', hostName='sally.example'))

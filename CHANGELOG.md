@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-28 @ 18:33
+
 ### Added
 
 - Add per-host patch scheduling with Enabled, a five-field cron expression, and

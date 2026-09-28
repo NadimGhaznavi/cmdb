@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-09-28 @ 19:37
+
+### Changed
+
+- Move Live Databases backup messages into a Status column beside Actions.
+
 ## [0.13.0] - 2026-09-28 @ 19:25
 
 ### Added

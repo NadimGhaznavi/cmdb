@@ -52,6 +52,13 @@ class MachineDb:
             )
         return identity
 
+    def update_discovered_hostname(self, machine_id: int, host_name: str) -> None:
+        """Store the hostname reported over SSH using the stable machine identity."""
+        self._db.execute(
+            "UPDATE Machine SET hostName = %s, updatedOn = CURRENT_TIMESTAMP(6) WHERE id = %s",
+            (host_name, machine_id),
+        )
+
     def update_hostname(self, ip_address: str, host_name: str | None) -> Machine | None:
         with self._db.transaction():
             self._db.execute(

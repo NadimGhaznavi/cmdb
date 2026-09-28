@@ -1,7 +1,8 @@
 -- Only the adopted CWM classes, with exact class names and attribute casing.
 CREATE TABLE IF NOT EXISTS ModelElement (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    namespace BIGINT UNSIGNED NULL
+    namespace BIGINT UNSIGNED NULL,
+    UNIQUE KEY ModelElement_id_namespace_uq (id, namespace)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS Namespace (
@@ -45,6 +46,9 @@ CREATE TABLE IF NOT EXISTS DeployedComponent (
     machine BIGINT UNSIGNED NOT NULL,
     component BIGINT UNSIGNED NOT NULL,
     CONSTRAINT DeployedComponent_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id),
+    -- The explicit machine reference must equal the inherited owner.
+    CONSTRAINT DeployedComponent_owner_fk
+        FOREIGN KEY (id, machine) REFERENCES ModelElement (id, namespace),
     CONSTRAINT DeployedComponent_machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
     CONSTRAINT DeployedComponent_component_fk FOREIGN KEY (component) REFERENCES Component (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

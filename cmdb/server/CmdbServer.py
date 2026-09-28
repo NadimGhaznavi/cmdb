@@ -8,7 +8,7 @@ import signal
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 from cmdb.server.CmdbHandler import CmdbHandler
-from cmdb.server.MachineScanner import MachineScanner
+from cmdb.activity.MachineScanner import MachineScanner
 
 
 def main() -> None:

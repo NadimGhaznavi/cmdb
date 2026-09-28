@@ -6,6 +6,12 @@ from typing import Final
 class DCmdb:
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
     SERVICE_USER: Final[str] = "cmdb"
+    SERVICE_HOME: Final[str] = "/var/lib/cmdb"
+    SSH_DIR: Final[str] = SERVICE_HOME + "/.ssh"
+    SSH_KEY: Final[str] = SSH_DIR + "/id_ed25519"
+    SSH_KNOWN_HOSTS: Final[str] = SSH_DIR + "/known_hosts"
+    SSH_CONNECT_TIMEOUT_SECONDS: Final[int] = 5
+    SSH_COMMAND_TIMEOUT_SECONDS: Final[int] = 30
     SERVICE_UNIT: Final[str] = "cmdb-server.service"
     DATABASE_ENV: Final[str] = "/etc/cmdb/database.env"
     DATABASE_NAME: Final[str] = "cmdb"

@@ -10,14 +10,19 @@ import pymysql
 from cmdb.entity.Machine import Machine
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.constants.DCmdb import DCmdb
-from cmdb.server.MachineScanner import MachineScanner
+from cmdb.activity.MachineScanner import MachineScanner
 
 
 class MachineScannerTests(TestCase):
-    @patch("cmdb.server.MachineScanner.SoftwareDeploymentDb")
-    @patch("cmdb.server.MachineScanner.MachineDb")
-    @patch("cmdb.server.MachineScanner.DbMgr")
-    @patch("cmdb.server.MachineScanner.Nmap")
+    def setUp(self):
+        activity = patch("cmdb.activity.MachineScanner.MachineSSH")
+        self.ssh_activity = activity.start()
+        self.addCleanup(activity.stop)
+
+    @patch("cmdb.activity.MachineScanner.SoftwareDeploymentDb")
+    @patch("cmdb.activity.MachineScanner.MachineDb")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_os_scan_follows_committed_discovery_and_uses_stable_machine_id(
             self, scanner, db, inventory, deployment):
         discovery = {"nmap": {"scaninfo": {}}, "scan": {
@@ -39,11 +44,12 @@ class MachineScannerTests(TestCase):
         deployment.return_value.record_operating_system.assert_called_once_with(
             42, SoftwareSystem(type="OS", subtype="Linux", supplier="Linux", version="6.X"))
         self.assertEqual(db.return_value.close.call_count, 2)
+        self.ssh_activity.return_value.run.assert_called_once_with({"192.168.0.7": 42})
 
-    @patch("cmdb.server.MachineScanner.SoftwareDeploymentDb")
-    @patch("cmdb.server.MachineScanner.MachineDb")
-    @patch("cmdb.server.MachineScanner.DbMgr")
-    @patch("cmdb.server.MachineScanner.Nmap")
+    @patch("cmdb.activity.MachineScanner.SoftwareDeploymentDb")
+    @patch("cmdb.activity.MachineScanner.MachineDb")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_os_timeout_retains_committed_machine_discovery(self, scanner, db, inventory, deployment):
         scanner.return_value.scan.side_effect = [
             {"nmap": {"scaninfo": {}}, "scan": {"192.168.0.7": {"status": {"state": "up"}}}},
@@ -55,11 +61,12 @@ class MachineScannerTests(TestCase):
         db.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
         db.return_value.close.assert_called_once()
         deployment.assert_not_called()
+        self.ssh_activity.return_value.run.assert_called_once()
 
-    @patch("cmdb.server.MachineScanner.SoftwareDeploymentDb")
-    @patch("cmdb.server.MachineScanner.MachineDb")
-    @patch("cmdb.server.MachineScanner.DbMgr")
-    @patch("cmdb.server.MachineScanner.Nmap")
+    @patch("cmdb.activity.MachineScanner.SoftwareDeploymentDb")
+    @patch("cmdb.activity.MachineScanner.MachineDb")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_stop_during_os_scan_prevents_os_writes(self, scanner, db, inventory, deployment):
         worker = MachineScanner()
         result = {"nmap": {"scaninfo": {}}, "scan": {
@@ -74,10 +81,11 @@ class MachineScannerTests(TestCase):
         worker.scan_once()
         inventory.return_value.upsert.assert_called_once()
         deployment.assert_not_called()
+        self.ssh_activity.assert_not_called()
 
-    @patch("cmdb.server.MachineScanner.MachineDb")
-    @patch("cmdb.server.MachineScanner.DbMgr")
-    @patch("cmdb.server.MachineScanner.Nmap")
+    @patch("cmdb.activity.MachineScanner.MachineDb")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_only_up_hosts_are_persisted_and_connection_is_closed(self, scanner, db, inventory):
         scanner.return_value.scan.return_value = {
             "nmap": {"scaninfo": {}},
@@ -105,9 +113,9 @@ class MachineScannerTests(TestCase):
         transaction = db.return_value.transaction.return_value
         self.assertIs(transaction.__exit__.call_args.args[0], pymysql.OperationalError)
 
-    @patch("cmdb.server.MachineScanner.MachineDb")
-    @patch("cmdb.server.MachineScanner.DbMgr")
-    @patch("cmdb.server.MachineScanner.Nmap")
+    @patch("cmdb.activity.MachineScanner.MachineDb")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_discovery_disables_dns_and_ignores_reported_hostnames(self, scanner, db, inventory):
         scanner.return_value.scan.return_value = {
             "nmap": {"scaninfo": {}}, "scan": {
@@ -127,9 +135,10 @@ class MachineScannerTests(TestCase):
         self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
                          [Machine("192.168.0.1"), Machine("192.168.0.2"),
                           Machine("192.168.0.3")])
+        self.ssh_activity.return_value.run.assert_called_once()
 
-    @patch("cmdb.server.MachineScanner.DbMgr")
-    @patch("cmdb.server.MachineScanner.Nmap")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_empty_or_failed_scans_do_not_open_database(self, scanner, db):
         for info in ({}, {"error": ["socket unavailable"]}):
             scanner.return_value.scan.return_value = {"nmap": {"scaninfo": info}, "scan": {}}
@@ -212,8 +221,8 @@ class MachineScannerTests(TestCase):
         worker.stop()
         self.assertFalse(worker.is_alive())
 
-    @patch("cmdb.server.MachineScanner.DbMgr")
-    @patch("cmdb.server.MachineScanner.Nmap")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_stop_during_scan_prevents_writes(self, scanner, db):
         worker = MachineScanner()
 

@@ -38,6 +38,10 @@ Click a node or use the machine selector to see its fields and timestamps in
 browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 An empty inventory and an unavailable database show distinct status messages.
+Detail labels come from `DLabel.ATTRIBUTES` in `cmdb/constants/DLabel.py`,
+for example `ipAddress` displays as IP Address and `hostName` as Host Name.
+The mapping affects presentation only; model attributes, API keys, and database
+columns retain their original names.
 The dropdown sorts named machines by unqualified hostname, ignoring case, then
 unnamed machines by numeric IP octet. Saving a hostname re-sorts the dropdown.
 
@@ -45,7 +49,8 @@ Selecting a machine reveals Edit below the details table. Edit turns `hostName` 
 text box and offers Save and Cancel. Save updates the database, node label,
 selector, and details; Cancel discards the draft. A failed save keeps the draft
 available to retry. Names are trimmed and limited to 255 characters; an empty
-name clears the field. Hostnames are maintained through editing. Saving updates
+name clears the field. Hostnames can be edited, but successful SSH discovery
+replaces them with the hostname reported by the machine. Saving updates
 `updatedOn` while retaining `createdOn` and the other machine fields.
 
 [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 and its MIT license are bundled
@@ -120,7 +125,8 @@ port syntax, optional `arguments` (default `-sV`), and a timeout in seconds
 (default `0`, unlimited). Library errors propagate to the caller. Use a separate
 instance per worker thread.
 
-The server starts a background machine scanner immediately, then waits
+The server starts `cmdb/activity/MachineScanner.py` immediately and owns its
+startup and shutdown. The background activity waits
 `DCmdb.SCAN_INTERVAL_SECONDS` (default `300`) after each scan before repeating.
 `SCAN_TARGET` defaults to the observed LAN, `192.168.0.0/24`;
 `SCAN_TIMEOUT_SECONDS` defaults to `30`. These settings are in
@@ -129,10 +135,10 @@ The server starts a background machine scanner immediately, then waits
 The worker uses host discovery with DNS resolution disabled (`-sn -n`) and
 upserts responding hosts into
 `Machine`. Each observation refreshes `updatedOn`, even when no attributes
-change; `createdOn` stays fixed. Scans do not resolve or populate hostnames.
+change; `createdOn` stays fixed. Nmap does not resolve or populate hostnames.
 When Nmap reports a MAC address, the worker stores it in `macAddress`, shown in
 the details table. Scans without a MAC preserve any previously stored address.
-Existing hostnames, including manual edits, are preserved. Existing `site`
+The Nmap pass preserves existing hostnames, including manual edits. Existing `site`
 values and machines absent from a scan are retained.
 
 After committing machine discovery and closing its database connection, the
@@ -149,6 +155,12 @@ OS classifications populate the
 [software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %}).
 Missing or inconclusive results preserve existing OS records. The service's
 stop timeout is 210 seconds to allow the active scan to finish or time out.
+
+The scanner then runs the [SSH follow-up]({{ site.baseurl }}{% link pages/ssh.md %}#scanner-follow-up)
+to test `cmdb` access, provision it through root where possible, and retrieve
+the remote hostname. This also runs when OS detection finds no match or times
+out. Refresh waits for the SSH stage too; each host has bounded connection and
+command timeouts. SSH failures are isolated to that host and preserve its data.
 
 The worker prints its startup message to the journal. Scan and database failures
 are retried on the next interval without logging. It owns a database connection

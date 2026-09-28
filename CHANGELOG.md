@@ -9,6 +9,9 @@ permalink: /CHANGELOG/
 
 ### Added
 
+- Display MariaDB below the OS inside each machine, using the same rounded
+  software box style regardless of discovery order.
+
 - Collect MariaDB server version, data directory, and database names through
   the local/SSH agent path. Store software releases, DataManager deployments,
   and linked Schema records, reusing identities on repeated scans.

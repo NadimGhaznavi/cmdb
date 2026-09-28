@@ -28,8 +28,9 @@ scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
 Requests during an active scan share that scan; scans never overlap.
 Save or cancel a hostname edit before refreshing.
-Nodes use bold white 16px labels. Named machines have dark green bubbles;
-unnamed machines have grey bubbles. Selection lightens the corresponding color.
+Nodes use bold white 16px labels. Named machines have dark green rounded
+rectangles of size 160 × 80; unnamed machines have grey circles. Selection
+lightens the corresponding color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.

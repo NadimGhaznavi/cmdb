@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-09-28 @ 16:25
+
 ### Changed
 
 - Move Scan Filesystem to the bottom-left corner of the Backup Vault panel.

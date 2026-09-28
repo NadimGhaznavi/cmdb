@@ -74,17 +74,18 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
                 return
             self.respond(200, json.dumps(scanner.scan_status()).encode("utf-8"), "application/json")
-        elif path == '/api/patching/hosts':
+        elif path in ('/api/patching/hosts', '/api/patching/report'):
             try:
                 db = DbMgr()
                 try:
-                    hosts = PatchDb(db).hosts()
+                    records = PatchDb(db)
+                    result = {'hosts': records.hosts()} if path.endswith('/hosts') else {'runs': records.report()}
                 finally:
                     db.close()
             except pymysql.MySQLError:
-                self.respond(503, b'{"error":"Debian hosts are unavailable."}', 'application/json')
+                self.respond(503, b'{"error":"Patching records are unavailable."}', 'application/json')
                 return
-            self.respond(200, json.dumps({'hosts': hosts}, default=backup_json).encode(), 'application/json')
+            self.respond(200, json.dumps(result, default=backup_json).encode(), 'application/json')
         elif path == "/api/machines":
             try:
                 db = DbMgr()

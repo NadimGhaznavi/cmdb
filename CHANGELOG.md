@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-27 @ 20:57
+
+### Changed
+
+- Styled machine nodes dark green with bold white 24px labels.
+
 ## [0.3.3] - 2026-09-27 @ 20:54
 
 ### Changed

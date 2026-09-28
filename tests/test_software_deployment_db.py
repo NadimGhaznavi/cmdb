@@ -95,10 +95,13 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         original = self.machines.list_machines()[0]
         with self.db.transaction():
             self.machines.update_discovered_hostname(first, "reported.example.lan")
+            self.machines.update_discovered_mac(first, "AA:BB:CC:DD:EE:FF")
         stored = {machine.id: machine for machine in self.machines.list_machines()}
         self.assertEqual(stored[first].hostName, "reported.example.lan")
         self.assertEqual(stored[first].createdOn, original.createdOn)
         self.assertEqual(stored[second].hostName, "other")
+        self.assertEqual(stored[first].macAddress, "AA:BB:CC:DD:EE:FF")
+        self.assertIsNone(stored[second].macAddress)
 
     def test_foreign_keys_and_rollback_prevent_partial_os_records(self):
         with self.assertRaises(pymysql.IntegrityError):

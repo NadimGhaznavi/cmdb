@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Fixed
+
+- Execute SSH-interface commands directly for local targets and skip local SSH
+  provisioning. Share hostname and interface MAC collection across local and
+  remote machines, populating the CMDB host's MAC when Nmap omits it.
+
 ## [0.5.3] - 2026-09-28 @ 09:03
 
 ### Changed

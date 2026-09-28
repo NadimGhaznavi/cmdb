@@ -16,6 +16,30 @@ from cmdb.interface.SSH import SSH
 
 
 class SSHTests(unittest.TestCase):
+    def setUp(self):
+        local = patch('cmdb.interface.SSH.SSH.is_local', return_value=False)
+        self.local = local.start()
+        self.addCleanup(local.stop)
+
+    @patch('cmdb.interface.SSH.subprocess.run')
+    def test_local_command_bypasses_ssh_and_preserves_input_and_timeout(self, run):
+        self.local.return_value = True
+        import pwd
+        SSH().run('127.0.0.1', 'sh -s', user=pwd.getpwuid(os.geteuid()).pw_name,
+                  input='printf hello', timeout=7)
+        self.assertEqual(run.call_args.args[0], ['/bin/sh', '-c', 'sh -s'])
+        self.assertEqual(run.call_args.kwargs['input'], 'printf hello')
+        self.assertEqual(run.call_args.kwargs['timeout'], 7)
+
+    @patch('cmdb.interface.SSH.pwd.getpwnam')
+    @patch('cmdb.interface.SSH.subprocess.run')
+    def test_local_command_does_not_silently_use_a_different_identity(self, run, account):
+        self.local.return_value = True
+        account.return_value.pw_uid = os.geteuid() + 1
+        with self.assertRaises(PermissionError):
+            SSH().run('127.0.0.1', 'true', user='root')
+        run.assert_not_called()
+
     @patch('cmdb.interface.SSH.subprocess.run')
     def test_remote_script_is_sent_on_stdin(self, run):
         script = 'printf hello\n'

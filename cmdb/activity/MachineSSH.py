@@ -1,6 +1,8 @@
 """Establish cmdb SSH access and obtain machine-reported hostnames."""
 
 from pathlib import Path
+import ipaddress
+import json
 import re
 import shlex
 import socket
@@ -23,18 +25,24 @@ class MachineSSH:
             if self._stop_requested.is_set():
                 return
             try:
-                with socket.create_connection((address, 22), timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS):
-                    pass
+                if not self._ssh.is_local(address):
+                    with socket.create_connection((address, 22), timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS):
+                        pass
                 hostname = self._hostname(address)
             except (OSError, subprocess.SubprocessError, ValueError):
                 # Closed ports, unsupported hosts and denied logins retry next scan.
                 continue
             if hostname is None or self._stop_requested.is_set():
                 continue
+            mac_address = self._mac_address(address)
+            if self._stop_requested.is_set():
+                return
             db = DbMgr()
             try:
                 with db.transaction():
                     MachineDb(db).update_discovered_hostname(machine_id, hostname)
+                    if mac_address is not None:
+                        MachineDb(db).update_discovered_mac(machine_id, mac_address)
             finally:
                 db.close()
 
@@ -48,6 +56,8 @@ class MachineSSH:
         try:
             self._run(address, "true")
         except subprocess.CalledProcessError as error:
+            if self._ssh.is_local(address):
+                raise
             # A changed host key must not trigger account provisioning.
             if "REMOTE HOST IDENTIFICATION HAS CHANGED" in (error.stderr or ""):
                 return None
@@ -67,3 +77,21 @@ class MachineSSH:
                                                      or ord(character) == 127 for character in hostname):
             return None
         return hostname
+
+    def _mac_address(self, address: str) -> str | None:
+        """Read the interface owning the scanned IP through the shared command path."""
+        try:
+            interfaces = json.loads(self._run(address, "ip -j address show").stdout)
+            for interface in interfaces:
+                mac = interface.get("address", "")
+                if (interface.get("link_type") != "ether"
+                        or re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", mac) is None
+                        or mac == "00:00:00:00:00:00"):
+                    continue
+                if any(ipaddress.ip_address(info["local"]) == ipaddress.ip_address(address)
+                       for info in interface.get("addr_info", []) if "local" in info):
+                    return mac.upper()
+        except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError):
+            # MAC collection is optional; keep a successful hostname observation.
+            return None
+        return None

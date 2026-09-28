@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import subprocess
+import json
 from tempfile import TemporaryDirectory
 from threading import Event
 from unittest import TestCase
@@ -27,6 +28,7 @@ class MachineSSHTests(TestCase):
             self.addCleanup(mock.stop)
         self.stop = Event()
         self.activity = MachineSSH(self.stop)
+        self.SSH.return_value.is_local.return_value = False
         self.remote = self.SSH.return_value.run
         directory = TemporaryDirectory(prefix='cmdb-public-test-')
         self.addCleanup(directory.cleanup)
@@ -37,7 +39,7 @@ class MachineSSHTests(TestCase):
         self.addCleanup(settings.stop)
 
     def test_existing_cmdb_login_updates_hostname_by_id_without_root(self):
-        self.remote.side_effect = [result(), result('worker.example.lan\n')]
+        self.remote.side_effect = [result(), result('worker.example.lan\n'), result('[]')]
         self.activity.run({'192.168.0.7': 42})
         self.create_connection.assert_called_once_with(('192.168.0.7', 22),
                                                        timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
@@ -45,8 +47,41 @@ class MachineSSHTests(TestCase):
         self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(42, 'worker.example.lan')
         self.DbMgr.return_value.close.assert_called_once()
 
+    def test_local_and_remote_hosts_share_interface_lookup(self):
+        interfaces = [
+            {'link_type': 'ether', 'address': 'aa:bb:cc:dd:ee:01',
+             'addr_info': [{'local': '10.0.0.1'}]},
+            {'link_type': 'ether', 'address': 'aa:bb:cc:dd:ee:02',
+             'addr_info': [{'local': '192.168.0.7'}]},
+        ]
+        for local in (True, False):
+            with self.subTest(local=local):
+                self.create_connection.reset_mock()
+                self.MachineDb.return_value.reset_mock()
+                self.SSH.return_value.is_local.return_value = local
+                self.remote.side_effect = [result(), result('sally'), result(json.dumps(interfaces))]
+                self.activity.run({'192.168.0.7': 42})
+                self.assertEqual(self.create_connection.call_count, 0 if local else 1)
+                self.MachineDb.return_value.update_discovered_mac.assert_called_once_with(
+                    42, 'AA:BB:CC:DD:EE:02')
+
+    def test_failed_mac_lookup_preserves_hostname_and_previous_mac(self):
+        self.remote.side_effect = [result(), result('sally'),
+                                   subprocess.CalledProcessError(127, ['ip'])]
+        self.activity.run({'192.168.0.7': 42})
+        self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(42, 'sally')
+        self.MachineDb.return_value.update_discovered_mac.assert_not_called()
+
+    def test_local_command_failure_never_provisions(self):
+        self.SSH.return_value.is_local.return_value = True
+        self.remote.side_effect = denied()
+        self.activity.run({'192.168.0.7': 42})
+        self.remote.assert_called_once()
+        self.create_connection.assert_not_called()
+        self.DbMgr.assert_not_called()
+
     def test_root_provisions_then_cmdb_is_tested_before_hostname_read(self):
-        self.remote.side_effect = [denied(), result(), result(), result('worker\n')]
+        self.remote.side_effect = [denied(), result(), result(), result('worker\n'), result('[]')]
         self.activity.run({'192.168.0.7': 42})
         calls = self.remote.call_args_list
         self.assertEqual(calls[0].args[1], 'true')
@@ -72,7 +107,7 @@ class MachineSSHTests(TestCase):
         self.DbMgr.assert_not_called()
 
     def test_unresponsive_host_does_not_block_the_next_machine(self):
-        self.remote.side_effect = [subprocess.TimeoutExpired(['ssh'], 30), result(), result('second\n')]
+        self.remote.side_effect = [subprocess.TimeoutExpired(['ssh'], 30), result(), result('second\n'), result('[]')]
         self.activity.run({'192.168.0.7': 42, '192.168.0.8': 43})
         self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(43, 'second')
 

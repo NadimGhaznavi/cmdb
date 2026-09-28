@@ -138,6 +138,9 @@ upserts responding hosts into
 change; `createdOn` stays fixed. Nmap does not resolve or populate hostnames.
 When Nmap reports a MAC address, the worker stores it in `macAddress`, shown in
 the details table. Scans without a MAC preserve any previously stored address.
+The SSH follow-up also reads the interface owning the scanned IP to populate
+its MAC. For the local machine, the SSH interface runs those commands directly,
+so collection does not require a local SSH server or Nmap-reported MAC.
 The Nmap pass preserves existing hostnames, including manual edits. Existing `site`
 values and machines absent from a scan are retained.
 

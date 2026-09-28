@@ -1,9 +1,28 @@
 "use strict";
 
+function machineLabel(machine) {
+  const shortName = machine.hostName ? machine.hostName.split(".")[0] : "";
+  return shortName ? shortName.charAt(0).toUpperCase() + shortName.slice(1) : machine.ipAddress;
+}
+
+function machineOption(machine) {
+  return machine.hostName ? `${machine.hostName} (${machine.ipAddress})` : machine.ipAddress;
+}
+
 async function loadMachines() {
   const status = document.getElementById("graph-status");
   const picker = document.getElementById("machine-picker");
   const details = document.getElementById("machine-details");
+  const editButton = document.getElementById("edit-button");
+  const saveButton = document.getElementById("save-button");
+  const cancelButton = document.getElementById("cancel-button");
+  const refreshButton = document.getElementById("refresh-button");
+  const hostnameInput = document.getElementById("hostname-input");
+  const hostnameText = document.getElementById("detail-hostName");
+  const editStatus = document.getElementById("edit-status");
+  let selectedNode = null;
+  let editing = false;
+  let saving = false;
   try {
     if (typeof cytoscape !== "function") {
       throw new Error("The machine graph could not be loaded. Refresh to try again.");
@@ -19,24 +38,18 @@ async function loadMachines() {
     }
     const graph = cytoscape({
       container: document.getElementById("machine-graph"),
-      elements: machines.map(machine => {
-        const shortName = machine.hostName ? machine.hostName.split(".")[0] : "";
-        const name = shortName ? shortName.charAt(0).toUpperCase() + shortName.slice(1) : "";
-        return { data: {
-          ...machine,
-          id: machine.ipAddress,
-          label: name || machine.ipAddress,
-        } };
-      }),
+      elements: machines.map(machine => ({ data: {
+        ...machine, id: machine.ipAddress, label: machineLabel(machine),
+      } })),
       style: [
         { selector: "node", style: {
-          "background-color": "#14532d", "border-color": "#4ade80", "border-width": 2,
+          "background-color": "#082b17", "border-color": "#4ade80", "border-width": 2,
           "width": 160, "height": 160, "label": "data(label)", "color": "#fff",
-          "font-size": 18, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
+          "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
         { selector: "node:selected", style: {
-          "background-color": "#166534", "border-color": "#fff", "border-width": 3,
+          "background-color": "#14532d", "border-color": "#fff", "border-width": 3,
         } },
       ],
       layout: { name: "circle", padding: 40, nodeDimensionsIncludeLabels: true },
@@ -45,6 +58,8 @@ async function loadMachines() {
       maxZoom: 3,
     });
     function selectMachine(node) {
+      if (editing) return;
+      selectedNode = node;
       graph.nodes().unselect();
       node.select();
       picker.value = node.id();
@@ -52,12 +67,14 @@ async function loadMachines() {
         document.getElementById(`detail-${field}`).textContent = node.data(field) ?? "—";
       }
       details.hidden = false;
+      editButton.hidden = false;
+      editStatus.textContent = "";
     }
     graph.on("tap", "node", event => selectMachine(event.target));
     for (const machine of machines) {
       const option = document.createElement("option");
       option.value = machine.ipAddress;
-      option.textContent = machine.hostName ? `${machine.hostName} (${machine.ipAddress})` : machine.ipAddress;
+      option.textContent = machineOption(machine);
       picker.append(option);
     }
     picker.disabled = false;
@@ -67,6 +84,65 @@ async function loadMachines() {
       } else {
         graph.nodes().unselect();
         details.hidden = true;
+        selectedNode = null;
+        editButton.hidden = true;
+      }
+    });
+    function setEditing(value) {
+      editing = value;
+      hostnameInput.hidden = !value;
+      hostnameText.hidden = value;
+      editButton.hidden = value || !selectedNode;
+      saveButton.hidden = !value;
+      cancelButton.hidden = !value;
+      picker.disabled = value;
+      graph.autounselectify(value);
+    }
+    editButton.addEventListener("click", () => {
+      hostnameInput.value = selectedNode.data("hostName") ?? "";
+      editStatus.textContent = "";
+      setEditing(true);
+      hostnameInput.focus();
+    });
+    cancelButton.addEventListener("click", () => {
+      if (saving) return;
+      setEditing(false);
+      editStatus.textContent = "";
+      editButton.focus();
+    });
+    saveButton.addEventListener("click", async () => {
+      if (saving || !hostnameInput.reportValidity()) return;
+      saving = true;
+      saveButton.disabled = cancelButton.disabled = refreshButton.disabled = hostnameInput.disabled = true;
+      editStatus.textContent = "Saving…";
+      try {
+        const response = await fetch("/api/machines/hostname", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ipAddress: selectedNode.id(), hostName: hostnameInput.value }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save the hostname.");
+        const machine = result.machine;
+        selectedNode.data({ ...machine, label: machineLabel(machine) });
+        for (const option of picker.options) {
+          if (option.value === machine.ipAddress) option.textContent = machineOption(machine);
+        }
+        setEditing(false);
+        selectMachine(selectedNode);
+        editStatus.textContent = "Hostname saved.";
+        editButton.focus();
+      } catch (error) {
+        editStatus.textContent = error.message || "Could not save the hostname. Try again.";
+      } finally {
+        saving = false;
+        saveButton.disabled = cancelButton.disabled = refreshButton.disabled = hostnameInput.disabled = false;
+      }
+    });
+    hostnameInput.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === "Escape") {
+        event.preventDefault();
+        (event.key === "Enter" ? saveButton : cancelButton).click();
       }
     });
     new ResizeObserver(() => {

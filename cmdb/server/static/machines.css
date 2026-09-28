@@ -19,6 +19,10 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 .panel-heading { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; flex-wrap: wrap; }
 select { background: #24272c; color: #eee; border: 1px solid #666; padding: .4rem; max-width: 100%; }
 select:focus-visible { outline: 2px solid #ffb454; }
+#hostname-input { width: 100%; min-width: 0; background: #24272c; color: #fff; border: 1px solid #ffb454; padding: .4rem; font: inherit; }
+#hostname-input:focus-visible { outline: 2px solid #ffb454; }
+#edit-status:empty { display: none; }
+.page-actions button:disabled { opacity: .5; cursor: default; }
 #graph-status { color: #bbb; font-size: .9rem; margin: .75rem 0; }
 .graph-area { flex: 1; min-height: 20rem; position: relative; }
 #machine-graph { position: absolute; inset: 0; }

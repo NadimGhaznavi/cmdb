@@ -12,21 +12,30 @@ connection and transaction layer, adapted to the `cmdb` package.
 | --- | --- |
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
+| `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `/health` | HTTP 200 JSON identifying `cmdb-server`; checks HTTP availability without querying MariaDB. |
 | `/ready` | Queries MariaDB; HTTP 200 when connected, HTTP 503 on a database error. |
 
 Database errors are logged to the service journal; the HTTP response contains
 only a short status. Each readiness request opens and closes its own database
-connection. The server foundation has no inventory editing endpoints yet.
+connection.
 
 The main panel fills the remaining window below the title. It loads database
 records when the page opens; use Refresh at the bottom left to reload the page
 and see subsequent scan updates.
-Nodes use bold white 18px labels inside dark green bubbles. Named machines show
+Nodes use bold white 16px labels inside dark green bubbles; selection uses a
+lighter green. Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.
 Click a node or use the machine selector to see its fields and UTC timestamps.
 An empty inventory and an unavailable database show distinct status messages.
+
+Selecting a machine reveals Edit beside Refresh. Edit turns `hostName` into a
+text box and offers Save and Cancel. Save updates the database, node label,
+selector, and details; Cancel discards the draft. A failed save keeps the draft
+available to retry. Names are trimmed and limited to 255 characters; an empty
+name clears the field, allowing discovery to populate it again. Saving updates
+`updatedOn` while retaining `createdOn` and the other machine fields.
 
 [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 and its MIT license are bundled
 under `cmdb/server/static/vendor/`, so the graph needs no CDN connection.
@@ -94,9 +103,10 @@ The server starts a background machine scanner immediately, then waits
 
 The worker uses host discovery (`-sn`) and upserts responding hosts into
 `machines`. Each observation refreshes `updatedOn`, even when no attributes
-change; `createdOn` stays fixed. A discovered hostname updates `hostName`;
+change; `createdOn` stays fixed. A discovered hostname fills an empty `hostName`;
 when Nmap supplies no hostname, a reverse lookup through the system resolver
-tries to populate it. Lookup failures preserve the existing value. Existing `site` and
+tries to populate it. Existing hostnames, including manual edits, are preserved.
+Lookup failures preserve the existing value. Existing `site` and
 `deployedComponent` values and machines absent from a scan are retained.
 
 The worker prints its startup message to the journal. Scan and database failures

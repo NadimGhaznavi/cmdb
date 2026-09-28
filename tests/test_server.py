@@ -41,6 +41,60 @@ class ServerTests(unittest.TestCase):
         finally:
             connection.close()
 
+    def post_hostname(self, values, *, content_type='application/json'):
+        connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
+        try:
+            connection.request('POST', '/api/machines/hostname', json.dumps(values),
+                               {'Content-Type': content_type})
+            response = connection.getresponse()
+            return response.status, json.loads(response.read())
+        finally:
+            connection.close()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_save_hostname_updates_only_selected_machine(self, factory):
+        factory.return_value.query.return_value = [{
+            'ipAddress': '192.168.0.7', 'hostName': 'worker.lan',
+            'site': 'home', 'deployedComponent': None,
+            'createdOn': datetime(2026, 9, 27, 12), 'updatedOn': datetime(2026, 9, 27, 13),
+        }]
+        status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': ' worker.lan '})
+        self.assertEqual(status, 200)
+        self.assertEqual(body['machine']['hostName'], 'worker.lan')
+        self.assertEqual(body['machine']['updatedOn'], '2026-09-27T13:00:00+00:00')
+        self.assertEqual(factory.return_value.execute.call_args.args[1], ('worker.lan', '192.168.0.7'))
+        factory.return_value.transaction.assert_called_once()
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_empty_hostname_clears_value_and_missing_machine_is_404(self, factory):
+        factory.return_value.query.return_value = []
+        status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': ''})
+        self.assertEqual(status, 404)
+        self.assertEqual(factory.return_value.execute.call_args.args[1], (None, '192.168.0.7'))
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_invalid_hostname_requests_do_not_open_database(self, factory):
+        for values in ([], {}, {'ipAddress': 'invalid', 'hostName': 'worker'},
+                       {'ipAddress': '192.168.0.7', 'hostName': None},
+                       {'ipAddress': '192.168.0.7', 'hostName': 'x' * 256},
+                       {'ipAddress': '192.168.0.7', 'hostName': 'worker', 'site': 'other'}):
+            with self.subTest(values=values):
+                self.assertEqual(self.post_hostname(values)[0], 400)
+        self.assertEqual(self.post_hostname({}, content_type='text/plain')[0], 415)
+        factory.assert_not_called()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_hostname_save_failure_closes_connection_and_returns_error(self, factory):
+        factory.return_value.execute.side_effect = pymysql.OperationalError('private details')
+        status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': 'worker'})
+        self.assertEqual(status, 503)
+        self.assertNotIn('private details', json.dumps(body))
+        factory.return_value.close.assert_called_once()
+        self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[0],
+                      pymysql.OperationalError)
+
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_home_health_and_missing_page_do_not_query_database(self, factory):
         status, body = self.get('/')

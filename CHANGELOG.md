@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-28 @ 07:00
+
 ### Added
 
 - `scripts/uninstall.sh` removes the installed service, application, and database,

@@ -207,7 +207,7 @@ async function loadMachines() {
       graph.resize();
       graph.layout({ name: "circle", padding: 40, nodeDimensionsIncludeLabels: true }).run();
     }).observe(document.getElementById("machine-graph"));
-    status.textContent = `${machines.length} machine${machines.length === 1 ? "" : "s"} · Select a node to view details`;
+    status.textContent = "";
   } catch (error) {
     status.textContent = error.message || "Machines could not be loaded. Refresh to try again.";
   }

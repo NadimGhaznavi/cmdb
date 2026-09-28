@@ -37,6 +37,11 @@
             <tr><th scope="row">updatedOn:</th><td id="detail-updatedOn"></td></tr>
           </tbody>
         </table>
+        <div class="page-actions detail-actions">
+          <button id="edit-button" type="button" hidden>Edit</button>
+          <button id="save-button" type="button" hidden>Save</button>
+          <button id="cancel-button" type="button" hidden>Cancel</button>
+        </div>
         <p id="edit-status" role="status"></p>
       </section>
       <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
@@ -45,9 +50,6 @@
   <footer class="page-footer">
     <div class="page-actions">
       <button id="refresh-button" type="button">Refresh</button>
-      <button id="edit-button" type="button" hidden>Edit</button>
-      <button id="save-button" type="button" hidden>Save</button>
-      <button id="cancel-button" type="button" hidden>Cancel</button>
     </div>
     <p>Last refresh: <time id="last-refresh" datetime="{{last_refresh}}">{{last_refresh}}</time></p>
   </footer>

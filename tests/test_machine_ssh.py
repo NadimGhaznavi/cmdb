@@ -22,7 +22,7 @@ def denied():
 
 class MachineSSHTests(TestCase):
     def setUp(self):
-        for name in ('SSH', 'DbMgr', 'MachineDb', 'SoftwareDeploymentDb', 'socket.create_connection'):
+        for name in ('SSH', 'SSHDb', 'DbMgr', 'MachineDb', 'SoftwareDeploymentDb', 'socket.create_connection'):
             mock = patch('cmdb.activity.MachineSSH.' + name)
             setattr(self, name.split('.')[-1], mock.start())
             self.addCleanup(mock.stop)
@@ -46,6 +46,7 @@ class MachineSSHTests(TestCase):
         self.assertTrue(all('user' not in call.kwargs for call in self.remote.call_args_list))
         self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(42, 'worker.example.lan')
         self.DbMgr.return_value.close.assert_called_once()
+        self.SSHDb.return_value.ensure_agent.assert_called_once_with('192.168.0.7')
 
     def test_local_and_remote_hosts_share_interface_lookup(self):
         interfaces = [

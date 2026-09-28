@@ -7,6 +7,20 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Provision MariaDB `cmdbagent@localhost` with Unix-socket authentication and
+  `SHOW DATABASES` access. SSHDb checks existing agents and provisions remote
+  accounts through root SSH when needed; install/upgrade handles the local account.
+- Keep repeatable database-account SQL in `schema/cmdbagent.sql`.
+
+### Installation
+
+Run `sudo scripts/upgrade.sh` from the checkout, or use a fresh install, to
+provision the local database agent. Refresh then provisions remote MariaDB
+agents where root SSH and local MariaDB administrative access are available.
+Database inventory records and backups are not yet implemented.
+
 ## [0.6.3] - 2026-09-28 @ 10:09
 
 ### Changed

@@ -5,6 +5,11 @@ from typing import Final
 
 class DLabel:
     ATTRIBUTES: Final[dict[str, str]] = {
+        "type": "Type",
+        "subtype": "Subtype",
+        "supplier": "Supplier",
+        "version": "Version",
+        "codename": "Codename",
         "ipAddress": "IP Address",
         "macAddress": "MAC Address",
         "hostName": "Host Name",

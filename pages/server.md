@@ -37,6 +37,8 @@ Click a node or use the machine selector to see its fields and timestamps in
 browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 An empty inventory and an unavailable database show distinct status messages.
+The dropdown sorts named machines by unqualified hostname, ignoring case, then
+unnamed machines by numeric IP octet. Saving a hostname re-sorts the dropdown.
 
 Selecting a machine reveals Edit below the details table. Edit turns `hostName` into a
 text box and offers Save and Cancel. Save updates the database, node label,

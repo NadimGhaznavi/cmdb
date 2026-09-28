@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.11] - 2026-09-27 @ 21:40
+
+### Changed
+
+- Sort the machine dropdown by unqualified hostname, followed by unnamed machines
+  in numeric IP order; re-sort after hostname edits.
+
 ## [0.3.10] - 2026-09-27 @ 21:38
 
 ### Changed

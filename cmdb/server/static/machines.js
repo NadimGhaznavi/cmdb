@@ -49,6 +49,15 @@ function machineOption(machine) {
   return machine.hostName ? `${machine.hostName} (${machine.ipAddress})` : machine.ipAddress;
 }
 
+function compareMachines(left, right) {
+  const leftName = left.hostName ? left.hostName.split(".")[0] : "";
+  const rightName = right.hostName ? right.hostName.split(".")[0] : "";
+  if (Boolean(leftName) !== Boolean(rightName)) return leftName ? -1 : 1;
+  const nameOrder = leftName.localeCompare(rightName, undefined, { sensitivity: "base" });
+  if (nameOrder) return nameOrder;
+  return left.ipAddress.localeCompare(right.ipAddress, undefined, { numeric: true });
+}
+
 function localTimestamp(value) {
   if (!value) return "—";
   const date = new Date(value);
@@ -128,12 +137,19 @@ async function loadMachines() {
       editStatus.textContent = "";
     }
     graph.on("tap", "node", event => selectMachine(event.target));
-    for (const machine of machines) {
-      const option = document.createElement("option");
-      option.value = machine.ipAddress;
-      option.textContent = machineOption(machine);
-      picker.append(option);
+    function updatePicker() {
+      const selected = picker.value;
+      while (picker.options.length > 1) picker.remove(1);
+      const records = graph.nodes().map(node => node.data()).sort(compareMachines);
+      for (const machine of records) {
+        const option = document.createElement("option");
+        option.value = machine.ipAddress;
+        option.textContent = machineOption(machine);
+        picker.append(option);
+      }
+      picker.value = selected;
     }
+    updatePicker();
     picker.disabled = false;
     picker.addEventListener("change", () => {
       if (picker.value) {
@@ -183,9 +199,7 @@ async function loadMachines() {
         if (!response.ok) throw new Error(result.error || "Could not save the hostname.");
         const machine = result.machine;
         selectedNode.data({ ...machine, label: machineLabel(machine) });
-        for (const option of picker.options) {
-          if (option.value === machine.ipAddress) option.textContent = machineOption(machine);
-        }
+        updatePicker();
         setEditing(false);
         selectMachine(selectedNode);
         editStatus.textContent = "Hostname saved.";

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-28 @ 10:48
+
 ### Fixed
 
 - Explicitly disable TLS for agent provisioning and inventory connections over

@@ -66,9 +66,13 @@ discovered machine in turn:
    that interface's MAC address. This requires `iproute2` on the target. An
    unavailable command or missing MAC preserves the stored MAC and does not
    discard a successfully retrieved hostname.
+7. Read `/etc/os-release`, falling back to `/usr/lib/os-release` when absent,
+   and update the existing OS deployment at `/`. Release contents are parsed
+   as data, never executed. Missing, invalid, or unreadable release data leaves
+   the current OS observation unchanged and does not discard hostname or MAC data.
 
 For the local machine, skip the port check, SSH connections, and provisioning.
-The SSH interface executes the same hostname and MAC commands locally as `cmdb`.
+The SSH interface executes the same hostname, MAC, and OS commands locally as `cmdb`.
 
 Every connection uses the persistent local `cmdb` known-hosts file, including
 the initial login, root provisioning, and the `cmdb` retest. New host keys are

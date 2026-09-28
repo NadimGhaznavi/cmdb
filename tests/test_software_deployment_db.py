@@ -13,6 +13,7 @@ from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.NamespaceDb import NamespaceDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
+from cmdb.interface.HostOperatingSystem import operating_system
 
 
 @unittest.skipUnless(os.environ.get("CMDB_TEST_DB_SOCKET"), "Set CMDB_TEST_DB_SOCKET for database checks")
@@ -89,6 +90,22 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(stored.macAddress, "00:11:22:33:44:55")
         self.assertEqual(self.inventory()[0]["machine"], machine)
 
+    def test_host_release_replaces_fingerprint_and_reuses_deployment(self):
+        machine = self.machines.upsert(Machine("192.168.0.7"))
+        self.record(machine)
+        deployment = self.inventory()[0]["id"]
+        for _ in range(2):
+            with self.db.transaction():
+                self.software.record_operating_system(machine, operating_system(
+                    'ID=debian\nVERSION_ID=13\n'))
+            rows = self.inventory()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["id"], deployment)
+            self.assertEqual(rows[0]["subtype"], "debian")
+            self.assertEqual(rows[0]["version"], "13")
+            self.assertIsNone(rows[0]["supplier"])
+        self.assertEqual(self.db.query("SELECT COUNT(*) AS n FROM SoftwareSystem")[0]["n"], 2)
+
     def test_ssh_hostname_updates_only_the_identified_machine(self):
         first = self.machines.upsert(Machine("192.168.0.7", hostName="old"))
         second = self.machines.upsert(Machine("192.168.0.8", hostName="other"))
@@ -102,6 +119,31 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(stored[second].hostName, "other")
         self.assertEqual(stored[first].macAddress, "AA:BB:CC:DD:EE:FF")
         self.assertIsNone(stored[second].macAddress)
+
+    def test_codename_belongs_to_shared_system_and_conflicts_do_not_mutate_it(self):
+        first = self.machines.upsert(Machine("192.168.0.7"))
+        second = self.machines.upsert(Machine("192.168.0.8"))
+        release = 'ID=debian\nDEBIAN_VERSION_FULL=13.6\nVERSION_CODENAME=trixie\n'
+        for machine in (first, second, first):
+            with self.db.transaction():
+                self.software.record_operating_system(machine, operating_system(release))
+        old = self.inventory()
+        self.assertEqual(old[0]["softwareSystem"], old[1]["softwareSystem"])
+        tags = self.db.query("SELECT tag, value, modelElement FROM TaggedValue")
+        self.assertEqual(tags, [{"tag": "VERSION_CODENAME", "value": "trixie",
+                                 "modelElement": old[0]["softwareSystem"]}])
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute("INSERT INTO TaggedValue (tag, value, modelElement) VALUES (%s, %s, %s)",
+                            ("VERSION_CODENAME", "duplicate", old[0]["softwareSystem"]))
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute("INSERT INTO TaggedValue (tag, value, modelElement) VALUES (%s, %s, %s)",
+                            ("VERSION_CODENAME", "trixie", 999999))
+        with self.db.transaction():
+            self.software.record_operating_system(first, operating_system(release.replace('trixie', 'other')))
+        new = self.inventory()
+        self.assertEqual(new[0]["id"], old[0]["id"])
+        self.assertNotEqual(new[0]["softwareSystem"], old[0]["softwareSystem"])
+        self.assertEqual(new[1], old[1])
 
     def test_foreign_keys_and_rollback_prevent_partial_os_records(self):
         with self.assertRaises(pymysql.IntegrityError):
@@ -176,7 +218,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         for table in ("Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM {table}")}
             self.assertNotIn("namespace", columns)

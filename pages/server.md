@@ -154,6 +154,10 @@ The complete refresh includes both passes and can take longer than discovery
 alone. If OS scanning fails, the machine updates remain committed and the
 refresh reports a scan failure. OS writes use a separate transaction.
 
+The subsequent hostname/MAC follow-up also reads `os-release` through the SSH
+interface. Valid host-reported releases update the same OS deployment after
+Nmap, using the existing SoftwareSystem and Component mapping.
+
 OS classifications populate the
 [software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %}).
 Missing or inconclusive results preserve existing OS records. The service's

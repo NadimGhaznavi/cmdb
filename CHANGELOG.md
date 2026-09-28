@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Store Linux release ID and full Debian version on SoftwareSystem, with the
+  release codename in CWM TaggedValue attached through ModelElement.
+
+- Collect OS release information alongside hostnames and MAC addresses through
+  the shared local/SSH path, updating the existing OS deployment at `/`.
+
 ### Fixed
 
 - Execute SSH-interface commands directly for local targets and skip local SSH

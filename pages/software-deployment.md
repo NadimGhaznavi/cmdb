@@ -13,7 +13,8 @@ use those IDs rather than IP addresses.
 
 | Entity and table | Stored attributes and relationships |
 | --- | --- |
-| ModelElement | Auto-increment `id`; optional `namespace` reference to Namespace |
+| ModelElement | Auto-increment `id`; optional `namespace`; inherited `taggedValue` collection |
+| TaggedValue | Technical `id`; `tag`, `value`, optional `modelElement` reference |
 | Namespace | Shared `id` referencing ModelElement; `ownedElement` is the inverse of `ModelElement.namespace` |
 | SoftwareSystem | Shared Namespace identity; `type`, `subtype`, `supplier`, `version` |
 | Component | Shared Namespace identity; inherited `namespace` identifies its owning SoftwareSystem when present; `deployment` is the inverse of `DeployedComponent.component` |
@@ -65,6 +66,30 @@ Repeat scans reuse those records. A changed classification updates that
 machine's deployment without changing another machine's software definition.
 Unused definitions are retained.
 
+After the Nmap passes, hostname collection also reads the host's Linux
+`os-release` file through the SSH interface (directly for the local machine).
+The host-reported release replaces the Nmap classification for that machine's
+existing `/` deployment when available:
+
+| SoftwareSystem attribute | Host-reported value |
+| --- | --- |
+| `type` | `linux` |
+| `subtype` | `ID` (required), e.g. `debian` |
+| `supplier` | `VENDOR_NAME`, or null if absent |
+| `version` | For Debian, `DEBIAN_VERSION_FULL`, falling back to `VERSION_ID`; otherwise `VERSION_ID` |
+
+`VERSION_CODENAME` is stored as a TaggedValue on the SoftwareSystem, through
+its inherited ModelElement identity: `tag="VERSION_CODENAME"`, `value="trixie"`.
+The relationship is declared on ModelElement, not duplicated on SoftwareSystem.
+Only the needed TaggedValue attributes are adopted; its unused Stereotype
+relationship and attribute-free Element parent remain omitted.
+
+Use `/etc/os-release` when present, otherwise `/usr/lib/os-release`. Do not
+infer a supplier from a distribution name or substitute a kernel version for
+the product release. Hosts without readable, valid release data retain the
+current observation, including any classification collected by Nmap in that
+scan. Each scan runs Nmap first and host-reported collection afterward.
+
 The API returns `Machine.deployedComponent` as a list of deployed component
 IDs. OS details are stored for reporting; this change adds no OS controls or
 presentation to the GUI.
@@ -81,5 +106,5 @@ JOIN DeployedComponent AS dc ON dc.machine = m.id
 JOIN Component AS c ON c.id = dc.component
 JOIN ModelElement AS me ON me.id = c.id
 JOIN SoftwareSystem AS ss ON ss.id = me.namespace
-WHERE ss.type = 'OS';
+WHERE ss.type IN ('OS', 'linux');
 ```

@@ -22,7 +22,7 @@ def denied():
 
 class MachineSSHTests(TestCase):
     def setUp(self):
-        for name in ('SSH', 'DbMgr', 'MachineDb', 'socket.create_connection'):
+        for name in ('SSH', 'DbMgr', 'MachineDb', 'SoftwareDeploymentDb', 'socket.create_connection'):
             mock = patch('cmdb.activity.MachineSSH.' + name)
             setattr(self, name.split('.')[-1], mock.start())
             self.addCleanup(mock.stop)
@@ -39,7 +39,7 @@ class MachineSSHTests(TestCase):
         self.addCleanup(settings.stop)
 
     def test_existing_cmdb_login_updates_hostname_by_id_without_root(self):
-        self.remote.side_effect = [result(), result('worker.example.lan\n'), result('[]')]
+        self.remote.side_effect = [result(), result('worker.example.lan\n'), result('[]'), result('')]
         self.activity.run({'192.168.0.7': 42})
         self.create_connection.assert_called_once_with(('192.168.0.7', 22),
                                                        timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
@@ -59,15 +59,19 @@ class MachineSSHTests(TestCase):
                 self.create_connection.reset_mock()
                 self.MachineDb.return_value.reset_mock()
                 self.SSH.return_value.is_local.return_value = local
-                self.remote.side_effect = [result(), result('sally'), result(json.dumps(interfaces))]
+                self.remote.side_effect = [result(), result('sally'), result(json.dumps(interfaces)), result('ID=debian\nVERSION_ID=13')]
                 self.activity.run({'192.168.0.7': 42})
                 self.assertEqual(self.create_connection.call_count, 0 if local else 1)
+                stored = self.SoftwareDeploymentDb.return_value.record_operating_system.call_args
+                self.assertEqual(stored.args[0], 42)
+                self.assertEqual(stored.args[1].subtype, 'debian')
+                self.assertEqual(stored.args[1].version, '13')
                 self.MachineDb.return_value.update_discovered_mac.assert_called_once_with(
                     42, 'AA:BB:CC:DD:EE:02')
 
     def test_failed_mac_lookup_preserves_hostname_and_previous_mac(self):
         self.remote.side_effect = [result(), result('sally'),
-                                   subprocess.CalledProcessError(127, ['ip'])]
+                                   subprocess.CalledProcessError(127, ['ip']), result('')]
         self.activity.run({'192.168.0.7': 42})
         self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(42, 'sally')
         self.MachineDb.return_value.update_discovered_mac.assert_not_called()
@@ -80,8 +84,18 @@ class MachineSSHTests(TestCase):
         self.create_connection.assert_not_called()
         self.DbMgr.assert_not_called()
 
+    def test_failed_os_read_keeps_hostname_and_does_not_replace_os(self):
+        for response in (result('NAME="broken'), subprocess.CalledProcessError(1, ['cat']),
+                         subprocess.TimeoutExpired(['cat'], 30)):
+            with self.subTest(response=response):
+                self.MachineDb.return_value.reset_mock()
+                self.remote.side_effect = [result(), result('sally'), result('[]'), response]
+                self.activity.run({'192.168.0.7': 42})
+                self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(42, 'sally')
+                self.SoftwareDeploymentDb.assert_not_called()
+
     def test_root_provisions_then_cmdb_is_tested_before_hostname_read(self):
-        self.remote.side_effect = [denied(), result(), result(), result('worker\n'), result('[]')]
+        self.remote.side_effect = [denied(), result(), result(), result('worker\n'), result('[]'), result('')]
         self.activity.run({'192.168.0.7': 42})
         calls = self.remote.call_args_list
         self.assertEqual(calls[0].args[1], 'true')
@@ -107,7 +121,7 @@ class MachineSSHTests(TestCase):
         self.DbMgr.assert_not_called()
 
     def test_unresponsive_host_does_not_block_the_next_machine(self):
-        self.remote.side_effect = [subprocess.TimeoutExpired(['ssh'], 30), result(), result('second\n'), result('[]')]
+        self.remote.side_effect = [subprocess.TimeoutExpired(['ssh'], 30), result(), result('second\n'), result('[]'), result('')]
         self.activity.run({'192.168.0.7': 42, '192.168.0.8': 43})
         self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(43, 'second')
 

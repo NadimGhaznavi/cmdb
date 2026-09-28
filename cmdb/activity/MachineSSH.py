@@ -1,4 +1,4 @@
-"""Establish cmdb SSH access and obtain machine-reported hostnames."""
+"""Establish cmdb access and collect hostnames, MAC addresses and OS releases."""
 
 from pathlib import Path
 import ipaddress
@@ -13,6 +13,9 @@ from cmdb.constants.DCmdb import DCmdb
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SSH import SSH
+from cmdb.interface.HostOperatingSystem import operating_system
+from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
+from cmdb.entity.SoftwareSystem import SoftwareSystem
 
 
 class MachineSSH:
@@ -35,6 +38,7 @@ class MachineSSH:
             if hostname is None or self._stop_requested.is_set():
                 continue
             mac_address = self._mac_address(address)
+            system = self._operating_system(address)
             if self._stop_requested.is_set():
                 return
             db = DbMgr()
@@ -43,6 +47,8 @@ class MachineSSH:
                     MachineDb(db).update_discovered_hostname(machine_id, hostname)
                     if mac_address is not None:
                         MachineDb(db).update_discovered_mac(machine_id, mac_address)
+                    if system is not None:
+                        SoftwareDeploymentDb(db).record_operating_system(machine_id, system)
             finally:
                 db.close()
 
@@ -77,6 +83,15 @@ class MachineSSH:
                                                      or ord(character) == 127 for character in hostname):
             return None
         return hostname
+
+    def _operating_system(self, address: str) -> SoftwareSystem | None:
+        """Prefer the administrator's os-release file over the vendor fallback."""
+        try:
+            result = self._run(address, "if [ -e /etc/os-release ]; then cat /etc/os-release; "
+                               "else cat /usr/lib/os-release; fi")
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return operating_system(result.stdout)
 
     def _mac_address(self, address: str) -> str | None:
         """Read the interface owning the scanned IP through the shared command path."""

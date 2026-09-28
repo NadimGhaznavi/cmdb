@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-09-28 @ 18:53
+
+### Changed
+
+- Keep Debian host Machine, Uptime, and Enabled headers and cells on one line,
+  allowing Status to wrap into the remaining space.
+- Show cron field labels once in a shared second header row, with each host's
+  dropdowns aligned beneath them.
+
 ## [0.12.2] - 2026-09-28 @ 18:47
 
 ### Changed

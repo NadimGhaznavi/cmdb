@@ -330,12 +330,9 @@ async function loadPatchingHosts() {
         enabled.setAttribute('aria-label', `Enable scheduled patching for ${machineLabel(host)}`);
         enabled.addEventListener('change', () => { row.dataset.scheduleDirty = 'true'; });
         enabledCell.append(enabled);
-        const scheduleCell = document.createElement('td');
-        const expression = document.createElement('div');
-        expression.className = 'cron-fields';
+        const cronCells = [];
         for (const [name, maximum] of [['Minute', 59], ['Hour', 23], ['Day of month', 31], ['Month', 12], ['Day of week', 7]]) {
-          const label = document.createElement('label');
-          label.textContent = name;
+          const cell = document.createElement('td');
           const select = document.createElement('select');
           select.dataset.field = 'cron';
           select.setAttribute('aria-label', `${name} for ${machineLabel(host)}`);
@@ -343,13 +340,12 @@ async function loadPatchingHosts() {
           select.add(new Option('Every (*)', '*'));
           for (let value = 0; value <= maximum; value++) select.add(new Option(String(value), String(value)));
           select.addEventListener('change', () => { row.dataset.scheduleDirty = 'true'; });
-          label.append(select);
-          expression.append(label);
+          cell.append(select);
+          cronCells.push(cell);
         }
         const scheduleStatus = document.createElement('p');
         scheduleStatus.className = 'schedule-row-status';
         scheduleStatus.setAttribute('role', 'status');
-        scheduleCell.append(expression, scheduleStatus);
         const actions = document.createElement('td');
         const buttons = document.createElement('div');
         buttons.className = 'backup-actions';
@@ -367,8 +363,8 @@ async function loadPatchingHosts() {
         progress.className = 'patch-row-status';
         progress.setAttribute('role', 'status');
         buttons.append(update, button);
-        actions.append(buttons);
-        row.append(name, uptime, enabledCell, scheduleCell, actions, progress);
+        actions.append(buttons, scheduleStatus);
+        row.append(name, uptime, enabledCell, ...cronCells, actions, progress);
       }
       updateText(row.cells[0], machineLabel(host));
       if (!row.dataset.scheduleDirty && !row.dataset.scheduleSaving) {

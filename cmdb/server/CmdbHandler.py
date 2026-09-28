@@ -19,6 +19,7 @@ from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupFiles import BackupFiles
 from cmdb.interface.PatchDb import PatchDb
+from cmdb.interface.SSH import SSH
 from cmdb.activity.Scheduler import Scheduler
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -74,6 +75,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
                 return
             self.respond(200, json.dumps(scanner.scan_status()).encode("utf-8"), "application/json")
+        elif path.startswith('/api/patching/hosts/') and path.endswith('/uptime'):
+            self.host_uptime(path.removeprefix('/api/patching/hosts/').removesuffix('/uptime'))
         elif path in ('/api/patching/hosts', '/api/patching/report'):
             try:
                 db = DbMgr()
@@ -199,6 +202,25 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Machine no longer exists."}', "application/json")
             return
         self.respond(200, json.dumps({"machine": machine_record(machine)}).encode("utf-8"), "application/json")
+
+    def host_uptime(self, identity: str) -> None:
+        if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
+            self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+            return
+        try:
+            db = DbMgr()
+            try:
+                host = next((host for host in SoftwareDeploymentDb(db).debian_hosts() if host['id'] == int(identity)), None)
+            finally:
+                db.close()
+            if host is None:
+                self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+                return
+            seconds = SSH().uptime(host['ipAddress'])
+        except (OSError, ValueError, subprocess.SubprocessError, pymysql.MySQLError):
+            self.respond(503, b'{"error":"Uptime is unavailable."}', 'application/json')
+            return
+        self.respond(200, json.dumps({'uptimeSeconds': seconds}).encode(), 'application/json')
 
     def request_patch(self) -> None:
         if self.headers.get_content_type() != 'application/json':

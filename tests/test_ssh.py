@@ -16,6 +16,16 @@ from cmdb.interface.SSH import SSH
 
 
 class SSHTests(unittest.TestCase):
+    def test_uptime_uses_inventory_command_and_validates_response(self):
+        with patch.object(SSH, 'run') as run:
+            run.return_value.stdout = '90061.25 120000.50\n'
+            self.assertEqual(SSH().uptime('192.0.2.1'), 90061)
+            run.assert_called_once_with('192.0.2.1', 'cat /proc/uptime', timeout=10, connect_timeout=5)
+            for value in ('', '-1 0', 'nan 0', 'not uptime'):
+                run.return_value.stdout = value
+                with self.assertRaises(ValueError):
+                    SSH().uptime('192.0.2.1')
+
     def setUp(self):
         local = patch('cmdb.interface.SSH.SSH.is_local', return_value=False)
         self.local = local.start()

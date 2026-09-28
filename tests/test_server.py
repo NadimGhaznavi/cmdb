@@ -53,6 +53,22 @@ class ServerTests(unittest.TestCase):
                 connection.close()
         records.return_value.request.assert_called_once_with(7)
 
+    @patch('cmdb.server.CmdbHandler.SSH')
+    @patch('cmdb.server.CmdbHandler.SoftwareDeploymentDb')
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_uptime_only_contacts_known_debian_hosts(self, db, inventory, ssh):
+        inventory.return_value.debian_hosts.return_value = [{'id': 7, 'ipAddress': '192.0.2.1'}]
+        ssh.return_value.uptime.return_value = 90061
+        status, body = self.get('/api/patching/hosts/7/uptime')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'uptimeSeconds': 90061})
+        ssh.return_value.uptime.assert_called_once_with('192.0.2.1')
+        self.assertEqual(self.get('/api/patching/hosts/8/uptime')[0], 404)
+        self.assertEqual(self.get('/api/patching/hosts/invalid/uptime')[0], 404)
+        ssh.return_value.uptime.assert_called_once()
+        ssh.return_value.uptime.side_effect = subprocess.TimeoutExpired('ssh', 10)
+        self.assertEqual(self.get('/api/patching/hosts/7/uptime')[0], 503)
+
     def get(self, path):
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
         try:

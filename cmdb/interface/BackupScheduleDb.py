@@ -11,11 +11,11 @@ class BackupScheduleDb:
         rows = self._db.query('SELECT * FROM BackupSchedule WHERE id=%s', (identity,))
         return rows[0] if rows else None
 
-    def save(self, modelElement: int, enabled: bool, frequency: str, retention: str) -> dict:
+    def save(self, modelElement: int, enabled: bool, expression: str, retention: str) -> dict:
         self._db.execute(
-            'INSERT INTO BackupSchedule (modelElement, enabled, frequency, retention) VALUES (%s, %s, %s, %s) '
-            'ON DUPLICATE KEY UPDATE enabled=VALUES(enabled), frequency=VALUES(frequency), retention=VALUES(retention)',
-            (modelElement, enabled, frequency, retention))
+            'INSERT INTO BackupSchedule (modelElement, enabled, expression, retention) VALUES (%s, %s, %s, %s) '
+            'ON DUPLICATE KEY UPDATE enabled=VALUES(enabled), expression=VALUES(expression), retention=VALUES(retention)',
+            (modelElement, enabled, expression, retention))
         return self._db.query('SELECT * FROM BackupSchedule WHERE modelElement=%s', (modelElement,))[0]
 
     def delete(self, identity: int) -> None:

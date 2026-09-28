@@ -1,5 +1,7 @@
 """Save backup policies, maintain cron entries, and dispatch one scheduled job."""
 
+from crontab import CronSlices
+
 from cmdb.activity.BackupManager import BackupManager
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupScheduleDb import BackupScheduleDb
@@ -11,19 +13,23 @@ class Scheduler:
     # Serialize web edits to the single service-account crontab.
     _edit_lock = Cron.EDIT_LOCK
 
-    def update(self, modelElement: int, enabled: bool, frequency: str, retention: str) -> dict:
+    def update(self, modelElement: int, enabled: bool, expression: str, retention: str) -> dict:
         if (type(modelElement) is not int or not 0 < modelElement < 2**64
-                or type(enabled) is not bool or frequency != 'daily'
+                or type(enabled) is not bool or not isinstance(expression, str)
+                or len(expression) > 255 or '\n' in expression or '\r' in expression
                 or retention not in ('1-week', '2-weeks', '1-month', 'forever')):
             raise ValueError('Invalid backup schedule settings.')
+        expression = ' '.join(expression.split())
+        if len(expression.split()) != 5 or not CronSlices.is_valid(expression):
+            raise ValueError('Use five cron fields: minute hour day-of-month month day-of-week.')
         with self._edit_lock:
             db = DbMgr()
             try:
                 with db.transaction():
                     if not any(item['modelElement'] == modelElement for item in BackupDb(db).databases()):
                         raise LookupError('User database not found.')
-                    schedule = BackupScheduleDb(db).save(modelElement, enabled, frequency, retention)
-                    Cron().update(schedule['id'], enabled)
+                    schedule = BackupScheduleDb(db).save(modelElement, enabled, expression, retention)
+                    Cron().update(schedule['id'], enabled, expression)
                 return schedule
             finally:
                 db.close()

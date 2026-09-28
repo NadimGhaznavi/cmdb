@@ -178,7 +178,7 @@ class ServerTests(unittest.TestCase):
 
     @patch('cmdb.server.CmdbHandler.Scheduler')
     def test_schedule_update_and_delete(self, scheduler):
-        values = dict(modelElement=7, enabled=True, frequency='daily', retention='2-weeks')
+        values = dict(modelElement=7, enabled=True, expression='0 12 * * *', retention='2-weeks')
         scheduler.return_value.update.return_value = dict(id=12, **values)
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
         try:
@@ -198,7 +198,7 @@ class ServerTests(unittest.TestCase):
     @patch('cmdb.server.CmdbHandler.Scheduler')
     def test_invalid_schedule_body_and_cron_error(self, scheduler):
         for values, status in [({'modelElement': 7}, 400),
-                               (dict(modelElement=7, enabled=True, frequency='daily', retention='forever'), 503)]:
+                               (dict(modelElement=7, enabled=True, expression='0 12 * * *', retention='forever'), 503)]:
             scheduler.return_value.update.side_effect = OSError('cron denied')
             connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
             try:

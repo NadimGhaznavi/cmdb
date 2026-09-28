@@ -7,6 +7,27 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Add the same 20-character Cron Schedule field to Live Databases. Backup schedules
+  now save their own cron expressions, defaulting to daily at noon.
+
+### Upgrade instructions
+
+Before upgrading an existing installation, run once in the CMDB database:
+
+```sql
+ALTER TABLE BackupSchedule
+    ADD COLUMN expression VARCHAR(255) NOT NULL DEFAULT '0 12 * * *';
+```
+
+Existing schedules retain daily noon timing. Fresh installations need no manual change.
+
+### Changed
+
+- Use one 20-character-wide text box under Cron Schedule, with a single header
+  row. Keep Machine, Uptime, and Enabled on one line and let Status wrap.
+
 ## [0.12.5] - 2026-09-28 @ 18:58
 
 ## [0.12.3] - 2026-09-28 @ 18:53

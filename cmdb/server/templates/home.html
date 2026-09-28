@@ -74,6 +74,7 @@
                 <tr>
                   <th scope="col">Database</th>
                   <th scope="col">Enabled</th>
+                  <th scope="col">Cron Schedule</th>
                   <th scope="col">Retention</th>
                   <th scope="col">Last Backup</th>
                   <th scope="col">Actions</th>
@@ -88,6 +89,7 @@
         <tr>
           <td data-field="database"></td>
           <td><input type="checkbox" data-field="enabled"></td>
+          <td><input type="text" data-field="expression" size="20" maxlength="255"></td>
           <td>
             <select data-field="retention">
               <option value="1-week">1 week</option>
@@ -137,10 +139,7 @@
     <p id="patching-status" role="status">Loading Debian hosts…</p>
     <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Debian hosts">
       <table class="backups-table debian-hosts-table" aria-label="Debian hosts">
-        <thead>
-          <tr><td colspan="3"></td><th scope="colgroup" colspan="5">Schedule</th><td colspan="2"></td></tr>
-          <tr><th scope="col">Machine</th><th scope="col">Uptime</th><th scope="col">Enabled</th><th scope="col">Minute</th><th scope="col">Hour</th><th scope="col">Day of month</th><th scope="col">Month</th><th scope="col">Day of week</th><th scope="col">Actions</th><th scope="col">Status</th></tr>
-        </thead>
+        <thead><tr><th scope="col">Machine</th><th scope="col">Uptime</th><th scope="col">Enabled</th><th scope="col">Cron Schedule</th><th scope="col">Actions</th><th scope="col">Status</th></tr></thead>
         <tbody id="patching-hosts"></tbody>
       </table>
     </div>

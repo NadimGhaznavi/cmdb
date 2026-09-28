@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS BackupSchedule (
     modelElement BIGINT UNSIGNED NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
     frequency VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'daily',
+    expression VARCHAR(255) NOT NULL DEFAULT '0 12 * * *',
     retention VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT '1-week',
     UNIQUE KEY BackupSchedule_modelElement_uq (modelElement),
     CONSTRAINT BackupSchedule_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id),

@@ -16,16 +16,29 @@ async function loadBackupFiles() {
   try {
     const response = await fetch("/api/backups/files", { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error("Backup files are unavailable. Reopen Backups to try again.");
-    const { files } = await response.json();
+    const { files, directory } = await response.json();
     if (request !== backupFilesRequest) return;
+    document.querySelector('#backup-directory span').textContent = directory;
     body.replaceChildren();
     for (const file of files) {
       const row = document.createElement("tr");
+      row.dataset.backupId = file.id;
       for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);
       }
+      const state = document.createElement('td');
+      state.dataset.field = 'fileStatus';
+      state.textContent = '---';
+      const actions = document.createElement('td');
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = 'Delete Record';
+      remove.hidden = true;
+      remove.addEventListener('click', () => deleteBackupRecord(row, file.id));
+      actions.append(remove);
+      row.append(state, actions);
       body.append(row);
     }
     status.textContent = files.length ? "" : "No backup files yet.";
@@ -35,6 +48,54 @@ async function loadBackupFiles() {
     status.textContent = error.message || "Backup files could not be loaded.";
   }
 }
+
+async function scanBackupFiles() {
+  const button = document.getElementById('scan-backup-files');
+  const status = document.getElementById('backup-files-status');
+  const request = backupFilesRequest;
+  button.disabled = true;
+  status.textContent = 'Scanning backup files…';
+  for (const row of document.querySelectorAll('#backup-files-rows tr')) {
+    row.querySelector('[data-field="fileStatus"]').textContent = '---';
+    row.querySelector('button').hidden = true;
+  }
+  try {
+    const response = await fetch('/api/backups/files/scan', { method: 'POST', signal: AbortSignal.timeout(45000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not scan backup files.');
+    if (request !== backupFilesRequest) return;
+    const statuses = new Map(result.files.map(file => [String(file.id), file.status]));
+    for (const row of document.querySelectorAll('#backup-files-rows tr')) {
+      const state = statuses.get(row.dataset.backupId) || '---';
+      row.querySelector('[data-field="fileStatus"]').textContent = state;
+      row.querySelector('button').hidden = state !== 'Missing';
+    }
+    status.textContent = 'Filesystem scan complete.';
+  } catch (error) {
+    if (request === backupFilesRequest) status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteBackupRecord(row, identity) {
+  const button = row.querySelector('button');
+  const status = document.getElementById('backup-files-status');
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/backups/files/${identity}`, { method: 'DELETE', signal: AbortSignal.timeout(45000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not delete the backup record.');
+    row.remove();
+    status.textContent = 'Backup record deleted.';
+    loadBackups();
+  } catch (error) {
+    status.textContent = error.message;
+    button.disabled = false;
+  }
+}
+
+document.getElementById('scan-backup-files').addEventListener('click', scanBackupFiles);
 
 async function loadBackups() {
   const status = document.getElementById("backups-status");

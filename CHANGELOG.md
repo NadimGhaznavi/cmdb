@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-28 @ 08:12
+
 ### Fixed
 
 - Match table names to CWM class names exactly and replace the extra deployed

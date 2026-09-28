@@ -22,21 +22,25 @@
     </div>
     <p id="graph-status" role="status">Loading machines…</p>
     <noscript>Enable JavaScript to view machines.</noscript>
-    <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
-    <section id="machine-details" aria-label="Selected machine" hidden>
-      <dl>
-        <div><dt>ipAddress</dt><dd id="detail-ipAddress"></dd></div>
-        <div><dt><label for="hostname-input">hostName</label></dt><dd>
-          <span id="detail-hostName"></span>
-          <input id="hostname-input" type="text" maxlength="255" autocomplete="off" hidden>
-        </dd></div>
-        <div><dt>site</dt><dd id="detail-site"></dd></div>
-        <div><dt>deployedComponent</dt><dd id="detail-deployedComponent"></dd></div>
-        <div><dt>createdOn</dt><dd id="detail-createdOn"></dd></div>
-        <div><dt>updatedOn</dt><dd id="detail-updatedOn"></dd></div>
-      </dl>
-      <p id="edit-status" role="status"></p>
-    </section>
+    <div class="machine-workspace">
+      <section id="machine-details" aria-label="Selected machine" hidden>
+        <table aria-label="Machine details">
+          <tbody>
+            <tr><th scope="row">ipAddress:</th><td id="detail-ipAddress"></td></tr>
+            <tr><th scope="row"><label for="hostname-input">hostName:</label></th><td>
+              <span id="detail-hostName"></span>
+              <input id="hostname-input" type="text" maxlength="255" autocomplete="off" hidden>
+            </td></tr>
+            <tr><th scope="row">site:</th><td id="detail-site"></td></tr>
+            <tr><th scope="row">deployedComponent:</th><td id="detail-deployedComponent"></td></tr>
+            <tr><th scope="row">createdOn:</th><td id="detail-createdOn"></td></tr>
+            <tr><th scope="row">updatedOn:</th><td id="detail-updatedOn"></td></tr>
+          </tbody>
+        </table>
+        <p id="edit-status" role="status"></p>
+      </section>
+      <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
+    </div>
   </main>
   <footer class="page-footer">
     <div class="page-actions">
@@ -45,7 +49,7 @@
       <button id="save-button" type="button" hidden>Save</button>
       <button id="cancel-button" type="button" hidden>Cancel</button>
     </div>
-    <p>Last refresh: {{last_refresh}}</p>
+    <p>Last refresh: <time id="last-refresh" datetime="{{last_refresh}}">{{last_refresh}}</time></p>
   </footer>
 </body>
 </html>

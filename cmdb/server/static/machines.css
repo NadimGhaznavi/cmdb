@@ -24,12 +24,13 @@ select:focus-visible { outline: 2px solid #ffb454; }
 #edit-status:empty { display: none; }
 .page-actions button:disabled { opacity: .5; cursor: default; }
 #graph-status { color: #bbb; font-size: .9rem; margin: .75rem 0; }
-.graph-area { flex: 1; min-height: 20rem; position: relative; }
+.machine-workspace { flex: 1; display: flex; gap: 1.5rem; min-width: 0; }
+.graph-area { flex: 1; min-width: 0; min-height: 20rem; position: relative; }
 #machine-graph { position: absolute; inset: 0; }
-#machine-details { border-top: 1px solid #6e502e; margin-top: 1rem; padding-top: 1rem; }
-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; margin: 0; }
-dt { color: #ffb454; font-size: .85rem; }
-dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+#machine-details { flex: 0 0 24rem; max-width: 40%; border-right: 1px solid #6e502e; padding-right: 1.5rem; }
+#machine-details table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .9rem; }
+#machine-details th, #machine-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
+#machine-details th { width: 45%; color: #ffb454; font-weight: normal; }
 .page-actions { margin: 0; }
 .page-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
 .page-footer p { margin: 0 0 0 auto; text-align: right; }
@@ -47,4 +48,6 @@ dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
   body { padding: .5rem; gap: .5rem; }
   header, main { padding: 1rem; }
   .panel-heading label { width: 100%; }
+  .machine-workspace { flex-direction: column; }
+  #machine-details { flex-basis: auto; max-width: none; border-right: 0; border-bottom: 1px solid #6e502e; padding: 0 0 1rem; }
 }

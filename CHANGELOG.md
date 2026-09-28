@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-09-27 @ 21:34
+
+### Changed
+
+- Display machine timestamps and Last refresh in browser-local time using
+  `YYYY-MM-DD HH:MM:SS`, preserving stored precision.
+- Moved selected-machine details to a key/value table left of the graph, stacking
+  above the graph on narrow screens.
+
 ## [0.3.8] - 2026-09-27 @ 21:27
 
 ### Changed

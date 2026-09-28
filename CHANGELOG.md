@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-09-28 @ 18:47
+
 ### Changed
 
 - Run apt-get autoremove after patch upgrades and before rebooting; stop before

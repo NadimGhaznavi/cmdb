@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-09-28 @ 11:28
+
 ### Added
 
 - Add a collapsible Machine heading to the left details panel; clicking a machine

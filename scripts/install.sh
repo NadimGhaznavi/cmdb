@@ -13,6 +13,9 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 command -v mariadb >/dev/null
 command -v systemctl >/dev/null
 command -v systemd-analyze >/dev/null
+command -v sudo >/dev/null
+command -v visudo >/dev/null
+[[ -x /usr/bin/nmap ]] || { printf 'Install /usr/bin/nmap before installing CMDB.\n' >&2; exit 1; }
 python3 -B - <<'PY'
 import sys
 import venv

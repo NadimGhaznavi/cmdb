@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-28 @ 07:07
+
+### Changed
+
+- Install a passwordless sudoers rule granting `cmdb` unrestricted arguments to
+  root Nmap scans; the interface now uses sudo and the service permits privilege
+  elevation. Uninstall removes the rule while retaining credentials and accounts.
+
 ## [0.4.0] - 2026-09-28 @ 07:00
 
 ### Added

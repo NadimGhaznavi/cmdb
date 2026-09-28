@@ -9,7 +9,7 @@ class Nmap:
     """Own one scanner; do not share an instance between worker threads."""
 
     def __init__(self) -> None:
-        self._scanner = nmap.PortScanner()
+        self._scanner = nmap.PortScanner(nmap_search_path=("/usr/bin/nmap",))
 
     def scan(
         self,
@@ -27,5 +27,5 @@ class Nmap:
         if not hosts.strip():
             raise ValueError("Scan hosts must not be empty.")
         return self._scanner.scan(
-            hosts=hosts, ports=ports, arguments=arguments, timeout=timeout,
+            hosts=hosts, ports=ports, arguments=arguments, timeout=timeout, sudo=True,
         )

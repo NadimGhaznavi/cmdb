@@ -4,7 +4,7 @@ from contextlib import ExitStack
 from pathlib import Path
 import subprocess
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from cmdb.constants.DCmdb import DCmdb
 
@@ -46,7 +46,10 @@ class UninstallTests(unittest.TestCase):
             (['mariadb', '--protocol=socket', '--user=root'], 'DROP DATABASE IF EXISTS `cmdb`;\n'),
             (['systemctl', 'daemon-reload'], None),
         ])
-        unlink.assert_called_once_with(Path('/etc/systemd/system/cmdb-server.service'), missing_ok=True)
+        self.assertEqual(unlink.call_args_list, [
+            call(Path('/etc/systemd/system/cmdb-server.service'), missing_ok=True),
+            call(Path('/etc/sudoers.d/cmdb-nmap'), missing_ok=True),
+        ])
         remove.assert_called_once_with(Path('/opt/prod/cmdb'))
 
     def test_repeat_uninstall_handles_missing_deployment(self):

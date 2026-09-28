@@ -140,6 +140,9 @@ inventory. It uses MariaDB's
 to authenticate the matching Linux identity, with no database password.
 Commands run through SSH as `cmdbagent` and connect to the host's default local
 MariaDB socket. TCP database access is not required.
+These client commands explicitly use `--protocol=socket --skip-ssl` to avoid
+TLS certificate checks on the local socket. Remote commands remain transported
+over SSH.
 
 After successful host inventory, the scanner checks for the MariaDB client and
 tests the database agent identity and grants. When setup is needed on a remote

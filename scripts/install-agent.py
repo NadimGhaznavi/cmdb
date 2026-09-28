@@ -22,10 +22,10 @@ def main() -> None:
     public_key = Path(DCmdb.SSH_KEY + '.pub').read_text().strip()
     script = Path(__file__).resolve().parents[1] / 'cmdb/activity/scripts/provision-agent.sh'
     subprocess.run(['/bin/sh', str(script), DCmdb.AGENT_USER, public_key], check=True)
-    subprocess.run(['mariadb', '--no-defaults', '--protocol=socket', '--user=root', '--batch'],
+    subprocess.run(['mariadb', '--no-defaults', '--protocol=socket', '--skip-ssl', '--user=root', '--batch'],
                    input=provisioning_sql(), text=True, check=True)
     subprocess.run(['runuser', '-u', DCmdb.AGENT_USER, '--', 'mariadb', '--no-defaults',
-                    '--protocol=socket', '--user=' + DCmdb.AGENT_USER, '--batch',
+                    '--protocol=socket', '--skip-ssl', '--user=' + DCmdb.AGENT_USER, '--batch',
                     '-e', 'SELECT CURRENT_USER(); SHOW DATABASES;'], check=True,
                    stdout=subprocess.DEVNULL)
 

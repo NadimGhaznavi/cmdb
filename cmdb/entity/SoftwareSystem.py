@@ -2,11 +2,11 @@
 
 from dataclasses import dataclass
 
-from cmdb.entity.Namespace import Namespace
+from cmdb.entity.Package import Package
 
 
 @dataclass
-class SoftwareSystem(Namespace):
+class SoftwareSystem(Package):
     type: str | None = None
     subtype: str | None = None
     supplier: str | None = None

@@ -11,7 +11,7 @@ class MachineDb:
 
     def list_machines(self) -> list[Machine]:
         rows = self._db.query(
-            "SELECT m.id, me.namespace, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
+            "SELECT m.id, me.name, me.namespace, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
             "FROM Machine m JOIN ModelElement me ON me.id = m.id ORDER BY INET6_ATON(ipAddress), ipAddress"
         )
         return self._with_deployments(rows)
@@ -73,7 +73,7 @@ class MachineDb:
                 "WHERE ipAddress = %s", (host_name, ip_address),
             )
             rows = self._db.query(
-                "SELECT m.id, me.namespace, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
+                "SELECT m.id, me.name, me.namespace, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
                 "FROM Machine m JOIN ModelElement me ON me.id = m.id WHERE ipAddress = %s", (ip_address,),
             )
             machines = self._with_deployments(rows)

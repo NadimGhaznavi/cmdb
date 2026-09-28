@@ -92,6 +92,7 @@ from cmdb.constants.DCmdb import DCmdb
 destination = Path(DCmdb.BASE_DIR)
 shutil.copytree('cmdb', destination / 'cmdb', dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+shutil.copytree('schema', destination / 'schema', dirs_exist_ok=True)
 for name in ('cmdb-server.py', 'requirements.txt', 'VERSION'):
     shutil.copy2(name, destination / name)
 template = Path('systemd', DCmdb.SERVICE_UNIT).read_text()

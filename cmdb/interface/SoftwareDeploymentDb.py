@@ -32,9 +32,32 @@ class SoftwareDeploymentDb:
         """
         if system.type not in ("OS", "linux") or not system.subtype:
             raise ValueError("An operating system classification is required.")
+        component = self.component_for(system)
+
+        rows = self._db.query(
+            "SELECT dc.id FROM DeployedComponent dc "
+            "JOIN Component c ON c.id = dc.component "
+            "JOIN ModelElement me ON me.id = c.id "
+            "JOIN SoftwareSystem ss ON ss.id = me.namespace "
+            "WHERE dc.machine = %s AND dc.pathname = '/' AND ss.type IN ('OS', 'linux') "
+            "ORDER BY dc.id LIMIT 1", (machine,),
+        )
+        if rows:
+            self._db.execute("UPDATE DeployedComponent SET component = %s WHERE id = %s",
+                             (component.id, rows[0]["id"]))
+        else:
+            deployment = DeployedComponent(pathname="/", machine=machine, component=component.id,
+                                           namespace=machine, id=self._namespaces.create_package(namespace=machine))
+            self._db.execute(
+                "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
+                (deployment.id, deployment.pathname, deployment.machine, deployment.component),
+            )
+
+    def component_for(self, system: SoftwareSystem) -> Component:
+        """Reuse a software release and its component within the caller transaction."""
         tags = {tag.tag: tag.value for tag in system.taggedValue}
         if len(tags) != len(system.taggedValue) or set(tags) - {"VERSION_CODENAME"}:
-            raise ValueError("OS observations support one VERSION_CODENAME tag.")
+            raise ValueError("Software observations support one VERSION_CODENAME tag.")
         rows = self._db.query(
             "SELECT ss.id, tv.id AS taggedValueId FROM SoftwareSystem ss LEFT JOIN TaggedValue tv "
             "ON tv.modelElement = ss.id AND tv.tag = 'VERSION_CODENAME' "
@@ -49,7 +72,7 @@ class SoftwareDeploymentDb:
                 tag.modelElement = system.id
                 tag.id = rows[0]["taggedValueId"]
         else:
-            system.id = self._namespaces.create()
+            system.id = self._namespaces.create_package()
             self._db.execute(
                 "INSERT INTO SoftwareSystem (id, type, subtype, supplier, version) VALUES (%s, %s, %s, %s, %s)",
                 (system.id, system.type, system.subtype, system.supplier, system.version),
@@ -73,21 +96,4 @@ class SoftwareDeploymentDb:
             component.id = self._namespaces.create(namespace=system.id)
             self._db.execute("INSERT INTO Component (id) VALUES (%s)", (component.id,))
 
-        rows = self._db.query(
-            "SELECT dc.id FROM DeployedComponent dc "
-            "JOIN Component c ON c.id = dc.component "
-            "JOIN ModelElement me ON me.id = c.id "
-            "JOIN SoftwareSystem ss ON ss.id = me.namespace "
-            "WHERE dc.machine = %s AND dc.pathname = '/' AND ss.type IN ('OS', 'linux') "
-            "ORDER BY dc.id LIMIT 1", (machine,),
-        )
-        if rows:
-            self._db.execute("UPDATE DeployedComponent SET component = %s WHERE id = %s",
-                             (component.id, rows[0]["id"]))
-        else:
-            deployment = DeployedComponent(pathname="/", machine=machine, component=component.id,
-                                           namespace=machine, id=self._namespaces.create(namespace=machine))
-            self._db.execute(
-                "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
-                (deployment.id, deployment.pathname, deployment.machine, deployment.component),
-            )
+        return component

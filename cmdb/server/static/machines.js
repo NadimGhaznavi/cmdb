@@ -30,13 +30,13 @@ async function loadMachines() {
       }),
       style: [
         { selector: "node", style: {
-          "background-color": "#d98124", "border-color": "#ffb454", "border-width": 2,
-          "width": 160, "height": 160, "label": "data(label)", "color": "#17191c",
-          "font-size": 12, "text-valign": "center", "text-halign": "center",
+          "background-color": "#14532d", "border-color": "#4ade80", "border-width": 2,
+          "width": 160, "height": 160, "label": "data(label)", "color": "#fff",
+          "font-size": 24, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
         { selector: "node:selected", style: {
-          "background-color": "#ffcf87", "border-color": "#fff", "border-width": 3,
+          "background-color": "#166534", "border-color": "#fff", "border-width": 3,
         } },
       ],
       layout: { name: "circle", padding: 40, nodeDimensionsIncludeLabels: true },

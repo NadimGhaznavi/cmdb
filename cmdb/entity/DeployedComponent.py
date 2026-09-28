@@ -2,11 +2,11 @@
 
 from dataclasses import dataclass
 
-from cmdb.entity.Namespace import Namespace
+from cmdb.entity.Package import Package
 
 
 @dataclass
-class DeployedComponent(Namespace):
+class DeployedComponent(Package):
     """`machine` holds the containing Machine's stable ID foreign key."""
 
     pathname: str

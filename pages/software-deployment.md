@@ -13,12 +13,15 @@ use those IDs rather than IP addresses.
 
 | Entity and table | Stored attributes and relationships |
 | --- | --- |
-| ModelElement | Auto-increment `id`; optional `namespace`; inherited `taggedValue` collection |
+| ModelElement | Auto-increment `id`; `name`; optional `namespace`; inherited `taggedValue` collection |
 | TaggedValue | Technical `id`; `tag`, `value`, optional `modelElement` reference |
 | Namespace | Shared `id` referencing ModelElement; `ownedElement` is the inverse of `ModelElement.namespace` |
-| SoftwareSystem | Shared Namespace identity; `type`, `subtype`, `supplier`, `version` |
+| Package | Shared Namespace identity; target of `DataManager.dataPackage` |
+| SoftwareSystem | Shared Package identity; `type`, `subtype`, `supplier`, `version` |
 | Component | Shared Namespace identity; inherited `namespace` identifies its owning SoftwareSystem when present; `deployment` is the inverse of `DeployedComponent.component` |
-| DeployedComponent | Shared Namespace identity; `pathname`, required `machine` and `component` references |
+| DeployedComponent | Shared Package identity; `pathname`, required `machine` and `component` references |
+| DataManager | Shared DeployedComponent identity; `dataPackage` references through DataManagerDataPackage |
+| Schema | Shared Package identity; database name inherited from ModelElement |
 | Machine | Shared Namespace identity; `deployedComponent` is the collection of deployments referencing the machine |
 
 The stored path is `SoftwareSystem → Component → DeployedComponent → Machine`.
@@ -33,12 +36,18 @@ subclass shares its parent's ID through foreign keys. The scanner assigns a
 Component's namespace to its SoftwareSystem and a DeployedComponent's namespace
 to its Machine.
 
-Only ModelElement and Namespace are needed from the core hierarchy to store
-this ownership. Intermediate core classes with no currently needed fields
-(such as Classifier, Package, and Subsystem) remain omitted; the Python entities
-inherit from their nearest implemented ancestor, Namespace. No inherited
-`name` or other unused parent attribute is copied onto a child.
+ModelElement, Namespace, and Package supply the adopted core hierarchy.
+Intermediate classes with no currently needed fields, such as Classifier and
+Subsystem, remain omitted; entities inherit from their nearest implemented
+ancestor. The newly needed `name` attribute stays on ModelElement.
 There is no DeployedSoftwareSystem entity or association table in this subset.
+
+The database-inventory schema is prepared for a deployed MariaDB DataManager
+linked to relational Schema objects through `DataManagerDataPackage`. This
+increment does not yet discover or populate those records. DataProvider describes
+client software, rather than the MariaDB server itself. See
+[Schema Notes]({{ site.baseurl }}{% link pages/schema-notes.md %}) for association
+multiplicities and naming decisions.
 
 ## Discovery mapping
 

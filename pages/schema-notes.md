@@ -6,6 +6,29 @@ title: Schema Notes
 
 This page records non-obvious database constraints and implementation decisions.
 
+## Data packages and inherited names
+
+Database names are stored in `ModelElement.name`, inherited by relational
+`Schema`. Names use a binary collation to preserve case distinctions, and are
+not globally unique: different server instances can host the same database name.
+The column is nullable for existing object kinds whose names are not collected.
+
+`Package` now has a shared-identity table because it is the declared target of
+`DataManager.dataPackage` and the parent of Schema. DeployedComponent also
+inherits Package; SoftwareSystem uses Package as its nearest implemented
+ancestor. Existing OS writes create the required Package rows.
+
+`DataManagerDataPackage` stores the CWM association of that exact name. Its
+`dataManager` and `dataPackage` columns reference DataManager and Package,
+respectively, and together form its primary key. Both ends remain many-valued.
+This is an association table, not a new entity class or a replacement for
+namespace ownership. A package can exist without links, and a manager can
+have no packages. Duplicate links and dangling references are rejected.
+
+DataManager shares its DeployedComponent ID; Schema shares its Package ID.
+No attributes are copied down to either child. Catalog, database discovery,
+and unneeded attributes such as `isCaseSensitive` are deferred.
+
 ## Deployment owner consistency
 
 `DeployedComponent.machine` and its inherited `ModelElement.namespace` must

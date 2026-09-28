@@ -49,7 +49,7 @@ class SoftwareDeploymentDb:
                 tag.modelElement = system.id
                 tag.id = rows[0]["taggedValueId"]
         else:
-            system.id = self._namespaces.create()
+            system.id = self._namespaces.create_package()
             self._db.execute(
                 "INSERT INTO SoftwareSystem (id, type, subtype, supplier, version) VALUES (%s, %s, %s, %s, %s)",
                 (system.id, system.type, system.subtype, system.supplier, system.version),
@@ -86,7 +86,7 @@ class SoftwareDeploymentDb:
                              (component.id, rows[0]["id"]))
         else:
             deployment = DeployedComponent(pathname="/", machine=machine, component=component.id,
-                                           namespace=machine, id=self._namespaces.create(namespace=machine))
+                                           namespace=machine, id=self._namespaces.create_package(namespace=machine))
             self._db.execute(
                 "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
                 (deployment.id, deployment.pathname, deployment.machine, deployment.component),

@@ -9,6 +9,10 @@ permalink: /CHANGELOG/
 
 ### Added
 
+- Prepare database inventory storage with ModelElement.name, Package, Schema,
+  DataManager, and the CWM DataManagerDataPackage association. Keep inherited
+  fields on their parents and preserve both many-valued association ends.
+
 - Provision MariaDB `cmdbagent@localhost` with Unix-socket authentication and
   `SHOW DATABASES` access. SSHDb checks existing agents and provisions remote
   accounts through root SSH when needed; install/upgrade handles the local account.
@@ -16,8 +20,8 @@ permalink: /CHANGELOG/
 
 ### Installation
 
-Run `sudo scripts/upgrade.sh` from the checkout, or use a fresh install, to
-provision the local database agent. Refresh then provisions remote MariaDB
+Use uninstall/install for this release's fresh schema; no record migration is
+provided. Installation also provisions the local database agent. Refresh provisions remote MariaDB
 agents where root SSH and local MariaDB administrative access are available.
 Database inventory records and backups are not yet implemented.
 

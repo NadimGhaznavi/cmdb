@@ -2,6 +2,7 @@
 
 from cmdb.entity.Machine import Machine
 from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.NamespaceDb import NamespaceDb
 
 
 class MachineDb:
@@ -10,8 +11,8 @@ class MachineDb:
 
     def list_machines(self) -> list[Machine]:
         rows = self._db.query(
-            "SELECT id, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
-            "FROM machines ORDER BY INET6_ATON(ipAddress), ipAddress"
+            "SELECT m.id, me.namespace, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
+            "FROM Machine m JOIN ModelElement me ON me.id = m.id ORDER BY INET6_ATON(ipAddress), ipAddress"
         )
         return self._with_deployments(rows)
 
@@ -21,34 +22,45 @@ class MachineDb:
             by_id = {machine.id: machine for machine in machines}
             placeholders = ", ".join("%s" for _ in machines)
             deployments = self._db.query(
-                f"SELECT id, machine FROM deployedComponents WHERE machine IN ({placeholders}) ORDER BY id",
+                f"SELECT id, machine FROM DeployedComponent WHERE machine IN ({placeholders}) ORDER BY id",
                 tuple(by_id),
             )
+            elements = self._db.query(
+                f"SELECT id, namespace FROM ModelElement WHERE namespace IN ({placeholders}) ORDER BY id",
+                tuple(by_id),
+            )
+            for element in elements:
+                by_id[element["namespace"]].ownedElement.append(element["id"])
             for deployment in deployments:
                 by_id[deployment["machine"]].deployedComponent.append(deployment["id"])
         return machines
 
     def upsert(self, machine: Machine) -> int:
         """Refresh discovery fields and return the stable machine ID."""
-        return self._db.insert(
-            "INSERT INTO machines (ipAddress, hostName, site, macAddress) "
-            "VALUES (%s, %s, %s, %s) "
-            "ON DUPLICATE KEY UPDATE "
-            "id = LAST_INSERT_ID(id), "
-            "macAddress = COALESCE(VALUES(macAddress), macAddress), "
-            "updatedOn = CURRENT_TIMESTAMP(6)",
-            (machine.ipAddress, machine.hostName, machine.site, machine.macAddress),
-        )
+        rows = self._db.query("SELECT id FROM Machine WHERE ipAddress = %s", (machine.ipAddress,))
+        if rows:
+            identity = rows[0]["id"]
+            self._db.execute(
+                "UPDATE Machine SET macAddress = COALESCE(%s, macAddress), "
+                "updatedOn = CURRENT_TIMESTAMP(6) WHERE id = %s", (machine.macAddress, identity),
+            )
+        else:
+            identity = NamespaceDb(self._db).create()
+            self._db.execute(
+                "INSERT INTO Machine (id, ipAddress, hostName, site, macAddress) VALUES (%s, %s, %s, %s, %s)",
+                (identity, machine.ipAddress, machine.hostName, machine.site, machine.macAddress),
+            )
+        return identity
 
     def update_hostname(self, ip_address: str, host_name: str | None) -> Machine | None:
         with self._db.transaction():
             self._db.execute(
-                "UPDATE machines SET hostName = %s, updatedOn = CURRENT_TIMESTAMP(6) "
+                "UPDATE Machine SET hostName = %s, updatedOn = CURRENT_TIMESTAMP(6) "
                 "WHERE ipAddress = %s", (host_name, ip_address),
             )
             rows = self._db.query(
-                "SELECT id, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
-                "FROM machines WHERE ipAddress = %s", (ip_address,),
+                "SELECT m.id, me.namespace, ipAddress, hostName, macAddress, site, createdOn, updatedOn "
+                "FROM Machine m JOIN ModelElement me ON me.id = m.id WHERE ipAddress = %s", (ip_address,),
             )
             machines = self._with_deployments(rows)
         return machines[0] if machines else None

@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass, field
 
+from cmdb.entity.Namespace import Namespace
+
 
 @dataclass
-class Component:
-    id: int | None = None
+class Component(Namespace):
     deployment: list[int] = field(default_factory=list)

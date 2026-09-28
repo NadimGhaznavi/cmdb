@@ -53,8 +53,9 @@ Application files are copied to `/opt/prod/cmdb`, with Python dependencies in
 `/ready`. Open `http://<server>:14444/` afterward.
 
 The installer applies `schema/cmdb-schema-v1.sql` to the database. It creates the
-`machines` table if absent, preserving existing rows on repeat installation.
-`id` is the auto-increment primary key. `ipAddress` remains unique
+`Machine` table if absent, preserving existing rows on repeat installation.
+`id` is the shared primary key inherited from Namespace and ModelElement;
+ModelElement allocates the auto-increment identity. `ipAddress` remains unique
 (`VARCHAR(45)`, accommodating IPv4 and IPv6) for scan matching.
 `macAddress` is nullable `VARCHAR(17)`.
 `hostName` and `site` are nullable `VARCHAR(255)` columns,
@@ -64,17 +65,17 @@ Edit the SQL file to maintain the fresh-install schema. During initial
 development, it does not migrate existing tables. After a schema change, use
 uninstall/install to recreate the database and let discovery populate it.
 
-`deployedComponents` stores each deployment's `pathname`, `machine` foreign key
-to `machines.id`, and required `component` reference to `components.id`, with an
-internal auto-increment row ID. A machine can
+`DeployedComponent` stores each deployment's `pathname`, `machine` foreign key
+to `Machine.id`, and required `component` reference to `Component.id`, with an
+identity shared with its Namespace and ModelElement parent records. A machine can
 contain zero or more component rows. The foreign key rejects components for
 unknown machines and prevents deleting a machine while components reference it.
 Changing a machine's IP address does not change its ID or component links.
-`softwareSystems`, `components`, `deployedSoftwareSystems`, and the
-`deployedSoftwareSystemComponents` association table hold the
+`SoftwareSystem` owns `Component` through `ModelElement.namespace` and the
+inverse `Namespace.ownedElement` relationship. These tables hold the
 [OS software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %}).
 `Machine.deployedComponent` is derived from the foreign-key relationship rather
-than stored as a text column on `machines`.
+than stored as a text column on `Machine`.
 
 ## Upgrade
 

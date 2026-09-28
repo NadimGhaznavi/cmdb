@@ -11,6 +11,7 @@ from cmdb.entity.Machine import Machine
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
+from cmdb.interface.NamespaceDb import NamespaceDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 
 
@@ -41,12 +42,12 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def inventory(self):
         return self.db.query(
-            "SELECT dc.id, dc.machine, dc.pathname, dc.component, ds.id AS deployment, "
+            "SELECT dc.id, dc.machine, dc.pathname, dc.component, "
             "ss.id AS softwareSystem, ss.type, ss.subtype, ss.supplier, ss.version "
-            "FROM deployedComponents dc "
-            "JOIN deployedSoftwareSystemComponents link ON link.deployedComponent = dc.id "
-            "JOIN deployedSoftwareSystems ds ON ds.id = link.deployedSoftwareSystem "
-            "JOIN softwareSystems ss ON ss.id = ds.softwareSystem ORDER BY dc.machine")
+            "FROM DeployedComponent dc "
+            "JOIN Component c ON c.id = dc.component "
+            "JOIN ModelElement me ON me.id = c.id "
+            "JOIN SoftwareSystem ss ON ss.id = me.namespace ORDER BY dc.machine")
 
     def test_discovery_populates_relationships_and_repeat_scans_reuse_records(self):
         machine = self.machines.upsert(Machine("192.168.0.7", hostName="worker"))
@@ -58,7 +59,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(first[0]["type"], "OS")
         self.assertEqual(first[0]["version"], "6.X")
         self.assertEqual(self.machines.list_machines()[0].deployedComponent, [first[0]["id"]])
-        for table in ("softwareSystems", "components", "deployedSoftwareSystems", "deployedComponents"):
+        for table in ("SoftwareSystem", "Component", "DeployedComponent"):
             self.assertEqual(self.db.query(f"SELECT COUNT(*) AS n FROM {table}")[0]["n"], 1)
 
     def test_shared_definition_has_separate_deployments_and_updates_only_one_machine(self):
@@ -69,7 +70,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         old = self.inventory()
         self.assertEqual(old[0]["softwareSystem"], old[1]["softwareSystem"])
         self.assertEqual(old[0]["component"], old[1]["component"])
-        self.assertNotEqual(old[0]["deployment"], old[1]["deployment"])
+        self.assertNotEqual(old[0]["id"], old[1]["id"])
         self.record(a, version="7.X")
         new = self.inventory()
         self.assertEqual(new[0]["version"], "7.X")
@@ -81,7 +82,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.machines.update_hostname("192.168.0.7", "edited")
         self.record(machine)
         self.assertEqual(self.machines.upsert(Machine("192.168.0.7")), machine)
-        self.db.execute("UPDATE machines SET ipAddress = %s WHERE id = %s", ("192.168.0.8", machine))
+        self.db.execute("UPDATE Machine SET ipAddress = %s WHERE id = %s", ("192.168.0.8", machine))
         self.assertEqual(self.machines.upsert(Machine("192.168.0.8")), machine)
         stored = self.machines.list_machines()[0]
         self.assertEqual(stored.hostName, "edited")
@@ -91,24 +92,43 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
     def test_foreign_keys_and_rollback_prevent_partial_os_records(self):
         with self.assertRaises(pymysql.IntegrityError):
             self.record(999999)
-        for table in ("softwareSystems", "components", "deployedComponents", "deployedSoftwareSystems"):
+        for table in ("ModelElement", "Namespace", "SoftwareSystem", "Component", "DeployedComponent"):
             self.assertEqual(self.db.query(f"SELECT COUNT(*) AS n FROM {table}")[0]["n"], 0)
         machine = self.machines.upsert(Machine("192.168.0.7"))
         with self.assertRaises(pymysql.IntegrityError):
-            self.db.insert("INSERT INTO deployedComponents (pathname, machine, component) VALUES (%s, %s, %s)",
-                           ("/", machine, 999999))
+            with self.db.transaction():
+                identity = NamespaceDb(self.db).create(namespace=machine)
+                self.db.execute("INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
+                                (identity, "/", machine, 999999))
 
-    def test_deployed_system_component_association_supports_many_to_many(self):
+    def test_ownership_is_on_parent_and_supports_multiple_components(self):
         machine = self.machines.upsert(Machine("192.168.0.7"))
         self.record(machine)
         first = self.inventory()[0]
-        second_system = self.db.insert("INSERT INTO deployedSoftwareSystems (softwareSystem) VALUES (%s)",
-                                       (first["softwareSystem"],))
-        second_component = self.db.insert(
-            "INSERT INTO deployedComponents (pathname, machine, component) VALUES (%s, %s, %s)",
-            ("/boot", machine, first["component"]))
-        self.db.execute(
-            "INSERT INTO deployedSoftwareSystemComponents (deployedSoftwareSystem, deployedComponent) "
-            "VALUES (%s, %s), (%s, %s)",
-            (second_system, first["id"], first["deployment"], second_component))
-        self.assertEqual(len(self.inventory()), 3)
+        namespaces = NamespaceDb(self.db)
+        with self.db.transaction():
+            component = namespaces.create(namespace=first["softwareSystem"])
+            self.db.execute("INSERT INTO Component (id) VALUES (%s)", (component,))
+            deployment = namespaces.create(namespace=machine)
+            self.db.execute(
+                "INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)",
+                (deployment, "/boot", machine, component))
+        self.assertEqual(len(self.inventory()), 2)
+        stored = self.machines.list_machines()[0]
+        self.assertEqual(stored.ownedElement, stored.deployedComponent)
+        self.assertEqual(len(stored.deployedComponent), 2)
+        with self.db.transaction():
+            standalone = namespaces.create()
+            self.db.execute("INSERT INTO Component (id) VALUES (%s)", (standalone,))
+        self.assertIsNone(self.db.query("SELECT namespace FROM ModelElement WHERE id=%s", (standalone,))[0]["namespace"])
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute("UPDATE ModelElement SET namespace=%s WHERE id=%s", (999999, standalone))
+
+    def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
+        tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
+        self.assertEqual(tables, {"ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        for table in ("Component", "SoftwareSystem", "Machine", "DeployedComponent"):
+            columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM {table}")}
+            self.assertNotIn("namespace", columns)
+            self.assertNotIn("ownedElement", columns)
+            self.assertNotIn("name", columns)

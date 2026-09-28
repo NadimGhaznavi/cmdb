@@ -57,6 +57,11 @@ Keep credentials, tokens, and other secrets out of this public site.
 
 Keep database mechanics in `cmdb/interface/DbMgr.py`; domain database interfaces
 own application queries. Never share a connection between request threads.
+Follow the [model mapping policy]({{ site.baseurl }}{% link pages/project-mission.md %}#model-reference):
+map each adopted CWM class directly to a Python entity and database table,
+preserving names, attribute casing, inheritance, relationships, and
+multiplicities. Implement only the subset the application needs and has data
+to store.
 Use bound SQL parameters and explicit transactions for related writes. Validate
 external configuration at the boundary and let internal programming errors
 surface. Keep presentation separate from database access and application logic.

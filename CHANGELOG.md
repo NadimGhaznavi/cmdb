@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Document CWM 1.1 SoftwareDeployment as the core model reference, with scope
+  limited to the classes, attributes, and relationships the application needs,
+  and require one-to-one mapping to Python entities and the database schema.
+- Installer completion message now reports `CMDB server listening on port: 14444`.
+
 ## [0.4.2] - 2026-09-28 @ 07:07
 
 ### Changed

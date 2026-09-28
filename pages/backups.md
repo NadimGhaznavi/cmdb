@@ -8,8 +8,9 @@ Expand a host on Backups and click Backup Now beside a user database. This actio
 does not depend on Enabled or a saved schedule. Scheduling, Update, and retention
 deletion are not implemented.
 
-The Backups view has three separate bordered panels: Backups, Live Databases,
-and Backup Vault. Backup Vault lists all recorded successful database backups,
+The Backups heading appears beneath the subtitle in the CMDB title box.
+Live Databases and Backup Vault have their own bordered panels below it.
+Backup Vault lists all recorded successful database backups,
 newest completion first (newest record first when times match). Its columns are
 Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
 or IP address), Database, and Filename (the full path formed from `DCmdb.BACKUP_DIR`

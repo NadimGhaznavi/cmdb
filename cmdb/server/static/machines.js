@@ -145,6 +145,8 @@ async function watchBackup(row, identity, refreshFiles = false) {
 
 function showPage() {
   const backups = window.location.hash === "#backups";
+  document.getElementById("backups-heading").hidden = !backups;
+  document.getElementById("inventory-heading").hidden = backups;
   document.getElementById("inventory-page").hidden = backups;
   document.getElementById("inventory-footer").hidden = backups;
   document.getElementById("backups-page").hidden = !backups;

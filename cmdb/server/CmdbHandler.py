@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler
 from ipaddress import ip_address
 import json
 import logging
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 import pymysql
@@ -96,6 +96,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
                         result = {'databases': backups.databases(), 'hosts': backups.hosts()}
                     elif path == '/api/backups/files':
                         result = {'files': backups.files()}
+                        for record in result['files']:
+                            record['filename'] = str(PurePosixPath(DCmdb.BACKUP_DIR) / record['pathname'])
                     else:
                         identity = path.removeprefix('/api/backups/')
                         result = backups.get(int(identity)) if identity.isdecimal() and len(identity) <= 20 and 0 < int(identity) < 2**64 else None

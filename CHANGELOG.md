@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-09-28 @ 15:19
+
+### Changed
+
+- Split the Backups view into separate Backups, Live Databases, and Backup Vault
+  boxes, with the backup files table inside Backup Vault.
+- Replace the Backup Files FQDN column with Filename, showing the full path
+  using the configured backup directory and each recorded dump pathname.
+
 ## [0.9.8] - 2026-09-28 @ 15:13
 
 ### Added

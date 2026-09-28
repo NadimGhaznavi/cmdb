@@ -126,3 +126,27 @@ CREATE TABLE IF NOT EXISTS Backup (
         (status IN ('running', 'failed') AND sizeBytes IS NULL AND checksum IS NULL)),
     CONSTRAINT Backup_error_ck CHECK (status = 'failed' OR error IS NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS Patch (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    machine BIGINT UNSIGNED NOT NULL,
+    address VARCHAR(45) NOT NULL,
+    status VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'queued',
+    createdOn DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    startedOn DATETIME(6) NULL,
+    rebootOn DATETIME(6) NULL,
+    completedOn DATETIME(6) NULL,
+    bootId CHAR(36) NULL,
+    output MEDIUMTEXT NULL,
+    error TEXT NULL,
+    KEY Patch_queue_idx (status, id),
+    CONSTRAINT Patch_Machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
+    CONSTRAINT Patch_status_ck CHECK (status IN ('queued','patching','rebooting','succeeded','failed')),
+    CONSTRAINT Patch_completion_ck CHECK (
+        (status IN ('queued','patching','rebooting') AND completedOn IS NULL) OR
+        (status IN ('succeeded','failed') AND completedOn IS NOT NULL)),
+    CONSTRAINT Patch_reboot_ck CHECK (status NOT IN ('rebooting','succeeded') OR
+        (startedOn IS NOT NULL AND rebootOn IS NOT NULL AND bootId IS NOT NULL)),
+    CONSTRAINT Patch_error_ck CHECK ((status='failed' AND error IS NOT NULL) OR
+        (status<>'failed' AND error IS NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

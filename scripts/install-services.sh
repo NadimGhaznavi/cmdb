@@ -58,6 +58,9 @@ if re.fullmatch(r'[a-z_][a-z0-9_]*', DCmdb.AGENT_USER) is None or DCmdb.AGENT_US
     raise SystemExit('Invalid CMDB inventory account name.')
 rule = Path('sudoers/cmdb-nmap').read_text().replace('@USER@', DCmdb.SERVICE_USER)
 rule = rule.replace('@AGENT@', DCmdb.AGENT_USER)
+rule += ''.join(f'{DCmdb.SERVICE_USER} ALL=(root) NOPASSWD: /bin/sh '
+                f'{DCmdb.BASE_DIR}/cmdb/interface/scripts/patch-host.sh {action}\n'
+                for action in ('probe', 'patch', 'reboot', 'verify'))
 target = Path('/etc/sudoers.d/cmdb-nmap')
 target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
 with NamedTemporaryFile(mode='w', prefix='.cmdb-nmap-', dir=target.parent, delete=False) as stream:
@@ -75,6 +78,9 @@ PY
 
 if [[ -e /etc/systemd/system/$unit ]]; then
     systemctl stop "$unit"
+fi
+if [[ -e /etc/systemd/system/cmdb-patch.service ]]; then
+    systemctl stop cmdb-patch.service
 fi
 usermod --home "$account_home" "$account"
 scripts/install-ssh.sh
@@ -96,7 +102,7 @@ destination = Path(DCmdb.BASE_DIR)
 shutil.copytree('cmdb', destination / 'cmdb', dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
 shutil.copytree('schema', destination / 'schema', dirs_exist_ok=True)
-for name in ('cmdb-server.py', 'cmdb-backup.py', 'requirements.txt', 'VERSION'):
+for name in ('cmdb-server.py', 'cmdb-backup.py', 'cmdb-patch.py', 'requirements.txt', 'VERSION'):
     shutil.copy2(name, destination / name)
 template = Path('systemd', DCmdb.SERVICE_UNIT).read_text()
 unit = template.replace('@APP@', DCmdb.BASE_DIR).replace('@USER@', DCmdb.SERVICE_USER)
@@ -104,6 +110,12 @@ unit = unit.replace('@DATABASE_ENV@', DCmdb.DATABASE_ENV)
 unit = unit.replace('@SSH_DIR@', DCmdb.SSH_DIR)
 unit = unit.replace('@BACKUP_DIR@', DCmdb.BACKUP_DIR)
 target = Path('/etc/systemd/system', DCmdb.SERVICE_UNIT)
+target.write_text(unit)
+target.chmod(0o644)
+template = Path('systemd/cmdb-patch.service').read_text()
+unit = template.replace('@APP@', DCmdb.BASE_DIR).replace('@USER@', DCmdb.SERVICE_USER)
+unit = unit.replace('@DATABASE_ENV@', DCmdb.DATABASE_ENV)
+target = Path('/etc/systemd/system/cmdb-patch.service')
 target.write_text(unit)
 target.chmod(0o644)
 PY
@@ -127,9 +139,11 @@ PY
 )
 
 systemd-analyze verify "/etc/systemd/system/$unit"
+systemd-analyze verify /etc/systemd/system/cmdb-patch.service
 systemctl daemon-reload
 systemctl enable --now cron
 systemctl enable --now "$unit"
+systemctl enable --now cmdb-patch.service
 
 python3 -B - <<'PY'
 import json

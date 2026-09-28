@@ -43,12 +43,14 @@ class UninstallTests(unittest.TestCase):
             (['mariadb', '--protocol=socket', '--user=root'], 'SELECT 1;\n'),
             (['systemctl', 'show', DCmdb.SERVICE_UNIT, '--property=LoadState', '--value'], None),
             (['systemctl', 'disable', '--now', DCmdb.SERVICE_UNIT], None),
+            (['systemctl', 'disable', '--now', 'cmdb-patch.service'], None),
             (['/opt/prod/cmdb/.venv/bin/python', '-B', '-c',
               "from cmdb.interface.Cron import Cron; Cron(user='cmdb').clear()"], None),
             (['mariadb', '--protocol=socket', '--user=root'], 'DROP DATABASE IF EXISTS `cmdb`;\n'),
             (['systemctl', 'daemon-reload'], None),
         ])
         self.assertEqual(unlink.call_args_list, [
+            call(Path('/etc/systemd/system/cmdb-patch.service'), missing_ok=True),
             call(Path('/etc/systemd/system/cmdb-server.service'), missing_ok=True),
             call(Path('/etc/sudoers.d/cmdb-nmap'), missing_ok=True),
         ])

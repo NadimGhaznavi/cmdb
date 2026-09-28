@@ -177,3 +177,10 @@ autofs/NFS or local storage, and `cmdbagent` must be able to create files there.
 The installer does not configure mounts or NFS permissions. The service grants
 write access to the configured backup directory for local neuromancer dumps.
 See [manual backups]({{ site.baseurl }}{% link pages/backups.md %}).
+
+## Debian patch runner
+
+Installation also enables `cmdb-patch.service`, independent of the web service, and
+installs fixed local sudo actions for patching and rebooting. The normal installer
+creates its job storage. Uninstall stops both services. See
+[Debian patching]({{ site.baseurl }}{% link pages/patching.md %}) for execution and recovery behavior.

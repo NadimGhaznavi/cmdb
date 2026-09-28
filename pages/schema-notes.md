@@ -31,3 +31,18 @@ values in this order.
 
 This constraint is part of the fresh-install schema. Apply it through the
 current uninstall/install workflow; no record migration is provided.
+
+
+## Tagged values and OS definitions
+
+`TaggedValue.modelElement` references the owning ModelElement. The unique key
+`(modelElement, tag)` enforces CWM's one-value-per-tag rule for an attached tag.
+Tag names use a binary collation so their casing is significant. TaggedValue
+has its own technical ID; it does not inherit from ModelElement.
+
+The scanner includes `VERSION_CODENAME` in software-definition matching. Hosts
+with matching release fields and codenames share the same definition and tag.
+A changed codename selects or creates a separate definition rather than changing
+one already used by other machines. Missing codename data is not invented.
+The scanner recognizes both Nmap's `OS` classification and host-reported `linux`
+as OS deployments at `/`, so successive observations update the same deployment.

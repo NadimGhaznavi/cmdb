@@ -10,6 +10,15 @@ CREATE TABLE IF NOT EXISTS Namespace (
     CONSTRAINT Namespace_ModelElement_fk FOREIGN KEY (id) REFERENCES ModelElement (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS TaggedValue (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tag VARCHAR(255) COLLATE utf8mb4_bin NOT NULL,
+    value TEXT NOT NULL,
+    modelElement BIGINT UNSIGNED NULL,
+    UNIQUE KEY TaggedValue_modelElement_tag_uq (modelElement, tag),
+    CONSTRAINT TaggedValue_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Complete the parent reference after both tables exist. This is not a data migration.
 ALTER TABLE ModelElement
     ADD FOREIGN KEY IF NOT EXISTS ModelElement_namespace_fk (namespace) REFERENCES Namespace (id);

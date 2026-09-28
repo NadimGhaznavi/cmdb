@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-28 @ 09:43
+
 ### Added
 
 - Show deployed software as rounded rectangles inside machine nodes, with

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.10] - 2026-09-28 @ 15:24
+
 ### Added
 
 - Show Inventory beneath the CMDB subtitle on the homepage, matching the Backups

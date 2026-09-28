@@ -3,6 +3,7 @@
 from dataclasses import asdict
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler
+from ipaddress import ip_address
 import json
 import logging
 from pathlib import Path
@@ -13,6 +14,7 @@ import pymysql
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
+from cmdb.entity.Machine import Machine
 
 
 STATIC_FILES = {
@@ -21,6 +23,14 @@ STATIC_FILES = {
     "/static/vendor/cytoscape-3.34.3.min.js": (
         "vendor/cytoscape-3.34.3.min.js", "text/javascript; charset=utf-8"),
 }
+
+
+def machine_record(machine: Machine) -> dict:
+    record = asdict(machine)
+    for field in ("createdOn", "updatedOn"):
+        value = record[field]
+        record[field] = value.replace(tzinfo=timezone.utc).isoformat() if value else None
+    return record
 
 
 class CmdbHandler(BaseHTTPRequestHandler):
@@ -54,13 +64,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Machines are unavailable."}', "application/json")
                 return
-            records = []
-            for machine in machines:
-                record = asdict(machine)
-                for field in ("createdOn", "updatedOn"):
-                    value = record[field]
-                    record[field] = value.replace(tzinfo=timezone.utc).isoformat() if value else None
-                records.append(record)
+            records = [machine_record(machine) for machine in machines]
             self.respond(200, json.dumps({"machines": records}).encode("utf-8"), "application/json")
         elif path in STATIC_FILES:
             filename, content_type = STATIC_FILES[path]
@@ -71,6 +75,48 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200, body.encode("utf-8"), "text/html; charset=utf-8")
         else:
             self.send_error(404, "Page not found")
+
+    def do_POST(self) -> None:
+        if urlsplit(self.path).path != "/api/machines/hostname":
+            self.send_error(404, "Page not found")
+            return
+        if self.headers.get_content_type() != "application/json":
+            self.respond(415, b'{"error":"Expected JSON."}', "application/json")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 4096:
+                raise ValueError
+            values = json.loads(self.rfile.read(length))
+            if not isinstance(values, dict) or values.keys() != {"ipAddress", "hostName"}:
+                raise ValueError
+            address, hostname = values["ipAddress"], values["hostName"]
+            if not isinstance(address, str) or not isinstance(hostname, str):
+                raise ValueError
+            ip_address(address)
+            hostname = hostname.strip()
+            if len(hostname) > 255:
+                raise ValueError
+        except (ValueError, UnicodeError):
+            self.respond(400, b'{"error":"Provide an IP address and a hostname of at most 255 characters."}',
+                         "application/json")
+            return
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', "application/json")
+            return
+        try:
+            db = DbMgr()
+            try:
+                machine = MachineDb(db).update_hostname(address, hostname or None)
+            finally:
+                db.close()
+        except pymysql.MySQLError:
+            self.respond(503, b'{"error":"Could not save the hostname. Try again."}', "application/json")
+            return
+        if machine is None:
+            self.respond(404, b'{"error":"Machine no longer exists."}', "application/json")
+            return
+        self.respond(200, json.dumps({"machine": machine_record(machine)}).encode("utf-8"), "application/json")
 
     def respond(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)

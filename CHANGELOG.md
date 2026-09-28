@@ -7,6 +7,18 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-27 @ 21:12
+
+### Added
+
+- Edit, Save, and Cancel controls for the selected machine's hostname, with
+  database persistence and immediate graph/detail updates. Scans retain existing hostnames.
+
+### Changed
+
+- Reduced machine labels to 16px and darkened unselected nodes, using the previous
+  green for selected nodes.
+
 ## [0.3.5] - 2026-09-27 @ 20:59
 
 ### Changed

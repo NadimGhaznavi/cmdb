@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-09-27 @ 21:52
+
+### Changed
+
+- Display named machines as uniform 160 × 80 rounded rectangles; unnamed machines remain circles.
+
 ## [0.3.11] - 2026-09-27 @ 21:40
 
 ### Changed

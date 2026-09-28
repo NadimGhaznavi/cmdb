@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-27 @ 21:12
+
 ### Added
 
 - Edit, Save, and Cancel controls for the selected machine's hostname, with

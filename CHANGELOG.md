@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Corrected backup target directory.
+
 ## [0.9.4] - 2026-09-28 @ 14:43
 
 ### Added

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-27 @ 20:34
+
 ### Changed
 
 - Removed the database readiness and documentation links from the landing page.

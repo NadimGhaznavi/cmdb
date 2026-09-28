@@ -103,7 +103,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             self.assertEqual(rows[0]["id"], deployment)
             self.assertEqual(rows[0]["subtype"], "debian")
             self.assertEqual(rows[0]["version"], "13")
-            self.assertIsNone(rows[0]["supplier"])
+            self.assertEqual(rows[0]["supplier"], "Debian")
         self.assertEqual(self.db.query("SELECT COUNT(*) AS n FROM SoftwareSystem")[0]["n"], 2)
 
     def test_ssh_hostname_updates_only_the_identified_machine(self):
@@ -132,6 +132,10 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         tags = self.db.query("SELECT tag, value, modelElement FROM TaggedValue")
         self.assertEqual(tags, [{"tag": "VERSION_CODENAME", "value": "trixie",
                                  "modelElement": old[0]["softwareSystem"]}])
+        projected = self.software.list_deployments()
+        self.assertEqual([row["machine"] for row in projected], [first, second])
+        self.assertTrue(all(row["codename"] == "trixie" and row["subtype"] == "debian"
+                            and row["version"] == "13.6" for row in projected))
         with self.assertRaises(pymysql.IntegrityError):
             self.db.execute("INSERT INTO TaggedValue (tag, value, modelElement) VALUES (%s, %s, %s)",
                             ("VERSION_CODENAME", "duplicate", old[0]["softwareSystem"]))

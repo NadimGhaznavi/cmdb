@@ -12,6 +12,18 @@ class SoftwareDeploymentDb:
         self._db = db
         self._namespaces = NamespaceDb(db)
 
+    def list_deployments(self) -> list[dict]:
+        """Project deployed software for the graph without changing the entity model."""
+        return self._db.query(
+            "SELECT dc.id, dc.machine, dc.component, dc.pathname, ss.id AS softwareSystem, "
+            "ss.type, ss.subtype, ss.supplier, ss.version, tv.value AS codename "
+            "FROM DeployedComponent dc JOIN Component c ON c.id = dc.component "
+            "JOIN ModelElement me ON me.id = c.id "
+            "JOIN SoftwareSystem ss ON ss.id = me.namespace "
+            "LEFT JOIN TaggedValue tv ON tv.modelElement = ss.id AND tv.tag = 'VERSION_CODENAME' "
+            "ORDER BY dc.machine, dc.id"
+        )
+
     def record_operating_system(self, machine: int, system: SoftwareSystem) -> None:
         """Refresh the scanner's OS deployment at / within the caller's transaction.
 

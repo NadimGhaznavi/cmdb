@@ -75,7 +75,7 @@ existing `/` deployment when available:
 | --- | --- |
 | `type` | `linux` |
 | `subtype` | `ID` (required), e.g. `debian` |
-| `supplier` | `VENDOR_NAME`, or null if absent |
+| `supplier` | `Debian` when `ID=debian`; otherwise `VENDOR_NAME`, or null if absent |
 | `version` | For Debian, `DEBIAN_VERSION_FULL`, falling back to `VERSION_ID`; otherwise `VERSION_ID` |
 
 `VERSION_CODENAME` is stored as a TaggedValue on the SoftwareSystem, through
@@ -85,14 +85,17 @@ Only the needed TaggedValue attributes are adopted; its unused Stereotype
 relationship and attribute-free Element parent remain omitted.
 
 Use `/etc/os-release` when present, otherwise `/usr/lib/os-release`. Do not
-infer a supplier from a distribution name or substitute a kernel version for
+infer suppliers for other distributions or substitute a kernel version for
 the product release. Hosts without readable, valid release data retain the
 current observation, including any classification collected by Nmap in that
 scan. Each scan runs Nmap first and host-reported collection afterward.
 
 The API returns `Machine.deployedComponent` as a list of deployed component
-IDs. OS details are stored for reporting; this change adds no OS controls or
-presentation to the GUI.
+IDs. The same response includes a `softwareDeployments` display projection,
+joining DeployedComponent through Component's owning ModelElement to SoftwareSystem
+and its codename tag. This projection adds no entity or schema attributes.
+The graph draws a rounded software rectangle inside its containing machine,
+labelled from subtype, optional codename, and version, e.g. `Debian (trixie) 13.6`.
 
 ## Reporting
 

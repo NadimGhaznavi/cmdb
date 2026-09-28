@@ -16,6 +16,7 @@ from cmdb.constants.DCmdb import DCmdb
 from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
+from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.entity.Machine import Machine
 
 
@@ -67,13 +68,15 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 db = DbMgr()
                 try:
                     machines = MachineDb(db).list_machines()
+                    deployments = SoftwareDeploymentDb(db).list_deployments()
                 finally:
                     db.close()
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Machines are unavailable."}', "application/json")
                 return
             records = [machine_record(machine) for machine in machines]
-            self.respond(200, json.dumps({"machines": records}).encode("utf-8"), "application/json")
+            self.respond(200, json.dumps({"machines": records, "softwareDeployments": deployments})
+                         .encode("utf-8"), "application/json")
         elif path in STATIC_FILES:
             filename, content_type = STATIC_FILES[path]
             self.respond(200, (Path(__file__).parent / "static" / filename).read_bytes(), content_type)

@@ -15,9 +15,14 @@
 .backup-row-status:empty { display: none; }
 .backups-table input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: #ffb454; cursor: pointer; }
 .backups-table select:focus-visible, .backups-table input:focus-visible, .backup-table-scroll:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
-#backups-page { min-width: 0; }
+#backups-page { min-width: 0; min-height: 0; border: 0; padding: 0; gap: 1rem; }
+.backup-panel { min-width: 0; border: 1px solid #d98124; padding: 1rem 1.5rem; }
+.backup-panel > h2 { margin: 0; }
+.backup-panel > h3 { margin: 0 0 1rem; }
+.backup-vault { flex: 1; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
+.backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }
 .backup-host { margin: 1rem 0; }
 .backup-host summary { cursor: pointer; font-weight: bold; overflow-wrap: anywhere; }
 .backup-host summary:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
@@ -69,6 +74,8 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 @media (max-width: 600px) {
   body { padding: .5rem; gap: .5rem; }
   header, main { padding: 1rem; }
+  #backups-page { gap: .5rem; }
+  .backup-panel { padding: 1rem; }
   .machine-workspace { flex-direction: column; }
   #selection-details { flex-basis: auto; max-width: none; border-right: 0; border-bottom: 1px solid #6e502e; padding: 0 0 1rem; }
 }

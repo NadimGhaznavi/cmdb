@@ -8,17 +8,40 @@ title: Debian Patching
 
 Patching lists machines whose root operating system is identified as Debian by
 inventory. Generic Linux fingerprints and Debian derivatives are excluded.
-Patch Now queues a job and shows progress beside that host. Status appears in a separate column beside Patch Now. There is no patch schedule. Reopening the page loads the last recorded job status.
+Patch Now queues a job and shows progress beside that host. Status appears in a separate column beside Patch Now. Schedules are optional and start disabled. Reopening the page loads the last recorded job status.
 
 The independent `cmdb-patch.service` runs `cmdb-patch.py` using the application
 venv and database configuration. The web service only queues work and reads status.
 One worker processes jobs sequentially; pending jobs persist across restarts.
 Repeated clicks for a machine with an active job return the same job.
 
-Uptime starts as `---`. Refresh Uptime at the bottom left reads `/proc/uptime`
+Uptime starts as `---` and refreshes automatically when Patching opens. Refresh
+Uptime at the bottom left also reads `/proc/uptime`
 through the existing SSH interface and displays days, hours, and minutes. Hosts
 that cannot be reached show Unavailable. Values are snapshots, preserved during
-job polling but not stored in the database or refreshed automatically.
+job polling but not stored in the database or refreshed by those polls.
+
+## Scheduling
+
+Each host has Enabled and Schedule controls. Schedule uses five standard cron
+fields: minute, hour, day-of-month, month, day-of-week. Ranges, lists, steps, and
+month/weekday names are accepted; shortcuts such as `@reboot` are not. For example,
+`0 12 * * 0` queues a patch on Sundays at noon in the server's local time.
+The example is a placeholder; no schedule is enabled by default.
+
+Update saves the settings and creates or replaces that host's service-account
+cron entry. Clearing Enabled and pressing Update removes the entry while retaining
+its settings and job history. Invalid expressions are rejected before any writes.
+A cron write failure rolls the database edit back. Pending edits remain intact
+while job status refreshes. Patch Now is independent of Enabled.
+
+Cron calls the installed venv with `cmdb-patch.py --schedule-id <id>`. That mode
+loads its own database configuration, rechecks Enabled, queues the same job as
+Patch Now, and exits. Missing or disabled schedules do nothing. It does not
+contact the web service. The independent patch worker still owns execution and
+bookkeeping; jobs run sequentially, so cron specifies queue time, not a guaranteed
+patch start time. Standard cron day matching and missed-run behavior apply.
+Uninstall removes CMDB patch and backup cron entries while retaining unrelated jobs.
 
 ## Patch Report
 

@@ -69,6 +69,23 @@ class ServerTests(unittest.TestCase):
         ssh.return_value.uptime.side_effect = subprocess.TimeoutExpired('ssh', 10)
         self.assertEqual(self.get('/api/patching/hosts/7/uptime')[0], 503)
 
+    @patch('cmdb.server.CmdbHandler.PatchScheduler')
+    def test_patch_schedule_update_and_errors(self, scheduler):
+        values = dict(machine=7, enabled=True, expression='15 2 * * 0')
+        scheduler.return_value.update.return_value = dict(values, id=2)
+        for failure, expected in [(None, 200), (ValueError('Invalid cron'), 400),
+                                  (LookupError('not Debian'), 404), (OSError('cron failed'), 503)]:
+            scheduler.return_value.update.side_effect = failure
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('POST', '/api/patch-schedules', json.dumps(values), {'Content-Type': 'application/json'})
+                response = connection.getresponse()
+                self.assertEqual(response.status, expected)
+                response.read()
+            finally:
+                connection.close()
+        scheduler.return_value.update.assert_called_with(**values)
+
     def get(self, path):
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
         try:

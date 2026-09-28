@@ -1,7 +1,5 @@
 """Save backup policies, maintain cron entries, and dispatch one scheduled job."""
 
-from threading import Lock
-
 from cmdb.activity.BackupManager import BackupManager
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupScheduleDb import BackupScheduleDb
@@ -11,7 +9,7 @@ from cmdb.interface.DbMgr import DbMgr
 
 class Scheduler:
     # Serialize web edits to the single service-account crontab.
-    _edit_lock = Lock()
+    _edit_lock = Cron.EDIT_LOCK
 
     def update(self, modelElement: int, enabled: bool, frequency: str, retention: str) -> dict:
         if (type(modelElement) is not int or not 0 < modelElement < 2**64

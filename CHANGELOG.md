@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-28 @ 11:52
+
+### Changed
+
+- Group MariaDB database names with user databases first, followed by a horizontal
+  rule when present, then system databases on their own lines.
+
 ## [0.8.0] - 2026-09-28 @ 11:47
 
 ### Added

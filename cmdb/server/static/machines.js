@@ -3,6 +3,11 @@
 let refreshing = false;
 let backupFilesRequest = 0;
 
+function elapsedTime(seconds) {
+  const pad = value => String(value).padStart(2, "0");
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
+}
+
 async function loadBackupFiles() {
   const request = ++backupFilesRequest;
   const status = document.getElementById("backup-files-status");
@@ -16,7 +21,7 @@ async function loadBackupFiles() {
     body.replaceChildren();
     for (const file of files) {
       const row = document.createElement("tr");
-      for (const value of [localTimestamp(file.backupTime), machineLabel(file), file.databaseName, file.hostName || "—"]) {
+      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.hostName || "—"]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);
@@ -91,7 +96,7 @@ async function backupNow(row, modelElement) {
   const button = row.querySelector('[data-action="backup"]');
   const status = row.querySelector(".backup-row-status");
   button.disabled = true;
-  status.textContent = "Starting backup…";
+  status.textContent = "Processing backup job...";
   try {
     const response = await fetch("/api/backups", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -125,7 +130,7 @@ async function watchBackup(row, identity, refreshFiles = false) {
         status.textContent = `Backup failed: ${backup.error || "Unknown error."}`;
         return;
       }
-      status.textContent = "Backup queued or running…";
+      status.textContent = "Processing backup job...";
       refreshFiles = true;
       button.textContent = "Backing up…";
       await new Promise(resolve => setTimeout(resolve, 1000));

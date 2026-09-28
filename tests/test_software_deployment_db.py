@@ -366,8 +366,9 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         backups.start(target, later)
         files = backups.files()
         self.assertEqual([row['id'] for row in files], [identities[2], identities[0], identities[1]])
-        self.assertEqual(files[0], dict(id=identities[2], backupTime=later, databaseName='cmdb',
+        self.assertEqual(files[0], dict(id=identities[2], backupTime=later, elapsedSeconds=3600, databaseName='cmdb',
                                        hostName='sally.example', ipAddress='192.0.2.7'))
+        self.assertEqual(files[-1]['elapsedSeconds'], 0)
 
     def test_backup_schedule_rejects_invalid_policy_values(self):
         target = NamespaceDb(self.db).create(name='backup target')

@@ -35,7 +35,8 @@ class BackupDb:
     def files(self) -> list[dict]:
         """Recorded successful database dumps, newest completion first."""
         return self._db.query(
-            "SELECT b.id, b.completedOn AS backupTime, me.name AS databaseName, "
+            "SELECT b.id, b.completedOn AS backupTime, "
+            "TIMESTAMPDIFF(SECOND, b.startedOn, b.completedOn) AS elapsedSeconds, me.name AS databaseName, "
             "m.hostName, m.ipAddress FROM Backup b "
             "JOIN `Schema` s ON s.id=b.modelElement JOIN ModelElement me ON me.id=s.id "
             "JOIN DataManager dm ON dm.id=me.namespace JOIN DeployedComponent dc ON dc.id=dm.id "

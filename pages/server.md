@@ -22,6 +22,14 @@ Database errors are logged to the service journal; the HTTP response contains
 only a short status. Each readiness request opens and closes its own database
 connection.
 
+The homepage keeps the machine inventory graph. A Backups link at the top right
+switches the main panel to a Backups page and becomes an Inventory link to return.
+The Databases section lists discovered databases by host and database name,
+including system databases, using the stored inventory. Host shows the full
+hostname or the IP address when unnamed. Last Backup displays `---` for now;
+backup tracking is not yet implemented. Browser Back and Forward also switch
+views. The scan button and refresh timestamp are shown only on Inventory.
+
 The main panel fills the remaining window below the title. It loads database
 records when the page opens. Refresh at the bottom left wakes the existing
 scanner worker, waits for the scan and database writes to finish, then reloads

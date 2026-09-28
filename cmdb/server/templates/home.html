@@ -10,11 +10,14 @@
 </head>
 <body>
   <header>
-    <h1>CMDB</h1>
+    <div class="header-heading">
+      <h1>CMDB</h1>
+      <nav aria-label="Main navigation"><a id="page-link" href="#backups">Backups</a></nav>
+    </div>
     <p>Configuration Management Database</p>
     <hr>
   </header>
-  <main aria-label="Machines">
+  <main id="inventory-page" aria-label="Machines">
     <p id="graph-status" role="status">Loading machines…</p>
     <noscript>Enable JavaScript to view machines.</noscript>
     <div class="machine-workspace">
@@ -51,7 +54,18 @@
       <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
     </div>
   </main>
-  <footer class="page-footer">
+  <main id="backups-page" aria-labelledby="backups-heading" hidden>
+    <h2 id="backups-heading">Backups</h2>
+    <section aria-labelledby="database-heading">
+      <h3 id="database-heading">Databases</h3>
+      <p id="backups-status" role="status">Loading databases…</p>
+      <table class="backups-table" aria-label="Database backups">
+        <thead><tr><th scope="col">Host</th><th scope="col">Database</th><th scope="col">Last Backup</th></tr></thead>
+        <tbody id="backup-rows"></tbody>
+      </table>
+    </section>
+  </main>
+  <footer id="inventory-footer" class="page-footer">
     <div class="page-actions">
       <button id="refresh-button" type="button">Refresh</button>
     </div>

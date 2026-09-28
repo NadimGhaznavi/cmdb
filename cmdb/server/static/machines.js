@@ -2,6 +2,54 @@
 
 let refreshing = false;
 
+async function loadBackups() {
+  const status = document.getElementById("backups-status");
+  const body = document.getElementById("backup-rows");
+  body.replaceChildren();
+  status.textContent = "Loading databases…";
+  try {
+    const response = await fetch("/api/machines", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error("Databases are unavailable. Return to Inventory and try again.");
+    const { machines, softwareDeployments = [] } = await response.json();
+    const hosts = new Map(machines.map(machine => [machine.id, machine.hostName || machine.ipAddress]));
+    const rows = [];
+    for (const system of softwareDeployments) {
+      if (system.type !== "DBMS" || !hosts.has(system.machine)) continue;
+      for (const name of system.databases || []) {
+        rows.push({ host: hosts.get(system.machine), name });
+      }
+    }
+    rows.sort((left, right) => left.host.localeCompare(right.host) || left.name.localeCompare(right.name));
+    for (const { host, name } of rows) {
+      const row = document.createElement("tr");
+      for (const value of [host, name, "---"]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.append(cell);
+      }
+      body.append(row);
+    }
+    status.textContent = rows.length ? "" : "No databases discovered yet.";
+  } catch (error) {
+    status.textContent = error.message || "Databases could not be loaded. Return to Inventory and try again.";
+  }
+}
+
+function showPage() {
+  const backups = window.location.hash === "#backups";
+  document.getElementById("inventory-page").hidden = backups;
+  document.getElementById("inventory-footer").hidden = backups;
+  document.getElementById("backups-page").hidden = !backups;
+  const link = document.getElementById("page-link");
+  link.textContent = backups ? "Inventory" : "Backups";
+  link.href = backups ? "#inventory" : "#backups";
+  document.title = backups ? "Backups — CMDB" : "CMDB";
+  if (backups) loadBackups();
+}
+
+window.addEventListener("hashchange", showPage);
+showPage();
+
 async function refreshMachines() {
   if (refreshing) return;
   refreshing = true;

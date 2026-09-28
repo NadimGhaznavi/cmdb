@@ -4,6 +4,7 @@ let refreshing = false;
 let backupFilesRequest = 0;
 let patchingTimer;
 let patchingRequest = 0;
+let patchReportRequest = 0;
 
 function elapsedTime(seconds) {
   const pad = value => String(value).padStart(2, "0");
@@ -259,6 +260,7 @@ function showPage() {
 }
 
 async function loadPatchingHosts() {
+  loadPatchReport();
   const request = ++patchingRequest;
   const status = document.getElementById('patching-status');
   const body = document.getElementById('patching-hosts');
@@ -272,7 +274,7 @@ async function loadPatchingHosts() {
     hosts.sort((left, right) => machineLabel(left).localeCompare(machineLabel(right)));
     for (const host of hosts) {
       const row = document.createElement('tr');
-      for (const value of [machineLabel(host), host.ipAddress]) {
+      for (const value of [machineLabel(host)]) {
         const cell = document.createElement('td');
         cell.textContent = value;
         row.append(cell);
@@ -298,13 +300,13 @@ async function loadPatchingHosts() {
           button.disabled = false;
         }
       });
-      const progress = document.createElement('p');
+      const progress = document.createElement('td');
       progress.className = 'patch-row-status';
       progress.setAttribute('role', 'status');
       const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
       progress.textContent = host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '';
-      actions.append(button, progress);
-      row.append(actions);
+      actions.append(button);
+      row.append(actions, progress);
       body.append(row);
     }
     status.textContent = hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.';
@@ -315,6 +317,52 @@ async function loadPatchingHosts() {
     if (request !== patchingRequest) return;
     status.textContent = error.message;
     patchingTimer = setTimeout(loadPatchingHosts, 5000);
+  }
+}
+
+async function loadPatchReport() {
+  const request = ++patchReportRequest;
+  const status = document.getElementById('patch-report-status');
+  const body = document.getElementById('patch-report-rows');
+  try {
+    const response = await fetch('/api/patching/report', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Patch report is unavailable. Reopen Patching to try again.');
+    const { runs } = await response.json();
+    if (request !== patchReportRequest) return;
+    body.replaceChildren();
+    for (const run of runs) {
+      const row = document.createElement('tr');
+      for (const value of [localTimestamp(run.patchTime), machineLabel(run),
+        run.elapsedSeconds == null ? '---' : elapsedTime(run.elapsedSeconds),
+        { queued: 'Queued', patching: 'Patching', rebooting: 'Rebooting', succeeded: 'Succeeded', failed: 'Failed' }[run.status]]) {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.append(cell);
+      }
+      const cell = document.createElement('td');
+      if (run.error) {
+        const error = document.createElement('p');
+        error.textContent = run.error;
+        cell.append(error);
+      }
+      if (run.output) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = 'Package output';
+        const output = document.createElement('pre');
+        output.textContent = run.output;
+        details.append(summary, output);
+        cell.append(details);
+      }
+      if (!run.error && !run.output) cell.textContent = '---';
+      row.append(cell);
+      body.append(row);
+    }
+    status.textContent = runs.length ? 'Most recent 100 patch runs, newest first.' : 'No patch runs yet.';
+  } catch (error) {
+    if (request !== patchReportRequest) return;
+    body.replaceChildren();
+    status.textContent = error.message;
   }
 }
 

@@ -79,7 +79,15 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         records.finish(identity)
         self.assertIsNone(records.next())
         self.assertEqual(records.hosts()[0]['job']['status'], 'succeeded')
-        self.assertNotEqual(records.request(debian), identity)
+        next_id = records.request(debian)
+        self.assertNotEqual(next_id, identity)
+        report = records.report()
+        self.assertEqual([row['id'] for row in report], [next_id, identity])
+        self.assertEqual(report[0]['status'], 'queued')
+        self.assertIsNone(report[0]['elapsedSeconds'])
+        self.assertEqual(report[1]['status'], 'succeeded')
+        self.assertGreaterEqual(report[1]['elapsedSeconds'], 0)
+        self.assertEqual(report[1]['output'], '0 upgraded')
 
     def test_discovery_populates_relationships_and_repeat_scans_reuse_records(self):
         machine = self.machines.upsert(Machine("192.168.0.7", hostName="worker"))

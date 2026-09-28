@@ -15,6 +15,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `GET /api/backups` | Lists MariaDB user databases, model IDs, latest attempts, and last successful completion times. |
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
+| `GET /api/patching/report` | Lists the most recent 100 patch jobs, newest first, with elapsed time and results. |
 | `GET /api/patching/hosts` | Lists Debian hosts and their latest patch job status. |
 | `POST /api/patching` | Queues a patch-and-reboot job for a machine ID; returns HTTP 202 and jobId. |
 | `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |

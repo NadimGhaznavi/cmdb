@@ -26,6 +26,13 @@ class PatchDb:
                 return job['id']
             return self.db.insert('INSERT INTO Patch (machine, address) VALUES (%s, %s)', (machine, host['ipAddress']))
 
+    def report(self):
+        return self.db.query(
+            "SELECT p.id, COALESCE(p.startedOn, p.createdOn) AS patchTime, "
+            "TIMESTAMPDIFF(SECOND, p.startedOn, p.completedOn) AS elapsedSeconds, "
+            "m.hostName, p.address AS ipAddress, p.status, p.error, p.output "
+            "FROM Patch p JOIN Machine m ON m.id=p.machine ORDER BY p.id DESC LIMIT 100")
+
     def next(self):
         rows = self.db.query("SELECT * FROM Patch WHERE status IN ('queued','patching','rebooting') ORDER BY id LIMIT 1")
         return rows[0] if rows else None

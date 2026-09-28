@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-28 @ 07:07
+
 ### Changed
 
 - Install a passwordless sudoers rule granting `cmdb` unrestricted arguments to

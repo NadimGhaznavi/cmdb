@@ -1,4 +1,4 @@
-"""Establish cmdb access and collect hostnames, MAC addresses and OS releases."""
+"""Establish cmdbagent access and collect hostnames, MAC addresses and OS releases."""
 
 from pathlib import Path
 import ipaddress
@@ -71,10 +71,10 @@ class MachineSSH:
             if (not public_key.startswith("ssh-ed25519 ") or "\n" in public_key
                     or "\r" in public_key):
                 raise ValueError("Expected the local cmdb Ed25519 public key.")
-            if re.fullmatch(r"[a-z_][a-z0-9_]*", DCmdb.SERVICE_USER) is None:
+            if re.fullmatch(r"[a-z_][a-z0-9_]*", DCmdb.AGENT_USER) is None:
                 raise ValueError("Invalid service account name.")
-            script = (Path(__file__).parent / "scripts" / "provision-cmdb.sh").read_text()
-            command = "sh -s -- " + shlex.join([DCmdb.SERVICE_USER, public_key])
+            script = (Path(__file__).parent / "scripts" / "provision-agent.sh").read_text()
+            command = "sh -s -- " + shlex.join([DCmdb.AGENT_USER, public_key])
             self._run(address, command, user="root", input=script)
             self._run(address, "true")
         result = self._run(address, "hostname -f 2>/dev/null || hostname")

@@ -52,7 +52,7 @@ the otherwise read-only system filesystem configuration.
 Remote accounts and public-key authorization are not configured by the installer.
 The scanner's SSH follow-up can provision remote `cmdb` access when root already
 accepts this public key.
-The same key supports remote `cmdb` or root login when authorized by the remote
+The same key supports remote `cmdbagent` or root login when authorized by the remote
 account. Selecting remote root in the SSH interface requires no additional local
 sudoers rule or separate key.
 See [SSH interface]({{ site.baseurl }}{% link pages/ssh.md %}) for usage.
@@ -62,6 +62,7 @@ by root with mode `0440`, containing:
 
 ```sudoers
 cmdb ALL=(root) NOPASSWD: /usr/bin/nmap
+cmdb ALL=(cmdbagent) NOPASSWD: /bin/sh
 ```
 
 This grants the `cmdb` user passwordless root access to Nmap with unrestricted
@@ -145,3 +146,14 @@ Keep it private and out of this repository.
 
 See [CMDB server]({{ site.baseurl }}{% link pages/server.md %}) for endpoints,
 status commands, and development startup.
+
+
+## Inventory account
+
+Install and upgrade retain the `cmdb` service identity and SSH key, and provision
+local `cmdbagent` with home `/var/lib/cmdbagent`. The sudo rule also permits
+`cmdb` to execute local inventory commands as `cmdbagent`. Remote discovery
+uses `cmdbagent` with the existing key. See the
+[one-time remote account cleanup]({{ site.baseurl }}{% link pages/ssh.md %}#account-transition)
+for removing the old remote `cmdb` accounts and homes after upgrade.
+Uninstall retains both local accounts and their homes.

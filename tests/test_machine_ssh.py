@@ -100,6 +100,7 @@ class MachineSSHTests(TestCase):
         calls = self.remote.call_args_list
         self.assertEqual(calls[0].args[1], 'true')
         self.assertEqual(calls[1].kwargs['user'], 'root')
+        self.assertIn('sh -s -- cmdbagent ', calls[1].args[1])
         self.assertIn('ssh-ed25519 AAAATEST cmdb', calls[1].args[1])
         self.assertIn('authorized_keys', calls[1].kwargs['input'])
         self.assertEqual(calls[2].args[1], 'true')

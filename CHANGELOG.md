@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-28 @ 14:43
+
 ### Added
 
 - Implement Backup Now with asynchronous bookkeeping, host-local MariaDB dumps

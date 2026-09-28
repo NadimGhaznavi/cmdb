@@ -79,10 +79,13 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['databases'][0]['lastBackup'], '2026-09-28T14:00:00+00:00')
         records.return_value.files.return_value = [{'id': 42, 'backupTime': datetime(2026, 9, 28, 14),
-                                                   'hostName': 'sally.example', 'databaseName': 'cmdb'}]
-        status, body = self.get('/api/backups/files')
+                                                   'hostName': 'sally.example', 'databaseName': 'cmdb',
+                                                   'pathname': 'sally/db/recorded.dump'}]
+        with patch('cmdb.server.CmdbHandler.DCmdb.BACKUP_DIR', '/configured/backups'):
+            status, body = self.get('/api/backups/files')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['files'][0]['backupTime'], '2026-09-28T14:00:00+00:00')
+        self.assertEqual(json.loads(body)['files'][0]['filename'], '/configured/backups/sally/db/recorded.dump')
         records.return_value.get.assert_not_called()
         records.return_value.get.return_value = None
         self.assertEqual(self.get('/api/backups/42')[0], 404)

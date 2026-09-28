@@ -8,10 +8,12 @@ Expand a host on Backups and click Backup Now beside a user database. This actio
 does not depend on Enabled or a saved schedule. Scheduling, Update, and retention
 deletion are not implemented.
 
-Below Live Databases, Backup Files lists all recorded successful database backups,
+The Backups view has three separate bordered panels: Backups, Live Databases,
+and Backup Vault. Backup Vault lists all recorded successful database backups,
 newest completion first (newest record first when times match). Its columns are
 Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
-or IP address), Database, and FQDN (the full stored hostname, or a dash when absent).
+or IP address), Database, and Filename (the full path formed from `DCmdb.BACKUP_DIR`
+and the backup record's relative pathname).
 Elapsed Time measures whole seconds from CMDB's attempt creation to completion,
 including queue time, preparation, dumping, and checksum calculation. Hours do
 not wrap at 24. While a job is starting or running, its progress message is
@@ -28,10 +30,10 @@ opens its own CMDB connection for bookkeeping, closing it before remote work.
 SSHDb runs `mariadb-dump` as `cmdbagent` on the database host, using the local
 MariaDB socket. Neuromancer uses the existing local command path without SSH.
 
-`DCmdb.BACKUP_DIR` is `/imports/backups`. The output location is:
+`DCmdb.BACKUP_DIR` is `/imports/disk1/backups`. The output location is:
 
 ```text
-/imports/backups/<host>/db/mariadb-<host>-<database>-YYYY-MM-DD_HH:MM:SS.dump
+/imports/disk1/backups/<host>/db/mariadb-<host>-<database>-YYYY-MM-DD_HH:MM:SS.dump
 ```
 
 The host is the short inventory hostname, falling back to its IP. Unsafe filename

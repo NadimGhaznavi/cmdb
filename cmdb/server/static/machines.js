@@ -21,7 +21,7 @@ async function loadBackupFiles() {
     body.replaceChildren();
     for (const file of files) {
       const row = document.createElement("tr");
-      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.hostName || "—"]) {
+      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);

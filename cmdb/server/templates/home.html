@@ -54,8 +54,10 @@
     </div>
   </main>
   <main id="backups-page" aria-labelledby="backups-heading" hidden>
-    <h2 id="backups-heading">Backups</h2>
-    <section aria-labelledby="database-heading">
+    <div class="backup-panel backup-title">
+      <h2 id="backups-heading">Backups</h2>
+    </div>
+    <section class="backup-panel" aria-labelledby="database-heading">
       <h3 id="database-heading">Live Databases</h3>
       <p id="backups-status" role="status">Loading databases…</p>
       <div id="backup-hosts"></div>
@@ -101,18 +103,18 @@
         </tr>
       </template>
     </section>
-    <section aria-labelledby="backup-files-heading">
-      <h3 id="backup-files-heading">Backup Files</h3>
+    <section class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
+      <h3 id="backup-files-heading">Backup Vault</h3>
       <p id="backup-files-status" role="status">Loading backup files…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Backup files">
-        <table class="backups-table" aria-label="Backup files">
+        <table class="backups-table backup-files-table" aria-label="Backup files">
           <thead>
             <tr>
               <th scope="col">Backup Time</th>
               <th scope="col">Elapsed Time</th>
               <th scope="col">Machine</th>
               <th scope="col">Database</th>
-              <th scope="col">FQDN</th>
+              <th scope="col">Filename</th>
             </tr>
           </thead>
           <tbody id="backup-files-rows"></tbody>

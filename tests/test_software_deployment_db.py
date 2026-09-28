@@ -223,13 +223,44 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
         for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}
             self.assertNotIn("namespace", columns)
             self.assertNotIn("ownedElement", columns)
             self.assertNotIn("name", columns)
+
+    def test_backup_schedule_references_databases_and_deployments_with_independent_identity(self):
+        machine = self.machines.upsert(Machine('192.168.0.7'))
+        manager = DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
+        schema = self.db.query('SELECT id FROM `Schema`')[0]['id']
+        for target in (schema, manager):
+            self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        rows = self.db.query('SELECT * FROM BackupSchedule ORDER BY id')
+        self.assertEqual([row['modelElement'] for row in rows], [schema, manager])
+        for row in rows:
+            self.assertEqual((row['enabled'], row['frequency'], row['retention']), (0, 'daily', '1-week'))
+        for retention in ('1-week', '2-weeks', '1-month', 'forever'):
+            self.db.execute('UPDATE BackupSchedule SET enabled=1, retention=%s WHERE modelElement=%s',
+                            (retention, schema))
+            stored = self.db.query('SELECT enabled, retention FROM BackupSchedule WHERE modelElement=%s', (schema,))[0]
+            self.assertEqual(stored, {'enabled': 1, 'retention': retention})
+        for target in (schema, 999999):
+            with self.assertRaises(pymysql.IntegrityError):
+                self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        target = NamespaceDb(self.db).create(name='backup target')
+        self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('DELETE FROM ModelElement WHERE id=%s', (target,))
+
+    def test_backup_schedule_rejects_invalid_policy_values(self):
+        target = NamespaceDb(self.db).create(name='backup target')
+        self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        for column, value in (('enabled', 2), ('enabled', None), ('frequency', 'weekly'),
+                              ('frequency', None), ('retention', '3-weeks'), ('retention', None)):
+            with self.subTest(column=column, value=value), self.assertRaises(pymysql.MySQLError):
+                self.db.execute(f'UPDATE BackupSchedule SET {column}=%s WHERE modelElement=%s', (value, target))
 
     def test_mariadb_inventory_reuses_instances_and_keeps_schema_names_scoped(self):
         first = self.machines.upsert(Machine('192.168.0.7'))

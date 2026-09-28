@@ -6,6 +6,27 @@ title: Schema Notes
 
 This page records non-obvious database constraints and implementation decisions.
 
+## Backup schedules
+
+`BackupSchedule` is an application-specific entity, outside CWM, with its own
+auto-increment ID. Its required, unique `modelElement` foreign key references
+`ModelElement.id`, allowing one policy per inventory item: a database Schema
+today or a DeployedComponent later. It does not inherit from ModelElement.
+
+| Column | Type | Default / constraint |
+| --- | --- | --- |
+| `id` | BIGINT UNSIGNED | Auto-increment primary key |
+| `modelElement` | BIGINT UNSIGNED | Required, unique reference to ModelElement |
+| `enabled` | BOOLEAN | False; restricted to 0 or 1 |
+| `frequency` | VARCHAR(16) | `daily`; only supported value |
+| `retention` | VARCHAR(16) | `1-week`; also accepts `2-weeks`, `1-month`, `forever` |
+
+All columns are non-null. Deleting a referenced ModelElement is blocked until
+its schedule is explicitly removed. Inventory discovery does not create schedule
+rows. The schema and Python entity are in place; UI persistence, execution
+timing, backup execution, and individual backup records remain unimplemented.
+The table is included in the install schema; no record migration is added.
+
 ## Data packages and inherited names
 
 Database names are stored in `ModelElement.name`, inherited by relational

@@ -1,4 +1,4 @@
--- Adopted CWM classes and associations, with exact names and attribute casing.
+-- Adopted CWM classes and associations, followed by application-specific tables.
 CREATE TABLE IF NOT EXISTS ModelElement (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) COLLATE utf8mb4_bin NULL,
@@ -85,4 +85,18 @@ CREATE TABLE IF NOT EXISTS DataManagerDataPackage (
     PRIMARY KEY (dataManager, dataPackage),
     CONSTRAINT DataManagerDataPackage_manager_fk FOREIGN KEY (dataManager) REFERENCES DataManager (id),
     CONSTRAINT DataManagerDataPackage_package_fk FOREIGN KEY (dataPackage) REFERENCES Package (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Application policy referencing inventory, not a CWM class or subclass.
+CREATE TABLE IF NOT EXISTS BackupSchedule (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    modelElement BIGINT UNSIGNED NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    frequency VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'daily',
+    retention VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT '1-week',
+    UNIQUE KEY BackupSchedule_modelElement_uq (modelElement),
+    CONSTRAINT BackupSchedule_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id),
+    CONSTRAINT BackupSchedule_enabled_ck CHECK (enabled IN (0, 1)),
+    CONSTRAINT BackupSchedule_frequency_ck CHECK (frequency IN ('daily')),
+    CONSTRAINT BackupSchedule_retention_ck CHECK (retention IN ('1-week', '2-weeks', '1-month', 'forever'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

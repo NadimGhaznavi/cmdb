@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Add the application-specific BackupSchedule table and entity, with one policy
+  per ModelElement, disabled by default, daily frequency, and validated retention
+  choices. UI persistence and backup execution remain pending.
+
 ## [0.9.3] - 2026-09-28 @ 13:51
 
 ### Added

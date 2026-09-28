@@ -9,6 +9,7 @@ permalink: /CHANGELOG/
 
 ### Changed
 
+- Remove the horizontal rule beneath the main page title.
 - Group database backups into collapsed host sections with user database counts,
   such as `Islands - 1 DB`. Exclude `mysql`, `information_schema`,
   `performance_schema`, and `sys` from backup lists and counts.

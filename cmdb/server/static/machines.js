@@ -60,6 +60,22 @@ function softwareLabel(system) {
     + (version ? ` ${version}` : "");
 }
 
+function renderDatabases(cell, names) {
+  const systemNames = ["mysql", "information_schema", "performance_schema", "sys"];
+  const isSystem = name => systemNames.includes(name.toLowerCase());
+  const userDatabases = names.filter(name => !isSystem(name));
+  const systemDatabases = names.filter(isSystem).sort((left, right) =>
+    systemNames.indexOf(left.toLowerCase()) - systemNames.indexOf(right.toLowerCase()));
+  for (const group of [userDatabases, systemDatabases]) {
+    for (const name of group) {
+      const line = document.createElement("div");
+      line.textContent = name;
+      cell.append(line);
+    }
+    if (group === userDatabases && group.length) cell.append(document.createElement("hr"));
+  }
+}
+
 function compareSoftware(left, right) {
   const order = system => ["OS", "linux"].includes(system.type) ? 0
     : system.type === "DBMS" && system.subtype === "MariaDB" ? 1 : 2;
@@ -164,11 +180,7 @@ async function loadMachines() {
             if (system.subtype !== "MariaDB") {
               cell.closest("tr").remove();
             } else if (system.databases?.length) {
-              for (const name of system.databases) {
-                const line = document.createElement("div");
-                line.textContent = name;
-                cell.append(line);
-              }
+              renderDatabases(cell, system.databases);
             } else {
               cell.textContent = "—";
             }

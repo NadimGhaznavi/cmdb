@@ -6,6 +6,10 @@
 .backups-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
+.backup-host { margin: 1rem 0; }
+.backup-host summary { cursor: pointer; font-weight: bold; overflow-wrap: anywhere; }
+.backup-host summary:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+.backup-host[open] summary { margin-bottom: .5rem; }
 #backups-status { color: #bbb; }
 #backups-status:empty { display: none; }
 body {

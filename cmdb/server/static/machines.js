@@ -4,32 +4,45 @@ let refreshing = false;
 
 async function loadBackups() {
   const status = document.getElementById("backups-status");
-  const body = document.getElementById("backup-rows");
+  const body = document.getElementById("backup-hosts");
   body.replaceChildren();
   status.textContent = "Loading databases…";
   try {
     const response = await fetch("/api/machines", { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error("Databases are unavailable. Return to Inventory and try again.");
     const { machines, softwareDeployments = [] } = await response.json();
-    const hosts = new Map(machines.map(machine => [machine.id, machine.hostName || machine.ipAddress]));
-    const rows = [];
+    const hosts = new Map(machines.map(machine => [machine.id, machine]));
+    const groups = new Map();
+    const systemNames = new Set(["mysql", "information_schema", "performance_schema", "sys"]);
     for (const system of softwareDeployments) {
       if (system.type !== "DBMS" || !hosts.has(system.machine)) continue;
-      for (const name of system.databases || []) {
-        rows.push({ host: hosts.get(system.machine), name });
-      }
+      if (!groups.has(system.machine)) groups.set(system.machine, []);
+      groups.get(system.machine).push(...(system.databases || [])
+        .filter(name => !systemNames.has(name.toLowerCase())));
     }
-    rows.sort((left, right) => left.host.localeCompare(right.host) || left.name.localeCompare(right.name));
-    for (const { host, name } of rows) {
-      const row = document.createElement("tr");
-      for (const value of [host, name, "---"]) {
-        const cell = document.createElement("td");
-        cell.textContent = value;
-        row.append(cell);
+    const sortedHosts = [...groups.keys()].sort((left, right) =>
+      machineLabel(hosts.get(left)).localeCompare(machineLabel(hosts.get(right))));
+    const template = document.getElementById("backup-host-template");
+    for (const id of sortedHosts) {
+      const names = groups.get(id).sort((left, right) => left.localeCompare(right));
+      const host = machineLabel(hosts.get(id));
+      const section = template.content.cloneNode(true);
+      section.querySelector("summary").textContent = `${host} - ${names.length} DB${names.length === 1 ? "" : "s"}`;
+      section.querySelector("table").setAttribute("aria-label", `${host} database backups`);
+      for (const name of names) {
+        const row = document.createElement("tr");
+        for (const value of [name, "---"]) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          row.append(cell);
+        }
+        section.querySelector("tbody").append(row);
       }
-      body.append(row);
+      section.querySelector(".backup-empty").hidden = names.length > 0;
+      section.querySelector("table").hidden = names.length === 0;
+      body.append(section);
     }
-    status.textContent = rows.length ? "" : "No databases discovered yet.";
+    status.textContent = groups.size ? "" : "No databases discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Databases could not be loaded. Return to Inventory and try again.";
   }

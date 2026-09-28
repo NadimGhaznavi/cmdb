@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-28 @ 09:30
+
 ### Added
 
 - Store Linux release ID and full Debian version on SoftwareSystem, with the

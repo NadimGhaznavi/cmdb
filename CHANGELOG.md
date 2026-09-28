@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-28 @ 13:51
+
 ### Added
 
 - Add per-database Enabled checkboxes, fixed Daily frequency, and Retention

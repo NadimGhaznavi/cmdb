@@ -256,6 +256,11 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             'JOIN ModelElement me ON me.id=c.id JOIN SoftwareSystem ss ON ss.id=me.namespace ORDER BY dc.id')
         self.assertEqual(versions, [{'id': a, 'version': '11.8.4-MariaDB'}, {'id': b, 'version': '11.8.3-MariaDB'}])
         self.assertEqual(len(self.inventory()), 3)  # OS plus two MariaDB deployments.
+        deployments = {row['id']: row for row in self.software.list_deployments()}
+        self.assertEqual(deployments[a]['databases'], ['Mixed', 'cmdb', 'mixed', 'mysql', 'newdb'])
+        self.assertEqual(deployments[b]['databases'], ['Mixed', 'cmdb', 'mixed', 'mysql'])
+        os_deployment = next(row for row in deployments.values() if row['type'] == 'OS')
+        self.assertEqual(os_deployment['databases'], [])
 
     def test_mariadb_failure_rolls_back_its_whole_observation(self):
         with self.assertRaises(pymysql.IntegrityError), self.db.transaction():

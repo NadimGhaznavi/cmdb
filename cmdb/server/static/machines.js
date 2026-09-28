@@ -141,7 +141,7 @@ async function loadMachines() {
       if (refreshing) return;
       graph.nodes().unselect();
       node.select();
-      for (const field of ["ipAddress", "macAddress", "hostName", "deployedComponent", "createdOn", "updatedOn"]) {
+      for (const field of ["ipAddress", "macAddress", "hostName", "createdOn", "updatedOn"]) {
         const value = field === "createdOn" || field === "updatedOn"
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
         document.getElementById(`detail-${field}`).textContent = value;
@@ -158,7 +158,23 @@ async function loadMachines() {
         const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
         section.querySelector("summary").textContent = `Software System: ${title}`;
         for (const cell of section.querySelectorAll("[data-field]")) {
-          cell.textContent = system[cell.dataset.field] ?? "—";
+          if (cell.dataset.field === "codename" && system.subtype === "MariaDB") {
+            cell.closest("tr").remove();
+          } else if (cell.dataset.field === "databases") {
+            if (system.subtype !== "MariaDB") {
+              cell.closest("tr").remove();
+            } else if (system.databases?.length) {
+              for (const name of system.databases) {
+                const line = document.createElement("div");
+                line.textContent = name;
+                cell.append(line);
+              }
+            } else {
+              cell.textContent = "—";
+            }
+          } else {
+            cell.textContent = system[cell.dataset.field] ?? "—";
+          }
         }
         softwareDetails.append(section);
       }

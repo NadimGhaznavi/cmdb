@@ -14,7 +14,7 @@ class SoftwareDeploymentDb:
 
     def list_deployments(self) -> list[dict]:
         """Project deployed software for the graph without changing the entity model."""
-        return self._db.query(
+        deployments = self._db.query(
             "SELECT dc.id, dc.machine, dc.component, dc.pathname, ss.id AS softwareSystem, "
             "ss.type, ss.subtype, ss.supplier, ss.version, tv.value AS codename "
             "FROM DeployedComponent dc JOIN Component c ON c.id = dc.component "
@@ -23,6 +23,18 @@ class SoftwareDeploymentDb:
             "LEFT JOIN TaggedValue tv ON tv.modelElement = ss.id AND tv.tag = 'VERSION_CODENAME' "
             "ORDER BY dc.machine, dc.id"
         )
+
+        databases = {}
+        for row in self._db.query(
+            "SELECT dp.dataManager, me.name FROM DataManagerDataPackage dp "
+            "JOIN `Schema` s ON s.id = dp.dataPackage "
+            "JOIN ModelElement me ON me.id = s.id "
+            "WHERE me.name IS NOT NULL ORDER BY dp.dataManager, me.name"
+        ):
+            databases.setdefault(row["dataManager"], []).append(row["name"])
+        for deployment in deployments:
+            deployment["databases"] = databases.get(deployment["id"], [])
+        return deployments
 
     def record_operating_system(self, machine: int, system: SoftwareSystem) -> None:
         """Refresh the scanner's OS deployment at / within the caller's transaction.

@@ -37,7 +37,9 @@ Machines remain arranged in a circle. Clicking a machine or any inner software
 rectangle loads the machine and its available software systems in the left panel.
 The OS appears first, then MariaDB. Each software section starts collapsed with
 a heading such as `Software System: Linux` or `Software System: RDBMS`; click
-the heading to expand its fields.
+the heading to expand its fields. MariaDB details end with a Database(s) row,
+listing stored Schema names for that deployment in alphabetical order, one per
+line (or a dash when none are recorded).
 Selection lightens the containing machine’s color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines

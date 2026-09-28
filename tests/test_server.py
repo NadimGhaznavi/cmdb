@@ -165,9 +165,12 @@ class ServerTests(unittest.TestCase):
             'site': None,
             'createdOn': datetime(2026, 9, 27, 12, 0), 'updatedOn': datetime(2026, 9, 27, 13, 0),
         }], [{'id': 21, 'machine': 7}, {'id': 22, 'machine': 7}],
-            [{'id': 21, 'namespace': 7}, {'id': 22, 'namespace': 7}], []]
+            [{'id': 21, 'namespace': 7}, {'id': 22, 'namespace': 7}],
+            [{'id': 22, 'machine': 7, 'subtype': 'MariaDB'}],
+            [{'dataManager': 22, 'name': 'ax3l'}, {'dataManager': 22, 'name': 'r3el'}]]
         status, body = self.get('/api/machines')
         self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['softwareDeployments'][0]['databases'], ['ax3l', 'r3el'])
         record = json.loads(body)['machines'][0]
         self.assertEqual(record['ipAddress'], '192.168.0.7')
         self.assertEqual(record['hostName'], '<script>host</script>')

@@ -16,9 +16,6 @@ header h1 { margin: 0; }
 header p { margin: .5rem 0 1rem; }
 hr { border: 0; border-top: 3px solid #d98124; margin: 0; }
 main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
-#hostname-input { width: 100%; min-width: 0; background: #24272c; color: #fff; border: 1px solid #ffb454; padding: .4rem; font: inherit; }
-#hostname-input:focus-visible { outline: 2px solid #ffb454; }
-#edit-status:empty { display: none; }
 .page-actions button:disabled { opacity: .5; cursor: default; }
 #graph-status { color: #bbb; font-size: .9rem; margin: .75rem 0; }
 #graph-status:empty { display: none; }
@@ -30,7 +27,6 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 #selection-details th, #selection-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 #selection-details th { width: 45%; color: #ffb454; font-weight: normal; }
 .page-actions { margin: 0; }
-.detail-actions { margin-top: 1rem; text-align: left; }
 .page-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
 .page-footer p { margin: 0 0 0 auto; text-align: right; }
 .page-actions button {

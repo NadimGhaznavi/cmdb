@@ -3,21 +3,16 @@
 from unittest import TestCase
 from unittest.mock import Mock, patch
 from threading import Event
-import socket
 
 import nmap
 import pymysql
 
 from cmdb.entity.Machine import Machine
+from cmdb.constants.DCmdb import DCmdb
 from cmdb.server.MachineScanner import MachineScanner
 
 
 class MachineScannerTests(TestCase):
-    def setUp(self):
-        lookup = patch("cmdb.server.MachineScanner.socket.gethostbyaddr", side_effect=socket.herror("no PTR"))
-        self.lookup = lookup.start()
-        self.addCleanup(lookup.stop)
-
     @patch("cmdb.server.MachineScanner.MachineDb")
     @patch("cmdb.server.MachineScanner.DbMgr")
     @patch("cmdb.server.MachineScanner.Nmap")
@@ -35,7 +30,7 @@ class MachineScannerTests(TestCase):
         worker = MachineScanner()
         worker.scan_once()
         self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
-                         [Machine("192.168.0.1", "router"), Machine("192.168.0.2")])
+                         [Machine("192.168.0.1"), Machine("192.168.0.2")])
         db.return_value.transaction.assert_called_once()
         db.return_value.close.assert_called_once()
 
@@ -49,7 +44,7 @@ class MachineScannerTests(TestCase):
     @patch("cmdb.server.MachineScanner.MachineDb")
     @patch("cmdb.server.MachineScanner.DbMgr")
     @patch("cmdb.server.MachineScanner.Nmap")
-    def test_reverse_dns_fills_missing_names_and_failure_keeps_machine(self, scanner, db, inventory):
+    def test_discovery_disables_dns_and_ignores_reported_hostnames(self, scanner, db, inventory):
         scanner.return_value.scan.return_value = {
             "nmap": {"scaninfo": {}}, "scan": {
                 "192.168.0.1": {"status": {"state": "up"}, "hostnames": [{"name": "router"}]},
@@ -57,12 +52,13 @@ class MachineScannerTests(TestCase):
                 "192.168.0.3": {"status": {"state": "up"}, "hostnames": [{"name": ""}]},
             },
         }
-        self.lookup.side_effect = [("worker.lan", [], ["192.168.0.2"]), socket.herror("no PTR")]
-        MachineScanner().scan_once()
-        self.assertEqual([call.args[0] for call in self.lookup.call_args_list],
-                         ["192.168.0.2", "192.168.0.3"])
+        with patch("socket.gethostbyaddr") as lookup:
+            MachineScanner().scan_once()
+            lookup.assert_not_called()
+        scanner.return_value.scan.assert_called_once_with(
+            DCmdb.SCAN_TARGET, arguments="-sn -n", timeout=DCmdb.SCAN_TIMEOUT_SECONDS)
         self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
-                         [Machine("192.168.0.1", "router"), Machine("192.168.0.2", "worker.lan"),
+                         [Machine("192.168.0.1"), Machine("192.168.0.2"),
                           Machine("192.168.0.3")])
 
     @patch("cmdb.server.MachineScanner.DbMgr")

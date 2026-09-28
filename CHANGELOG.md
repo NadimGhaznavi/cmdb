@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Show machines without hostnames as grey nodes, including a lighter grey when selected.
+
+### Removed
+
+- Automatic hostname discovery: disabled Nmap DNS resolution and removed reverse
+  lookups. Scans preserve hostnames, which are maintained through manual editing.
+
 ## [0.3.7] - 2026-09-27 @ 21:22
 
 ### Changed

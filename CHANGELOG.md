@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-09-28 @ 18:53
+
 ### Changed
 
 - Keep Debian host Machine, Uptime, and Enabled headers and cells on one line,

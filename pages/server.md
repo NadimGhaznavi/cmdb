@@ -20,7 +20,8 @@ only a short status. Each readiness request opens and closes its own database
 connection. The server foundation has no inventory editing endpoints yet.
 
 The main panel fills the remaining window below the title. It loads database
-records when the page opens; reload the page to see subsequent scan updates.
+records when the page opens; use Refresh at the bottom left to reload the page
+and see subsequent scan updates.
 Nodes show the hostname and IP address, or just the address when unnamed.
 Click a node or use the machine selector to see its fields and UTC timestamps.
 An empty inventory and an unavailable database show distinct status messages.

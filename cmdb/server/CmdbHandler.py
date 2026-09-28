@@ -326,11 +326,11 @@ class CmdbHandler(BaseHTTPRequestHandler):
             if not 0 < length <= 4096:
                 raise ValueError
             values = json.loads(self.rfile.read(length))
-            if not isinstance(values, dict) or values.keys() != {'modelElement', 'enabled', 'frequency', 'retention'}:
+            if not isinstance(values, dict) or values.keys() != {'modelElement', 'enabled', 'expression', 'retention'}:
                 raise ValueError
             schedule = Scheduler().update(**values)
         except (ValueError, UnicodeError):
-            self.respond(400, b'{"error":"Provide valid daily backup settings."}', 'application/json')
+            self.respond(400, b'{"error":"Provide valid backup settings and a five-field cron expression."}', 'application/json')
             return
         except LookupError:
             self.respond(404, b'{"error":"User database not found."}', 'application/json')

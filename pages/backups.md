@@ -6,7 +6,8 @@ title: Backups
 
 Expand a host on Backups and click Backup Now beside a user database. This action
 does not depend on Enabled or a saved schedule. To schedule a database, check
-Enabled, choose Retention, and click Update. Daily backups run at noon in the
+Enabled, enter a five-field Cron Schedule, choose Retention, and click Update.
+The default `0 12 * * *` runs daily at noon in the
 CMDB server's local time. Uncheck Enabled and click Update to remove its cron job.
 Retention is saved as policy only; automatic file deletion is not implemented.
 
@@ -31,7 +32,9 @@ a successful no-op. Success exits 0; dump, permission, configuration, and tool
 errors exit 1. Backup attempts store the error when database access is available.
 Cron handles process timing; there is no application scheduling loop.
 
-Update saves Enabled and Retention, then writes the daily noon cron entry.
+Update saves Enabled, Cron Schedule, and Retention, then writes the cron entry.
+Cron Schedule uses the same 20-character-wide text field as Patching, with
+backend validation for the five cron fields.
 A cron write failure rolls back the database edit and reports an error. If an
 update fails, retry it to reconcile the settings and cron entry. Deleting a policy
 through `DELETE /api/backup-schedules/<id>` removes its cron entry and preserves

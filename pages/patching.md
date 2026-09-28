@@ -23,13 +23,13 @@ job polling but not stored in the database or refreshed by those polls.
 
 ## Scheduling
 
-Each host has Enabled and five Schedule dropdowns: minute, hour, day-of-month,
-month, and day-of-week. Every (*) is available for each field. Selections are
-submitted to the existing backend validation; errors appear beside the controls. Ranges, lists, steps, and
-month/weekday names are accepted; shortcuts such as `@reboot` are not. For example,
-`0 12 * * 0` queues a patch on Sundays at noon in the server's local time.
-Unset fields display `---`; no schedule is enabled by default. Existing saved
-ranges, lists, steps, and names remain available as selected dropdown options.
+Each host has Enabled and a 20-character-wide Cron Schedule text box. Enter five
+standard cron fields: minute, hour, day-of-month, month, and day-of-week.
+Ranges, lists, steps, and month/weekday names are accepted; shortcuts such as
+`@reboot` are not. For example, `0 12 * * 0` queues a patch on Sundays at noon
+in the server's local time. The field can hold expressions longer than its visible
+width. No schedule is enabled by default; backend validation reports invalid entries.
+
 
 Update saves the settings and creates or replaces that host's service-account
 cron entry. Clearing Enabled and pressing Update removes the entry while retaining

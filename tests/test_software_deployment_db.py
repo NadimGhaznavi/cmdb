@@ -421,10 +421,12 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 patch('cmdb.interface.Cron.CronTab', return_value=tab), \
                 patch('cmdb.activity.BackupManager.SSHDb') as remote:
             scheduler = Scheduler()
-            schedule = scheduler.update(target, True, 'daily', '2-weeks')
+            schedule = scheduler.update(target, True, '15 3 * * 0', '2-weeks')
             self.assertEqual(BackupDb(self.db).databases()[0]['retention'], '2-weeks')
-            same = scheduler.update(target, True, 'daily', 'forever')
+            same = scheduler.update(target, True, '15 3 * * 0', 'forever')
             self.assertEqual(schedule['id'], same['id'])
+            self.assertEqual(BackupDb(self.db).databases()[0]['expression'], '15 3 * * 0')
+            self.assertEqual(str(list(tab.find_comment('cmdb-backup-schedule-' + str(schedule['id'])))[0].slices), '15 3 * * 0')
             self.assertEqual(len(list(tab.find_comment('cmdb-backup-schedule-' + str(schedule['id'])))), 1)
             existing = BackupDb(self.db).start(target, datetime(2026, 9, 28))
             remote.return_value.backup_db.return_value = dict(pathname='sally/db/test.dump', sizeBytes=42, checksum='a' * 64)
@@ -435,7 +437,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             remote.return_value.backup_db.side_effect = subprocess.CalledProcessError(1, 'dump', stderr='Permission denied')
             self.assertFalse(scheduler.run(schedule['id']))
             self.assertEqual(self.db.query("SELECT error FROM Backup WHERE status='failed'")[0]['error'], 'Permission denied')
-            scheduler.update(target, False, 'daily', 'forever')
+            scheduler.update(target, False, '15 3 * * 0', 'forever')
             self.assertEqual(len(tab), 1)
             remote.reset_mock()
             self.assertTrue(scheduler.run(schedule['id']))

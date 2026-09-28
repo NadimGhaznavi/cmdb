@@ -17,8 +17,8 @@ class Cron:
     def __init__(self, user=True) -> None:
         self._user = user
 
-    def update(self, schedule: int, enabled: bool) -> None:
-        self._update(schedule, enabled, self.PREFIX, 'cmdb-backup.py', DCmdb.BACKUP_CRON)
+    def update(self, schedule: int, enabled: bool, expression: str = DCmdb.BACKUP_CRON) -> None:
+        self._update(schedule, enabled, self.PREFIX, 'cmdb-backup.py', expression)
 
     def update_patch(self, schedule: int, enabled: bool, expression: str) -> None:
         self._update(schedule, enabled, self.PATCH_PREFIX, 'cmdb-patch.py', expression)

@@ -58,3 +58,6 @@ class AgentTransitionTests(TestCase):
             self.assertEqual(commands[1], commands[4])
             self.assertEqual(commands[2][0], "mariadb")
             self.assertEqual(commands[3][:3], ["runuser", "-u", "cmdbagent"])
+            for command in (commands[2], commands[3]):
+                self.assertIn('--protocol=socket', command)
+                self.assertIn('--skip-ssl', command)

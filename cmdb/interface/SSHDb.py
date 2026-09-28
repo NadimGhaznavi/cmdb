@@ -31,7 +31,7 @@ class SSHDb:
 
     def _ready(self, host: str) -> bool:
         try:
-            result = self._run(host, 'mariadb --no-defaults --protocol=socket --batch '
+            result = self._run(host, 'mariadb --no-defaults --protocol=socket --skip-ssl --batch '
                                '--skip-column-names --user=' + shlex.quote(DCmdb.AGENT_USER),
                                input='SELECT CURRENT_USER(), VERSION();\nSHOW GRANTS;\nSHOW DATABASES;\n')
         except subprocess.CalledProcessError:
@@ -48,7 +48,7 @@ class SSHDb:
             return None
         try:
             sql = (Path(__file__).resolve().parents[2] / 'schema/mariadb-inventory.sql').read_text()
-            result = self._run(host, 'mariadb --no-defaults --protocol=socket --batch --raw '
+            result = self._run(host, 'mariadb --no-defaults --protocol=socket --skip-ssl --batch --raw '
                                '--skip-column-names --user=' + shlex.quote(DCmdb.AGENT_USER), input=sql)
             lines = result.stdout.splitlines()
             if not lines:
@@ -76,10 +76,10 @@ class SSHDb:
             if self._ssh.is_local(host):
                 return False
             command = (
-                'set -eu; version=$(mariadb --no-defaults --protocol=socket --user=root '
+                'set -eu; version=$(mariadb --no-defaults --protocol=socket --skip-ssl --user=root '
                 '--batch --skip-column-names -e "SELECT VERSION()"); '
                 'case "$version" in *MariaDB*) ;; *) exit 1 ;; esac; '
-                'mariadb --no-defaults --protocol=socket --user=root --batch'
+                'mariadb --no-defaults --protocol=socket --skip-ssl --user=root --batch'
             )
             self._run(host, command, user='root', input=provisioning_sql())
             return self._ready(host)

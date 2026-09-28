@@ -16,9 +16,6 @@ header h1 { margin: 0; }
 header p { margin: .5rem 0 1rem; }
 hr { border: 0; border-top: 3px solid #d98124; margin: 0; }
 main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
-.panel-heading { display: flex; align-items: center; justify-content: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: .75rem; }
-select { background: #24272c; color: #eee; border: 1px solid #666; padding: .4rem; max-width: 100%; }
-select:focus-visible { outline: 2px solid #ffb454; }
 #hostname-input { width: 100%; min-width: 0; background: #24272c; color: #fff; border: 1px solid #ffb454; padding: .4rem; font: inherit; }
 #hostname-input:focus-visible { outline: 2px solid #ffb454; }
 #edit-status:empty { display: none; }
@@ -49,7 +46,6 @@ select:focus-visible { outline: 2px solid #ffb454; }
 @media (max-width: 600px) {
   body { padding: .5rem; gap: .5rem; }
   header, main { padding: 1rem; }
-  .panel-heading label { width: 100%; }
   .machine-workspace { flex-direction: column; }
   #machine-details { flex-basis: auto; max-width: none; border-right: 0; border-bottom: 1px solid #6e502e; padding: 0 0 1rem; }
 }

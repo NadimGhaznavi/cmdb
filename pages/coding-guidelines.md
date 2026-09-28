@@ -26,7 +26,9 @@ execute the release script are permitted.
 - `pages/` contains configuration references and project guides.
 - `_config.yml` holds Jekyll settings and site-wide layout defaults.
 - `scripts/` contains maintenance tooling.
-- `cmdb/` contains Python server code, grouped into constants, interfaces, and server modules.
+- `cmdb/` contains Python code grouped into constants, entities, interfaces,
+  activities, and server modules. `cmdb/activity/` holds background workflows;
+  `cmdb/server/` owns HTTP serving and service lifecycle.
 - `cmdb-server.py` is the service entry point; `systemd/` contains its unit template.
 - `tests/` verifies HTTP behavior and database contracts.
 - `VERSION` holds the project version; `0.0.0` is the initial unreleased baseline.

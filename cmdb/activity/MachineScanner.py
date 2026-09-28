@@ -6,6 +6,7 @@ import nmap
 import pymysql
 
 from cmdb.constants.DCmdb import DCmdb
+from cmdb.activity.MachineSSH import MachineSSH
 from cmdb.entity.Machine import Machine
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
@@ -99,6 +100,17 @@ class MachineScanner(Thread):
         if self._stop_requested.is_set():
             return
 
+        scan_error = None
+        try:
+            self._scan_operating_systems(machine_ids)
+        except (nmap.PortScannerError, nmap.PortScannerTimeout, OSError) as error:
+            scan_error = error
+        if not self._stop_requested.is_set():
+            MachineSSH(self._stop_requested).run(machine_ids)
+        if scan_error is not None:
+            raise scan_error
+
+    def _scan_operating_systems(self, machine_ids: dict[str, int]) -> None:
         # Commit discovery first, without holding a database connection during Nmap.
         result = Nmap().scan(" ".join(machine_ids),
                              arguments="-O -n --osscan-limit --max-os-tries 1",

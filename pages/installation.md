@@ -50,6 +50,8 @@ to fail without replacing it. The service can write its SSH directory under
 the otherwise read-only system filesystem configuration.
 
 Remote accounts and public-key authorization are not configured by the installer.
+The scanner's SSH follow-up can provision remote `cmdb` access when root already
+accepts this public key.
 The same key supports remote `cmdb` or root login when authorized by the remote
 account. Selecting remote root in the SSH interface requires no additional local
 sudoers rule or separate key.

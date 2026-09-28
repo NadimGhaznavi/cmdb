@@ -17,6 +17,13 @@ from cmdb.interface.SSH import SSH
 
 class SSHTests(unittest.TestCase):
     @patch('cmdb.interface.SSH.subprocess.run')
+    def test_remote_script_is_sent_on_stdin(self, run):
+        script = 'printf hello\n'
+        SSH().run('server', 'sh -s', user='root', input=script)
+        self.assertEqual(run.call_args.kwargs['input'], script)
+        self.assertNotIn('stdin', run.call_args.kwargs)
+
+    @patch('cmdb.interface.SSH.subprocess.run')
     def test_remote_identity_and_output(self, run):
         command = "printf '%s' 'hello; world'"
         result = subprocess.CompletedProcess([], 0, 'hello; world', '')

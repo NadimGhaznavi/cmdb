@@ -7,7 +7,8 @@ from cmdb.constants.DCmdb import DCmdb
 
 class SSH:
     def run(self, host: str, command: str, *, user: str = DCmdb.SERVICE_USER, port: int = 22,
-            timeout: int = 30, connect_timeout: int = 10) -> subprocess.CompletedProcess[str]:
+            timeout: int = 30, connect_timeout: int = 10,
+            input: str | None = None) -> subprocess.CompletedProcess[str]:
         """Execute a remote shell command and return captured stdout/stderr.
 
         Nonzero exits raise CalledProcessError; timeouts raise TimeoutExpired.
@@ -31,6 +32,7 @@ class SSH:
              "-o", f"ConnectTimeout={connect_timeout}",
              "-i", DCmdb.SSH_KEY, "-l", user, "-p", str(port),
              "--", host, command],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            **({"stdin": subprocess.DEVNULL} if input is None else {"input": input}),
+            capture_output=True, text=True,
             timeout=timeout, check=True,
         )

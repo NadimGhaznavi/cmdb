@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Add a top-right Backups link that replaces the inventory panel with a database
+  table showing Host, Database, and placeholder Last Backup values (`---`).
+  The link changes to Inventory to return to the existing homepage.
+
 ## [0.8.1] - 2026-09-28 @ 11:52
 
 ### Changed

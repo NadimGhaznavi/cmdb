@@ -9,6 +9,8 @@ permalink: /CHANGELOG/
 
 ### Changed
 
+- Hide Site in the machine details display.
+
 - Set SoftwareSystem supplier to `Debian` for host releases with `ID=debian`.
 
 ## [0.6.0] - 2026-09-28 @ 09:30

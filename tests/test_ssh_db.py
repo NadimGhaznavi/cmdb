@@ -34,6 +34,8 @@ class SSHDbTests(TestCase):
         calls = self.ssh.run.call_args_list
         self.assertEqual(calls[2].kwargs['user'], 'root')
         self.assertEqual(calls[2].kwargs['input'], provisioning_sql())
+        for call in calls[1:]:
+            self.assertIn('--protocol=socket --skip-ssl', call.args[1])
         self.assertIn('IDENTIFIED VIA unix_socket', calls[2].kwargs['input'])
         self.assertNotIn('user', calls[3].kwargs)
 
@@ -69,6 +71,7 @@ class SSHDbTests(TestCase):
                 'version': '11.8.3-MariaDB', 'pathname': '/var/lib/mysql/',
                 'databases': ['cmdb', 'odd\tname', 'quoted"name']})
             self.assertIn('information_schema.SCHEMATA', self.ssh.run.call_args.kwargs['input'])
+            self.assertIn('--protocol=socket --skip-ssl', self.ssh.run.call_args.args[1])
             self.assertNotIn('user', self.ssh.run.call_args.kwargs)
 
     def test_invalid_or_partial_inventory_is_not_returned(self):

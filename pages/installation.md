@@ -56,19 +56,25 @@ The installer applies `schema/cmdb-schema-v1.sql` to the database. It creates th
 `machines` table if absent, preserving existing rows on repeat installation.
 `id` is the auto-increment primary key. `ipAddress` remains unique
 (`VARCHAR(45)`, accommodating IPv4 and IPv6) for scan matching.
-`macAddress` is nullable `VARCHAR(17)` and is also added to existing tables.
-`hostName`, `site`, and `deployedComponent` are nullable `VARCHAR(255)` columns,
+`macAddress` is nullable `VARCHAR(17)`.
+`hostName` and `site` are nullable `VARCHAR(255)` columns,
 matching the `Machine` entity's attribute casing. `createdOn` and `updatedOn`
-record insertion and the latest discovery update in UTC. The SQL file also adds
-these timestamp columns to existing tables; old rows receive the migration time.
-It assigns stable IDs to existing machines while preserving their records.
-Edit the SQL file to maintain the schema.
+record insertion and the latest discovery update in UTC.
+Edit the SQL file to maintain the fresh-install schema. During initial
+development, it does not migrate existing tables. After a schema change, use
+uninstall/install to recreate the database and let discovery populate it.
 
-`deployedComponents` stores each component's `pathname` and `machine` foreign key
-to `machines.id`, with an internal auto-increment row ID. A machine can
+`deployedComponents` stores each deployment's `pathname`, `machine` foreign key
+to `machines.id`, and required `component` reference to `components.id`, with an
+internal auto-increment row ID. A machine can
 contain zero or more component rows. The foreign key rejects components for
 unknown machines and prevents deleting a machine while components reference it.
 Changing a machine's IP address does not change its ID or component links.
+`softwareSystems`, `components`, `deployedSoftwareSystems`, and the
+`deployedSoftwareSystemComponents` association table hold the
+[OS software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %}).
+`Machine.deployedComponent` is derived from the foreign-key relationship rather
+than stored as a text column on `machines`.
 
 ## Upgrade
 
@@ -79,7 +85,9 @@ sudo scripts/upgrade.sh
 ```
 
 Upgrade reuses the installation process, preserving credentials and database
-data. The service stops before dependencies and application files are updated.
+data when the schema is unchanged. For schema changes at this stage, use
+`scripts/uninstall.sh` followed by `scripts/install.sh` instead.
+The service stops before dependencies and application files are updated.
 A failure can leave it stopped; correct the reported issue and rerun the
 command. Deployment does not provide automatic rollback.
 

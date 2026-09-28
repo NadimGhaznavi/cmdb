@@ -62,6 +62,10 @@ map each adopted CWM class directly to a Python entity and database table,
 preserving names, attribute casing, inheritance, relationships, and
 multiplicities. Implement only the subset the application needs and has data
 to store.
+Do not move inherited attributes onto child classes. Add a parent class and
+table only when storage needs its attributes. During initial development,
+target fresh schemas and scanner-driven population; do not add migrations for
+existing records.
 Use bound SQL parameters and explicit transactions for related writes. Validate
 external configuration at the boundary and let internal programming errors
 surface. Keep presentation separate from database access and application logic.

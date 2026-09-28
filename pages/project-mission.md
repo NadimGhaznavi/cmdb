@@ -31,6 +31,18 @@ the application easier to extend and its data easier to report on. This rule
 applies to the subset we adopt; it does not require implementing unused parts
 of CWM.
 
+Storage requirements determine the implemented subset. Omit unused parent
+classes and their attributes. When storage requires an inherited attribute,
+implement its owning parent class and table; do not copy that attribute onto a
+child to avoid implementing the parent.
+
+During initial development, schema changes target fresh installations. Existing
+record migration is out of scope: uninstall/install recreates the database and
+discovery repopulates it.
+
+See the [software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %})
+for the OS inventory relationships currently stored.
+
 ## Scope
 
 Keep configuration references readable and actionable: explain what a service

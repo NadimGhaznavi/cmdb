@@ -16,3 +16,4 @@ class DCmdb:
     SCAN_TARGET: Final[str] = "192.168.0.0/24"
     SCAN_INTERVAL_SECONDS: Final[int] = 300
     SCAN_TIMEOUT_SECONDS: Final[int] = 30
+    OS_SCAN_TIMEOUT_SECONDS: Final[int] = 180

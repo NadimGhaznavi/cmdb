@@ -67,6 +67,13 @@ function localTimestamp(value) {
     + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+function softwareLabel(system) {
+  const name = system.subtype || system.type || "Software";
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
+  return title + (system.codename ? ` (${system.codename})` : "")
+    + (system.version ? ` ${system.version}` : "");
+}
+
 async function loadMachines() {
   const status = document.getElementById("graph-status");
   const picker = document.getElementById("machine-picker");
@@ -89,16 +96,29 @@ async function loadMachines() {
     if (!response.ok) {
       throw new Error("Machines are unavailable. Refresh to try again.");
     }
-    const { machines } = await response.json();
+    const { machines, softwareDeployments = [] } = await response.json();
     if (!machines.length) {
       status.textContent = "No machines discovered yet.";
       return;
     }
+    const elements = [];
+    const radius = Math.max(300, machines.length * 380 / (2 * Math.PI));
+    machines.forEach((machine, index) => {
+      const angle = 2 * Math.PI * index / machines.length - Math.PI / 2;
+      const center = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
+      const systems = softwareDeployments.filter(system => system.machine === machine.id);
+      elements.push({ data: { ...machine, id: machine.ipAddress, label: machineLabel(machine) },
+        classes: "machine", position: center });
+      systems.forEach((system, offset) => {
+        elements.push({ data: { ...system, id: `deployment-${system.id}`,
+          parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
+          selectable: false, grabbable: false,
+          position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * 80 } });
+      });
+    });
     const graph = cytoscape({
       container: document.getElementById("machine-graph"),
-      elements: machines.map(machine => ({ data: {
-        ...machine, id: machine.ipAddress, label: machineLabel(machine),
-      } })),
+      elements,
       style: [
         { selector: "node", style: {
           "background-color": "#082b17", "border-color": "#4ade80", "border-width": 2,
@@ -106,20 +126,29 @@ async function loadMachines() {
           "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
-        { selector: "node[?hostName]", style: {
+        { selector: ".machine[?hostName]", style: {
           "shape": "round-rectangle", "width": 160, "height": 80,
         } },
         { selector: "node:selected", style: {
           "background-color": "#14532d", "border-color": "#fff", "border-width": 3,
         } },
-        { selector: "node[!hostName]", style: {
+        { selector: ".machine[!hostName]", style: {
           "background-color": "#3f454b", "border-color": "#9ca3af",
         } },
-        { selector: "node[!hostName]:selected", style: {
+        { selector: ".machine[!hostName]:selected", style: {
           "background-color": "#5b626a", "border-color": "#fff",
         } },
+        { selector: ".machine:parent", style: {
+          "shape": "round-rectangle", "padding": 35,
+          "text-valign": "top", "text-margin-y": 27, "text-max-width": 240,
+        } },
+        { selector: ".software", style: {
+          "shape": "round-rectangle", "width": 230, "height": 60,
+          "background-color": "#123c29", "border-color": "#4ade80",
+          "text-max-width": 210,
+        } },
       ],
-      layout: { name: "circle", padding: 40, nodeDimensionsIncludeLabels: true },
+      layout: { name: "preset", padding: 40 },
       selectionType: "single",
       minZoom: 0.1,
       maxZoom: 3,
@@ -139,11 +168,12 @@ async function loadMachines() {
       editButton.hidden = false;
       editStatus.textContent = "";
     }
-    graph.on("tap", "node", event => selectMachine(event.target));
+    graph.on("tap", "node", event => selectMachine(
+      event.target.hasClass("software") ? event.target.parent() : event.target));
     function updatePicker() {
       const selected = picker.value;
       while (picker.options.length > 1) picker.remove(1);
-      const records = graph.nodes().map(node => node.data()).sort(compareMachines);
+      const records = graph.nodes(".machine").map(node => node.data()).sort(compareMachines);
       for (const machine of records) {
         const option = document.createElement("option");
         option.value = machine.ipAddress;
@@ -222,7 +252,7 @@ async function loadMachines() {
     });
     new ResizeObserver(() => {
       graph.resize();
-      graph.layout({ name: "circle", padding: 40, nodeDimensionsIncludeLabels: true }).run();
+      graph.fit(undefined, 40);
     }).observe(document.getElementById("machine-graph"));
     status.textContent = "";
   } catch (error) {

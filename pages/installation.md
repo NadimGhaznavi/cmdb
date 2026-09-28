@@ -165,9 +165,9 @@ and `EVENT` for inventory and dumps. It verifies access as Linux
 `cmdbagent`. This runs on upgrade as well as fresh installation and uses
 `schema/cmdbagent.sql`. The existing application database credentials are retained.
 
-For manual backups, each database host needs `mariadb-dump`, `findmnt`, `flock`,
-and the standard coreutils commands. Autofs must mount `/imports/backups` as NFS,
-and `cmdbagent` must be able to create files in that host's backup directory.
+For manual backups, each database host needs `mariadb-dump`, `flock`,
+and the standard coreutils commands. The configured backup directory may use
+autofs/NFS or local storage, and `cmdbagent` must be able to create files there.
 The installer does not configure mounts or NFS permissions. The service grants
 write access to the configured backup directory for local neuromancer dumps.
 See [manual backups]({{ site.baseurl }}{% link pages/backups.md %}).

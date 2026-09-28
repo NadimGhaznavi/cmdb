@@ -7,12 +7,8 @@ relative=$2
 database=$3
 agent=$4
 
-# Trigger autofs and refuse an unmounted local fallback directory.
+# Access the destination, triggering autofs where configured.
 cd -- "$base"
-case "$(findmnt -n -T . -o FSTYPE)" in
-    nfs|nfs4) ;;
-    *) echo 'Backup directory is not mounted as NFS.' >&2; exit 1 ;;
-esac
 directory=${relative%/*}
 mkdir -p -- "$directory"
 # Keep the lock on the shared filesystem, including across server restarts.

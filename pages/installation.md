@@ -42,12 +42,21 @@ Application files are copied to `/opt/prod/cmdb`, with Python dependencies in
 
 The installer applies `schema/cmdb-schema-v1.sql` to the database. It creates the
 `machines` table if absent, preserving existing rows on repeat installation.
-`ipAddress` is the primary key (`VARCHAR(45)`, accommodating IPv4 and IPv6).
+`id` is the auto-increment primary key. `ipAddress` remains unique
+(`VARCHAR(45)`, accommodating IPv4 and IPv6) for scan matching.
+`macAddress` is nullable `VARCHAR(17)` and is also added to existing tables.
 `hostName`, `site`, and `deployedComponent` are nullable `VARCHAR(255)` columns,
 matching the `Machine` entity's attribute casing. `createdOn` and `updatedOn`
 record insertion and the latest discovery update in UTC. The SQL file also adds
 these timestamp columns to existing tables; old rows receive the migration time.
+It assigns stable IDs to existing machines while preserving their records.
 Edit the SQL file to maintain the schema.
+
+`deployedComponents` stores each component's `pathname` and `machine` foreign key
+to `machines.id`, with an internal auto-increment row ID. A machine can
+contain zero or more component rows. The foreign key rejects components for
+unknown machines and prevents deleting a machine while components reference it.
+Changing a machine's IP address does not change its ID or component links.
 
 ## Upgrade
 

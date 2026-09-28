@@ -81,7 +81,8 @@ sql = (f'CREATE DATABASE IF NOT EXISTS `{database}` CHARACTER SET utf8mb4;\n'
        f"GRANT ALL ON `{database}`.* TO '{user}'@'localhost';\n")
 subprocess.run(['mariadb', '--protocol=socket', '--user=root'], input=sql, text=True, check=True)
 subprocess.run(['mariadb', '--no-defaults', '--protocol=socket', '--user=' + user,
-                '--database=' + database, '-e', 'SELECT 1'],
-               env={**os.environ, 'MYSQL_PWD': password}, stdout=subprocess.DEVNULL, check=True)
+                '--database=' + database],
+               input=Path('schema/cmdb-schema-v1.sql').read_text(), text=True,
+               env={**os.environ, 'MYSQL_PWD': password}, check=True)
 PY
 exec scripts/install-services.sh

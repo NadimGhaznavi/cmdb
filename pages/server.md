@@ -72,3 +72,20 @@ hosts = result["scan"]
 port syntax, optional `arguments` (default `-sV`), and a timeout in seconds
 (default `0`, unlimited). Library errors propagate to the caller. Use a separate
 instance per worker thread.
+
+The server starts a background machine scanner immediately, then waits
+`DCmdb.SCAN_INTERVAL_SECONDS` (default `300`) after each scan before repeating.
+`SCAN_TARGET` defaults to the observed LAN, `192.168.0.0/24`;
+`SCAN_TIMEOUT_SECONDS` defaults to `30`. These settings are in
+`cmdb/constants/DCmdb.py`.
+
+The worker uses host discovery (`-sn`) and upserts responding hosts into
+`machines`. Each observation refreshes `updatedOn`, even when no attributes
+change; `createdOn` stays fixed. A discovered hostname updates `hostName`;
+missing hostnames preserve the existing value. Existing `site` and
+`deployedComponent` values and machines absent from a scan are retained.
+
+The worker prints its startup message to the journal. Scan and database failures
+are retried on the next interval without logging. It owns a database connection
+per scan and stops with the server, waiting for any active scan to finish or
+reach its timeout.

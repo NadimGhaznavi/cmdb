@@ -9,6 +9,11 @@ permalink: /CHANGELOG/
 
 ### Added
 
+- Periodic machine discovery with a configurable scan interval, database upserts,
+  and `createdOn` / `updatedOn` timestamps, including existing-table upgrades.
+- External `schema/cmdb-schema-v1.sql` applied during installation and upgrades to
+  create the `machines` table with the Machine entity's attributes.
+- Machine entity with `ipAddress`, `hostName`, `site`, and `deployedComponent` attributes.
 - Nmap interface using python-nmap for network scans, with configurable targets,
   ports, scan arguments, and timeout.
 

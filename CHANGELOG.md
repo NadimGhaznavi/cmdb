@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-28 @ 16:04
+
 ### Changed
 
 - Store new database dumps in `<host>/db/<database>/`, creating the directory

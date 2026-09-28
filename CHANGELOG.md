@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-09-27 @ 21:27
+
 ### Changed
 
 - Show machines without hostnames as grey nodes, including a lighter grey when selected.

@@ -83,11 +83,11 @@ class ServerTests(unittest.TestCase):
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_save_hostname_updates_only_selected_machine(self, factory):
-        factory.return_value.query.return_value = [{
-            'ipAddress': '192.168.0.7', 'hostName': 'worker.lan',
-            'site': 'home', 'deployedComponent': None,
+        factory.return_value.query.side_effect = [[{
+            'id': 7, 'ipAddress': '192.168.0.7', 'hostName': 'worker.lan',
+            'site': 'home',
             'createdOn': datetime(2026, 9, 27, 12), 'updatedOn': datetime(2026, 9, 27, 13),
-        }]
+        }], []]
         status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': ' worker.lan '})
         self.assertEqual(status, 200)
         self.assertEqual(body['machine']['hostName'], 'worker.lan')
@@ -160,17 +160,18 @@ class ServerTests(unittest.TestCase):
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_machine_records_include_nullable_fields_and_utc_timestamps(self, factory):
-        factory.return_value.query.return_value = [{
-            'ipAddress': '192.168.0.7', 'hostName': '<script>host</script>',
-            'site': None, 'deployedComponent': 'worker',
+        factory.return_value.query.side_effect = [[{
+            'id': 7, 'ipAddress': '192.168.0.7', 'hostName': '<script>host</script>',
+            'site': None,
             'createdOn': datetime(2026, 9, 27, 12, 0), 'updatedOn': datetime(2026, 9, 27, 13, 0),
-        }]
+        }], [{'id': 21, 'machine': 7}, {'id': 22, 'machine': 7}]]
         status, body = self.get('/api/machines')
         self.assertEqual(status, 200)
         record = json.loads(body)['machines'][0]
         self.assertEqual(record['ipAddress'], '192.168.0.7')
         self.assertEqual(record['hostName'], '<script>host</script>')
         self.assertIsNone(record['site'])
+        self.assertEqual(record['deployedComponent'], [21, 22])
         self.assertEqual(record['createdOn'], '2026-09-27T12:00:00+00:00')
         self.assertEqual(record['updatedOn'], '2026-09-27T13:00:00+00:00')
         factory.return_value.close.assert_called_once()

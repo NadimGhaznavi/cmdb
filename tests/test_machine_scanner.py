@@ -1,18 +1,80 @@
 """Discovery persistence and background worker lifecycle contracts."""
 
 from unittest import TestCase
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 from threading import Event
 
 import nmap
 import pymysql
 
 from cmdb.entity.Machine import Machine
+from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.server.MachineScanner import MachineScanner
 
 
 class MachineScannerTests(TestCase):
+    @patch("cmdb.server.MachineScanner.SoftwareDeploymentDb")
+    @patch("cmdb.server.MachineScanner.MachineDb")
+    @patch("cmdb.server.MachineScanner.DbMgr")
+    @patch("cmdb.server.MachineScanner.Nmap")
+    def test_os_scan_follows_committed_discovery_and_uses_stable_machine_id(
+            self, scanner, db, inventory, deployment):
+        discovery = {"nmap": {"scaninfo": {}}, "scan": {
+            "192.168.0.7": {"status": {"state": "up"}}}}
+        detected = {"status": {"state": "up"}, "osmatch": [{"accuracy": "100", "osclass": [
+            {"accuracy": "100", "osfamily": "Linux", "vendor": "Linux", "osgen": "6.X"}]}]}
+        inventory.return_value.upsert.return_value = 42
+
+        def scan(*args, **kwargs):
+            if kwargs['arguments'] == '-sn -n':
+                return discovery
+            db.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
+            db.return_value.close.assert_called_once()
+            return {"nmap": {"scaninfo": {}}, "scan": {
+                "192.168.0.7": detected, "192.168.0.99": detected}}
+
+        scanner.return_value.scan.side_effect = scan
+        MachineScanner().scan_once()
+        deployment.return_value.record_operating_system.assert_called_once_with(
+            42, SoftwareSystem(type="OS", subtype="Linux", supplier="Linux", version="6.X"))
+        self.assertEqual(db.return_value.close.call_count, 2)
+
+    @patch("cmdb.server.MachineScanner.SoftwareDeploymentDb")
+    @patch("cmdb.server.MachineScanner.MachineDb")
+    @patch("cmdb.server.MachineScanner.DbMgr")
+    @patch("cmdb.server.MachineScanner.Nmap")
+    def test_os_timeout_retains_committed_machine_discovery(self, scanner, db, inventory, deployment):
+        scanner.return_value.scan.side_effect = [
+            {"nmap": {"scaninfo": {}}, "scan": {"192.168.0.7": {"status": {"state": "up"}}}},
+            nmap.PortScannerTimeout("OS scan timed out"),
+        ]
+        with self.assertRaises(nmap.PortScannerTimeout):
+            MachineScanner().scan_once()
+        inventory.return_value.upsert.assert_called_once()
+        db.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
+        db.return_value.close.assert_called_once()
+        deployment.assert_not_called()
+
+    @patch("cmdb.server.MachineScanner.SoftwareDeploymentDb")
+    @patch("cmdb.server.MachineScanner.MachineDb")
+    @patch("cmdb.server.MachineScanner.DbMgr")
+    @patch("cmdb.server.MachineScanner.Nmap")
+    def test_stop_during_os_scan_prevents_os_writes(self, scanner, db, inventory, deployment):
+        worker = MachineScanner()
+        result = {"nmap": {"scaninfo": {}}, "scan": {
+            "192.168.0.7": {"status": {"state": "up"}}}}
+
+        def scan(*args, **kwargs):
+            if kwargs['arguments'] != '-sn -n':
+                worker._stop_requested.set()
+            return result
+
+        scanner.return_value.scan.side_effect = scan
+        worker.scan_once()
+        inventory.return_value.upsert.assert_called_once()
+        deployment.assert_not_called()
+
     @patch("cmdb.server.MachineScanner.MachineDb")
     @patch("cmdb.server.MachineScanner.DbMgr")
     @patch("cmdb.server.MachineScanner.Nmap")
@@ -57,8 +119,11 @@ class MachineScannerTests(TestCase):
         with patch("socket.gethostbyaddr") as lookup:
             MachineScanner().scan_once()
             lookup.assert_not_called()
-        scanner.return_value.scan.assert_called_once_with(
-            DCmdb.SCAN_TARGET, arguments="-sn -n", timeout=DCmdb.SCAN_TIMEOUT_SECONDS)
+        self.assertEqual(scanner.return_value.scan.call_args_list, [
+            call(DCmdb.SCAN_TARGET, arguments="-sn -n", timeout=DCmdb.SCAN_TIMEOUT_SECONDS),
+            call("192.168.0.1 192.168.0.2 192.168.0.3",
+                 arguments="-O -n --osscan-limit --max-os-tries 1", timeout=DCmdb.OS_SCAN_TIMEOUT_SECONDS),
+        ])
         self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
                          [Machine("192.168.0.1"), Machine("192.168.0.2"),
                           Machine("192.168.0.3")])

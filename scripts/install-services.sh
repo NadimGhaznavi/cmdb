@@ -134,5 +134,5 @@ for endpoint, expected in (('health', 'ok'), ('ready', 'ready')):
         time.sleep(1)
     else:
         raise SystemExit('Health check failed; inspect journalctl -u ' + DCmdb.SERVICE_UNIT)
-print(f'CMDB installed: http://<server>:{DCmdb.PORT}/')
+print(f'CMDB server listening on port: {DCmdb.PORT}')
 PY

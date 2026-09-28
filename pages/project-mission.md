@@ -8,6 +8,41 @@ CMDB documents the configuration of the project owner's network and services.
 It provides a central reference for port assignments, shared filesystems,
 maintenance commands, and operational scripts.
 
+## Model reference
+
+The application's data model is based on the OMG
+[Common Warehouse Metamodel (CWM) 1.1 specification, Volume 1](https://www.omg.org/spec/CWM/1.1/PDF/),
+particularly section 5.7, SoftwareDeployment. This is the core reference for
+modeling machines, deployed components, data managers, data providers, and
+provider connections.
+
+Implement only the classes, attributes, and relationships the application needs
+and has data to store. CWM is a reference for this focused subset, not a roadmap
+to implement the entire specification.
+
+Maintain a one-to-one mapping between the adopted CWM model, Python entities,
+and database tables and schema. Each adopted CWM class maps to a Python entity
+and a corresponding database table. Preserve the specification's names,
+attribute casing, inheritance, relationships, and multiplicities across these
+layers. Do not flatten or shortcut the model in ways that lose those semantics.
+
+The initial overhead and complexity are intentional: a consistent mapping makes
+the application easier to extend and its data easier to report on. This rule
+applies to the subset we adopt; it does not require implementing unused parts
+of CWM.
+
+Storage requirements determine the implemented subset. Omit unused parent
+classes and their attributes. When storage requires an inherited attribute,
+implement its owning parent class and table; do not copy that attribute onto a
+child to avoid implementing the parent.
+
+During initial development, schema changes target fresh installations. Existing
+record migration is out of scope: uninstall/install recreates the database and
+discovery repopulates it.
+
+See the [software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %})
+for the OS inventory relationships currently stored.
+
 ## Scope
 
 Keep configuration references readable and actionable: explain what a service

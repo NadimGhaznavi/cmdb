@@ -10,6 +10,8 @@ from cmdb.entity.Machine import Machine
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.Nmap import Nmap
+from cmdb.interface.NmapOperatingSystem import operating_system
+from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 
 
 class MachineScanner(Thread):
@@ -84,12 +86,41 @@ class MachineScanner(Thread):
         if not machines:
             return
         db = DbMgr()
+        machine_ids = {}
         try:
             inventory = MachineDb(db)
             with db.transaction():
                 for machine in machines:
                     if self._stop_requested.is_set():
                         break
-                    inventory.upsert(machine)
+                    machine_ids[machine.ipAddress] = inventory.upsert(machine)
+        finally:
+            db.close()
+        if self._stop_requested.is_set():
+            return
+
+        # Commit discovery first, without holding a database connection during Nmap.
+        result = Nmap().scan(" ".join(machine_ids),
+                             arguments="-O -n --osscan-limit --max-os-tries 1",
+                             timeout=DCmdb.OS_SCAN_TIMEOUT_SECONDS)
+        if result["nmap"]["scaninfo"].get("error"):
+            raise nmap.PortScannerError("Nmap reported an OS scan error.")
+        observations = []
+        for address, host in result["scan"].items():
+            if address not in machine_ids or host["status"]["state"] != "up":
+                continue
+            system = operating_system(host)
+            if system is not None:
+                observations.append((machine_ids[address], system))
+        if self._stop_requested.is_set() or not observations:
+            return
+        db = DbMgr()
+        try:
+            deployment = SoftwareDeploymentDb(db)
+            with db.transaction():
+                for machine_id, system in observations:
+                    if self._stop_requested.is_set():
+                        break
+                    deployment.record_operating_system(machine_id, system)
         finally:
             db.close()

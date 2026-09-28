@@ -22,6 +22,7 @@ from cmdb.interface.PatchDb import PatchDb
 from cmdb.interface.SSH import SSH
 from cmdb.activity.Scheduler import Scheduler
 from cmdb.activity.PatchScheduler import PatchScheduler
+from cmdb.activity.DatabaseManager import DatabaseManager
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.entity.Machine import Machine
@@ -343,6 +344,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         path = urlsplit(self.path).path
+        if path.startswith('/api/databases/'):
+            self.delete_database(path.removeprefix('/api/databases/'))
+            return
         if path.startswith('/api/backups/files/'):
             self.delete_backup_record(path.removeprefix('/api/backups/files/'))
             return
@@ -356,6 +360,36 @@ class CmdbHandler(BaseHTTPRequestHandler):
         except (OSError, RuntimeError, pymysql.MySQLError):
             logging.exception('Could not delete backup schedule')
             self.respond(503, b'{"error":"Could not delete the schedule and cron entry."}', 'application/json')
+            return
+        self.respond(200, b'{"status":"deleted"}', 'application/json')
+
+    def delete_database(self, identity: str) -> None:
+        if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
+            self.respond(404, b'{"error":"Database not found."}', 'application/json')
+            return
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError('Confirm the database name.')
+            values = json.loads(self.rfile.read(length))
+            if not isinstance(values, dict) or values.keys() != {'confirmation'} or not isinstance(values['confirmation'], str):
+                raise ValueError('Confirm the database name.')
+            DatabaseManager().delete(int(identity), values['confirmation'])
+        except (ValueError, UnicodeError) as error:
+            self.respond(400, json.dumps({'error': str(error)}).encode(), 'application/json')
+            return
+        except LookupError:
+            self.respond(404, b'{"error":"Database not found."}', 'application/json')
+            return
+        except RuntimeError as error:
+            self.respond(409, json.dumps({'error': str(error)}).encode(), 'application/json')
+            return
+        except (OSError, subprocess.SubprocessError, pymysql.MySQLError):
+            logging.exception('Database deletion failed')
+            self.respond(503, b'{"error":"Deletion could not be completed. Check the host and service log before retrying; its backup schedule may now be disabled."}', 'application/json')
             return
         self.respond(200, b'{"status":"deleted"}', 'application/json')
 

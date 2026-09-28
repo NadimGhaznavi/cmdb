@@ -124,3 +124,17 @@ the standalone runner exits unsuccessfully.
 
 Mirroring is provided by the storage system outside CMDB. Existing dump files
 are never overwritten or removed by this workflow.
+
+## Delete a database
+
+Update sits beside Cron Schedule in an unlabeled column. Actions contains
+Backup Now and Delete. Delete requires typing the exact database name and drops
+that database on the selected host. The name `cmdb` (case-insensitive) and MariaDB
+system databases are blocked by the API workflow and host helper. An active
+backup also blocks deletion.
+
+Before dropping, CMDB disables the backup schedule. If deletion fails afterward,
+the schedule remains disabled. A successful drop removes the database from the
+live inventory association, preserving its model identity, backup records, and files.
+A later scan can rediscover a recreated database. SSH deletion uses administrative
+root access; local deletion requires the helper installed by the normal upgrade.

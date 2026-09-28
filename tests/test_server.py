@@ -86,6 +86,22 @@ class ServerTests(unittest.TestCase):
                 connection.close()
         scheduler.return_value.update.assert_called_with(**values)
 
+    @patch('cmdb.server.CmdbHandler.DatabaseManager')
+    def test_database_delete_confirmation_endpoint(self, manager):
+        for values, failure, expected in [({'confirmation': 'app'}, None, 200),
+                ({}, None, 400), ({'confirmation': 'cmdb'}, ValueError('This database cannot be deleted.'), 400),
+                ({'confirmation': 'app'}, RuntimeError('Backup running'), 409)]:
+            manager.return_value.delete.side_effect = failure
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('DELETE', '/api/databases/7', json.dumps(values), {'Content-Type': 'application/json'})
+                response = connection.getresponse()
+                self.assertEqual(response.status, expected)
+                response.read()
+            finally:
+                connection.close()
+        manager.return_value.delete.assert_any_call(7, 'app')
+
     def get(self, path):
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
         try:

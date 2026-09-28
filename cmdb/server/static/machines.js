@@ -5,6 +5,7 @@ let backupFilesRequest = 0;
 let patchingTimer;
 let patchingRequest = 0;
 let patchReportRequest = 0;
+let initialUptimePending = false;
 
 function elapsedTime(seconds) {
   const pad = value => String(value).padStart(2, "0");
@@ -238,6 +239,7 @@ function showPage() {
   ++patchingRequest;
   const backups = window.location.hash === "#backups";
   const patching = window.location.hash === '#patching';
+  initialUptimePending = patching;
   document.getElementById("backups-heading").hidden = !backups;
   document.getElementById("inventory-heading").hidden = backups || patching;
   document.getElementById("inventory-page").hidden = backups || patching;
@@ -281,7 +283,7 @@ function updatePatchRows(body, items, render) {
 }
 
 async function queuePatch(row, identity) {
-  const button = row.querySelector('button');
+  const button = row.querySelector('[data-action="patch"]');
   const status = document.getElementById('patching-status');
   button.disabled = true;
   row.dataset.submitting = 'true';
@@ -321,25 +323,64 @@ async function loadPatchingHosts() {
         const uptime = document.createElement('td');
         uptime.dataset.field = 'uptime';
         uptime.textContent = '---';
+        const enabledCell = document.createElement('td');
+        const enabled = document.createElement('input');
+        enabled.type = 'checkbox';
+        enabled.dataset.field = 'scheduleEnabled';
+        enabled.setAttribute('aria-label', `Enable scheduled patching for ${machineLabel(host)}`);
+        enabled.addEventListener('change', () => { row.dataset.scheduleDirty = 'true'; });
+        enabledCell.append(enabled);
+        const scheduleCell = document.createElement('td');
+        const expression = document.createElement('input');
+        expression.type = 'text';
+        expression.maxLength = 255;
+        expression.placeholder = '0 12 * * 0';
+        expression.dataset.field = 'expression';
+        expression.setAttribute('aria-label', `Cron schedule for ${machineLabel(host)}`);
+        expression.setAttribute('aria-describedby', 'patch-schedule-help');
+        expression.addEventListener('input', () => { row.dataset.scheduleDirty = 'true'; });
+        const scheduleStatus = document.createElement('p');
+        scheduleStatus.className = 'schedule-row-status';
+        scheduleStatus.setAttribute('role', 'status');
+        scheduleCell.append(expression, scheduleStatus);
         const actions = document.createElement('td');
+        const buttons = document.createElement('div');
+        buttons.className = 'backup-actions';
+        const update = document.createElement('button');
+        update.type = 'button';
+        update.textContent = 'Update';
+        update.dataset.action = 'schedule';
+        update.addEventListener('click', () => savePatchSchedule(row, host.id));
         const button = document.createElement('button');
         button.type = 'button';
+        button.dataset.action = 'patch';
         button.textContent = 'Patch Now';
         button.addEventListener('click', () => queuePatch(row, host.id));
         const progress = document.createElement('td');
         progress.className = 'patch-row-status';
         progress.setAttribute('role', 'status');
-        actions.append(button);
-        row.append(name, uptime, actions, progress);
+        buttons.append(update, button);
+        actions.append(buttons);
+        row.append(name, uptime, enabledCell, scheduleCell, actions, progress);
       }
       updateText(row.cells[0], machineLabel(host));
-      const button = row.querySelector('button');
+      if (!row.dataset.scheduleDirty && !row.dataset.scheduleSaving) {
+        const enabled = row.querySelector('[data-field="scheduleEnabled"]');
+        const expression = row.querySelector('[data-field="expression"]');
+        enabled.checked = Boolean(host.schedule?.enabled);
+        if (expression.value !== (host.schedule?.expression || '')) expression.value = host.schedule?.expression || '';
+      }
+      const button = row.querySelector('[data-action="patch"]');
       const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);
       if (button.disabled !== disabled) button.disabled = disabled;
       const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
-      updateText(row.cells[3], host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '');
+      updateText(row.querySelector('.patch-row-status'), host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '');
     });
     updateText(status, hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.');
+    if (initialUptimePending) {
+      initialUptimePending = false;
+      refreshUptime();
+    }
     if (hosts.some(host => ['queued', 'patching', 'rebooting'].includes(host.job?.status))) {
       patchingTimer = setTimeout(loadPatchingHosts, 5000);
     }
@@ -350,8 +391,40 @@ async function loadPatchingHosts() {
   }
 }
 
+async function savePatchSchedule(row, machine) {
+  const enabled = row.querySelector('[data-field="scheduleEnabled"]');
+  const expression = row.querySelector('[data-field="expression"]');
+  const button = row.querySelector('[data-action="schedule"]');
+  const status = row.querySelector('.schedule-row-status');
+  row.dataset.scheduleSaving = 'true';
+  enabled.disabled = expression.disabled = button.disabled = true;
+  updateText(status, 'Saving schedule…');
+  try {
+    const response = await fetch('/api/patch-schedules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ machine, enabled: enabled.checked, expression: expression.value }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save patch schedule.');
+    enabled.checked = Boolean(result.schedule.enabled);
+    expression.value = result.schedule.expression;
+    delete row.dataset.scheduleDirty;
+    // Discard any host response started before this save completed.
+    ++patchingRequest;
+    updateText(status, enabled.checked ? 'Schedule saved.' : 'Schedule disabled.');
+    if (window.location.hash === '#patching') loadPatchingHosts();
+  } catch (error) {
+    updateText(status, error.message);
+  } finally {
+    delete row.dataset.scheduleSaving;
+    enabled.disabled = expression.disabled = button.disabled = false;
+  }
+}
+
 async function refreshUptime() {
   const button = document.getElementById('refresh-uptime');
+  if (button.disabled) return;
   const status = document.getElementById('uptime-status');
   const rows = [...document.querySelectorAll('#patching-hosts tr')];
   let failures = 0;

@@ -18,6 +18,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `GET /api/patching/report` | Lists the most recent 100 patch jobs, newest first, with elapsed time and results. |
 | `GET /api/patching/hosts/<id>/uptime` | Reads current uptime through SSH for an inventoried Debian host. |
 | `GET /api/patching/hosts` | Lists Debian hosts and their latest patch job status. |
+| `POST /api/patch-schedules` | Saves a machine's enabled flag and five-field cron expression. |
 | `POST /api/patching` | Queues a patch-and-reboot job for a machine ID; returns HTTP 202 and jobId. |
 | `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
 | `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |

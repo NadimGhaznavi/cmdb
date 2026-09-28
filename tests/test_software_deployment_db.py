@@ -61,6 +61,27 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             "JOIN ModelElement me ON me.id = c.id "
             "JOIN SoftwareSystem ss ON ss.id = me.namespace ORDER BY dc.machine")
 
+    def test_patch_schedule_saves_cron_policy_and_dispatches_queue(self):
+        from cmdb.activity.PatchScheduler import PatchScheduler
+        from cmdb.interface.PatchDb import PatchDb
+        machine = self.machines.upsert(Machine('192.0.2.90', hostName='scheduled.example'))
+        self.software.record_operating_system(machine, operating_system('ID=debian\nVERSION_ID=13'))
+        tab = CronTab(tab='0 12 * * * /backup # cmdb-backup-schedule-1\n')
+        with patch('cmdb.activity.PatchScheduler.DbMgr', return_value=self.db), \
+                patch.object(self.db, 'close'), patch('cmdb.interface.Cron.CronTab', return_value=tab):
+            schedule = PatchScheduler().update(machine, True, '15 2 * * 0')
+            self.assertEqual(PatchDb(self.db).hosts()[0]['schedule']['expression'], '15 2 * * 0')
+            PatchScheduler().run(schedule['id'])
+            self.assertEqual(PatchDb(self.db).next()['machine'], machine)
+            with patch.object(tab, 'write', side_effect=OSError('denied')):
+                with self.assertRaises(OSError):
+                    PatchScheduler().update(machine, True, '0 1 * * *')
+            self.assertEqual(PatchDb(self.db).hosts()[0]['schedule']['expression'], '15 2 * * 0')
+            saved = PatchScheduler().update(machine, False, '15 2 * * 0')
+            self.assertEqual(saved['id'], schedule['id'])
+            self.assertEqual(len(list(tab.find_comment('cmdb-patch-schedule-' + str(schedule['id'])))), 0)
+            self.assertEqual(len(list(tab.find_comment('cmdb-backup-schedule-1'))), 1)
+
     def test_debian_patch_queue_and_reboot_records(self):
         from cmdb.interface.PatchDb import PatchDb
         debian = self.machines.upsert(Machine('192.0.2.80', hostName='debian.example'))
@@ -262,7 +283,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"Patch", "Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"PatchSchedule", "Patch", "Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
         for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}

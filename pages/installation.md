@@ -128,7 +128,7 @@ From the separate checkout:
 sudo scripts/uninstall.sh
 ```
 
-This stops and disables the service, removes CMDB-owned backup cron entries
+This stops and disables the service, removes CMDB-owned backup and patch cron entries
 while preserving unrelated entries, drops the `cmdb` database (including all
 inventory), and removes the service unit, `/opt/prod/cmdb`, and the Nmap sudoers rule.
 It retains `/etc/cmdb/database.env`, the MariaDB account and password, and the

@@ -149,3 +149,14 @@ CREATE TABLE IF NOT EXISTS Patch (
     CONSTRAINT Patch_error_ck CHECK ((status='failed' AND error IS NOT NULL) OR
         (status<>'failed' AND error IS NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS PatchSchedule (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    machine BIGINT UNSIGNED NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    expression VARCHAR(255) NOT NULL DEFAULT '',
+    UNIQUE KEY PatchSchedule_machine_uq (machine),
+    CONSTRAINT PatchSchedule_Machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
+    CONSTRAINT PatchSchedule_enabled_ck CHECK (enabled IN (0,1)),
+    CONSTRAINT PatchSchedule_expression_ck CHECK (enabled=0 OR CHAR_LENGTH(expression)>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

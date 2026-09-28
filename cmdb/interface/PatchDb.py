@@ -12,6 +12,8 @@ class PatchDb:
         for host in hosts:
             rows = self.db.query('SELECT id, status, error FROM Patch WHERE machine=%s ORDER BY id DESC LIMIT 1', (host['id'],))
             host['job'] = rows[0] if rows else None
+            rows = self.db.query('SELECT id, enabled, expression FROM PatchSchedule WHERE machine=%s', (host['id'],))
+            host['schedule'] = rows[0] if rows else None
         return hosts
 
     def request(self, machine):

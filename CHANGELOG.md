@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-09-27 @ 21:38
+
+### Changed
+
+- Replaced the machine count and selection hint with the left-aligned machine dropdown.
+
+- Moved Edit, Save, and Cancel into the details panel, left-aligned below the table.
+
 ## [0.3.9] - 2026-09-27 @ 21:34
 
 ### Changed

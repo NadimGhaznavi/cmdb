@@ -9,6 +9,7 @@ from cmdb.constants.DCmdb import DCmdb
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 from cmdb.server.CmdbHandler import CmdbHandler
 from cmdb.activity.MachineScanner import MachineScanner
+from cmdb.activity.BackupManager import BackupManager
 
 
 def main() -> None:
@@ -29,6 +30,7 @@ def main() -> None:
         with ThreadingHTTPServer((args.host, args.port), CmdbHandler) as server:
             print(f"CMDB: http://{args.host}:{server.server_port}/", flush=True)
             scanner = MachineScanner()
+            server.backup_manager = BackupManager()
             server.machine_scanner = scanner
             scanner.start()
             try:
@@ -37,5 +39,6 @@ def main() -> None:
                 pass
             finally:
                 scanner.stop()
+                server.backup_manager.stop()
     finally:
         signal.signal(signal.SIGTERM, previous)

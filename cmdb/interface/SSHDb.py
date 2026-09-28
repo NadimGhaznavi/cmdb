@@ -23,6 +23,29 @@ class SSHDb:
         self._ssh = ssh
         self._stop_requested = stop_requested
 
+    def backup_db(self, host: str, database: str, pathname: str) -> dict:
+        """Dump on the database host and return completed-file metadata."""
+        from pathlib import PurePosixPath
+        path = PurePosixPath(pathname)
+        if (path.is_absolute() or len(path.parts) != 3 or path.parts[1] != 'db'
+                or any(part in ('.', '..') for part in path.parts)
+                or not re.fullmatch(r'[A-Za-z0-9_.%:-]+/db/[A-Za-z0-9_.%:-]+\.dump', pathname)):
+            raise ValueError('Invalid backup pathname.')
+        if not database or '\0' in database or database.lower() in ('mysql', 'information_schema', 'performance_schema', 'sys'):
+            raise ValueError('Select a user database to back up.')
+        if not self.ensure_agent(host):
+            raise RuntimeError('Database backup access is unavailable. Upgrade the local agent or check remote root provisioning.')
+        script = (Path(__file__).parent / 'scripts/backup-db.sh').read_text()
+        command = 'timeout --signal=TERM --kill-after=10 ' + str(DCmdb.BACKUP_TIMEOUT_SECONDS)
+        command += ' sh -s -- ' + shlex.join([DCmdb.BACKUP_DIR, pathname, database, DCmdb.AGENT_USER])
+        result = self._ssh.run(host, command, input=script,
+                               timeout=DCmdb.BACKUP_TIMEOUT_SECONDS + 30,
+                               connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
+        fields = result.stdout.strip().split()
+        if len(fields) != 2 or not fields[0].isdigit() or not re.fullmatch('[0-9a-f]{64}', fields[1]):
+            raise ValueError('The backup command did not return valid file metadata.')
+        return {'pathname': pathname, 'sizeBytes': int(fields[0]), 'checksum': fields[1]}
+
     def _run(self, host: str, command: str, **options):
         if self._stop_requested.is_set():
             raise InterruptedError('Database provisioning stopped.')
@@ -39,7 +62,8 @@ class SSHDb:
         lines = result.stdout.splitlines()
         return bool(lines and lines[0].startswith(DCmdb.AGENT_USER + '@localhost\t')
                     and 'MariaDB' in lines[0]
-                    and any(('SHOW DATABASES' in line or 'ALL PRIVILEGES' in line)
+                    and any(('ALL PRIVILEGES' in line or all(privilege in line.split(' ON ')[0]
+                             for privilege in ('SHOW DATABASES', 'SELECT', 'SHOW VIEW', 'TRIGGER', 'EVENT')))
                             and 'ON *.* TO' in line for line in lines[1:]))
 
     def inventory(self, host: str) -> dict | None:

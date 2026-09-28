@@ -1,6 +1,11 @@
 """Fresh-schema integration checks against an explicitly supplied test MariaDB socket."""
 
 import os
+import hashlib
+import shlex
+import subprocess
+from tempfile import TemporaryDirectory
+from datetime import datetime
 from pathlib import Path
 import unittest
 from uuid import uuid4
@@ -8,6 +13,8 @@ from uuid import uuid4
 import pymysql
 
 from cmdb.entity.Machine import Machine
+from cmdb.entity.Backup import Backup
+from cmdb.interface.BackupDb import BackupDb
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.DataManagerDb import DataManagerDb
@@ -223,13 +230,132 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
         for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}
             self.assertNotIn("namespace", columns)
             self.assertNotIn("ownedElement", columns)
             self.assertNotIn("name", columns)
+
+    def test_backup_schedule_references_databases_and_deployments_with_independent_identity(self):
+        machine = self.machines.upsert(Machine('192.168.0.7'))
+        manager = DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
+        schema = self.db.query('SELECT id FROM `Schema`')[0]['id']
+        for target in (schema, manager):
+            self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        rows = self.db.query('SELECT * FROM BackupSchedule ORDER BY id')
+        self.assertEqual([row['modelElement'] for row in rows], [schema, manager])
+        for row in rows:
+            self.assertEqual((row['enabled'], row['frequency'], row['retention']), (0, 'daily', '1-week'))
+        for retention in ('1-week', '2-weeks', '1-month', 'forever'):
+            self.db.execute('UPDATE BackupSchedule SET enabled=1, retention=%s WHERE modelElement=%s',
+                            (retention, schema))
+            stored = self.db.query('SELECT enabled, retention FROM BackupSchedule WHERE modelElement=%s', (schema,))[0]
+            self.assertEqual(stored, {'enabled': 1, 'retention': retention})
+        for target in (schema, 999999):
+            with self.assertRaises(pymysql.IntegrityError):
+                self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        target = NamespaceDb(self.db).create(name='backup target')
+        self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('DELETE FROM ModelElement WHERE id=%s', (target,))
+
+    def test_backup_attempts_preserve_history_independently_of_schedule(self):
+        target = NamespaceDb(self.db).create(name='cmdb')
+        started = datetime(2026, 9, 28, 13, 29)
+        completed = datetime(2026, 9, 28, 13, 30)
+        identity = self.db.insert('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)',
+                                  (target, started))
+        running = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
+        self.assertEqual(running, Backup(modelElement=target, startedOn=started, id=identity))
+        self.db.execute('UPDATE Backup SET status=%s, completedOn=%s, pathname=%s, sizeBytes=%s, '
+                        'checksum=%s WHERE id=%s',
+                        ('succeeded', completed, 'sally/cmdb/example.dump', 123, 'a' * 64, identity))
+        success = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
+        self.assertEqual((success.status, success.sizeBytes, success.checksum), ('succeeded', 123, 'a' * 64))
+        self.db.execute('INSERT INTO Backup (modelElement, startedOn, completedOn, status, error) '
+                        'VALUES (%s, %s, %s, %s, %s)', (target, completed, completed, 'failed', 'Dump failed'))
+        self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        self.db.execute('DELETE FROM BackupSchedule WHERE modelElement=%s', (target,))
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM Backup')[0]['n'], 2)
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('DELETE FROM ModelElement WHERE id=%s', (target,))
+        with self.assertRaises(pymysql.IntegrityError):
+            self.db.execute('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)', (999999, started))
+
+    def test_backup_rejects_inconsistent_results_and_invalid_checksums(self):
+        target = NamespaceDb(self.db).create(name='cmdb')
+        started = datetime(2026, 9, 28, 13, 29)
+        valid = dict(modelElement=target, startedOn=started, completedOn=started,
+                     status='succeeded', pathname='sally/cmdb/example.dump', sizeBytes=123,
+                     checksum='0123456789abcdef' * 4, error=None)
+        for field, value in (('status', 'unknown'), ('status', 'running'), ('completedOn', None),
+                             ('completedOn', datetime(2026, 9, 27)), ('pathname', None),
+                             ('pathname', ''), ('sizeBytes', None), ('sizeBytes', -1),
+                             ('checksum', None), ('checksum', 'a' * 63), ('checksum', 'g' * 64),
+                             ('checksum', 'a' * 63 + '\n'), ('error', 'Unexpected error')):
+            values = valid | {field: value}
+            with self.subTest(field=field, value=value), self.assertRaises(pymysql.MySQLError):
+                self.db.execute('INSERT INTO Backup (modelElement, startedOn, completedOn, status, '
+                                'pathname, sizeBytes, checksum, error) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+                                tuple(values.values()))
+
+    def test_host_dump_restores_real_mariadb_data_and_checksum(self):
+        self.db.execute('CREATE TABLE backup_payload (id INT PRIMARY KEY, value TEXT)')
+        self.db.execute('INSERT INTO backup_payload VALUES (%s, %s)', (1, 'A quoted \' value'))
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            binaries = root / 'bin'
+            binaries.mkdir()
+            # Only the mount check and socket routing are fixtures; dump and restore are real.
+            fixtures = {
+                'findmnt': '#!/bin/sh\necho nfs4\n',
+                'mariadb-dump': '#!/bin/sh\nshift\nexec /usr/bin/mariadb-dump --no-defaults --socket='
+                    + shlex.quote(os.environ['CMDB_TEST_DB_SOCKET']) + ' "$@"\n',
+            }
+            for name, contents in fixtures.items():
+                path = binaries / name
+                path.write_text(contents)
+                path.chmod(0o755)
+            script = Path(__file__).resolve().parents[1] / 'cmdb/interface/scripts/backup-db.sh'
+            result = subprocess.run(['sh', str(script), directory, 'host/db/real.dump', self.database, 'root'],
+                                    env=dict(os.environ, PATH=str(binaries) + ':' + os.environ['PATH']),
+                                    text=True, capture_output=True, check=True)
+            dump = (root / 'host/db/real.dump').read_bytes()
+            self.assertEqual(result.stdout.split(), [str(len(dump)), hashlib.sha256(dump).hexdigest()])
+            self.db.execute('DELETE FROM backup_payload')
+            subprocess.run(['/usr/bin/mariadb', '--no-defaults', '--socket=' + os.environ['CMDB_TEST_DB_SOCKET'],
+                            '--user=root'], input=dump, capture_output=True, check=True)
+            self.assertEqual(self.db.query('SELECT * FROM backup_payload'), [{'id': 1, 'value': 'A quoted \' value'}])
+
+    def test_backup_inventory_and_last_success_survive_later_failure(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='host'))
+        DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb', 'mysql', 'sys'])
+        backups = BackupDb(self.db)
+        items = backups.databases()
+        self.assertEqual([row['databaseName'] for row in items], ['cmdb'])
+        target = items[0]['modelElement']
+        started = datetime(2026, 9, 28, 12)
+        identity = backups.start(target, started)
+        backups.finish(identity, started, result=dict(pathname='host/db/test.dump', sizeBytes=1, checksum='a' * 64))
+        failed = backups.start(target, started)
+        backups.finish(failed, started, error='Dump failed')
+        row = backups.databases()[0]
+        self.assertEqual(row['lastBackup'], started)
+        self.assertEqual(row['latestBackup'], failed)
+        abandoned = backups.start(target, started)
+        backups.recover()
+        self.assertEqual(backups.get(abandoned)['status'], 'failed')
+        self.assertEqual(backups.get(identity)['status'], 'succeeded')
+
+    def test_backup_schedule_rejects_invalid_policy_values(self):
+        target = NamespaceDb(self.db).create(name='backup target')
+        self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
+        for column, value in (('enabled', 2), ('enabled', None), ('frequency', 'weekly'),
+                              ('frequency', None), ('retention', '3-weeks'), ('retention', None)):
+            with self.subTest(column=column, value=value), self.assertRaises(pymysql.MySQLError):
+                self.db.execute(f'UPDATE BackupSchedule SET {column}=%s WHERE modelElement=%s', (value, target))
 
     def test_mariadb_inventory_reuses_instances_and_keeps_schema_names_scoped(self):
         first = self.machines.upsert(Machine('192.168.0.7'))

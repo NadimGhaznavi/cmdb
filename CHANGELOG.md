@@ -7,6 +7,21 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-28 @ 14:43
+
+### Added
+
+- Implement Backup Now with asynchronous bookkeeping, host-local MariaDB dumps
+  directly into the NFS backup directory, SHA-256 checksums, status polling, and
+  Last Backup updates. Keep temporary files beside final dumps. Add agent dump
+  privileges and local service write access; scheduling and retention remain deferred.
+- Add the application-specific Backup entity and table for individual attempts,
+  with inventory references, timestamps, status, file path, size, SHA-256 checksum,
+  and failure details. Enforce consistent completion records independently of schedules.
+- Add the application-specific BackupSchedule table and entity, with one policy
+  per ModelElement, disabled by default, daily frequency, and validated retention
+  choices. UI persistence and backup execution remain pending.
+
 ## [0.9.3] - 2026-09-28 @ 13:51
 
 ### Added

@@ -157,9 +157,11 @@ checks do not attempt root access. For an absent or unavailable MariaDB server,
 failed administrative access, or failed agent verification, remote discovery
 retains the machine information and retries on the next scan.
 
-The initial grant is
-[`SHOW DATABASES`](https://mariadb.com/docs/server/reference/sql-statements/account-management-sql-statements/grant),
-which allows listing all database names. Provisioning is repeatable and does
+The grants are `SHOW DATABASES`, `SELECT`, `SHOW VIEW`, `TRIGGER`, and `EVENT`,
+supporting inventory and logical dumps including routines and events.
+[MariaDB privileges](https://mariadb.com/docs/server/reference/sql-statements/account-management-sql-statements/grant)
+apply globally so newly discovered user databases can be backed up too.
+Provisioning is repeatable and does
 not revoke additional grants. It sets the agent's authentication to `unix_socket`;
 the application's existing `cmdb` database account is unaffected. SQL stays in
 the external schema folder and is copied with the installed application.
@@ -167,5 +169,6 @@ the external schema folder and is copied with the installed application.
 After verification, `SSHDb.inventory()` reads the server version, data directory,
 and schema names using `schema/mariadb-inventory.sql`. The activity persists the
 [MariaDB inventory]({{ site.baseurl }}{% link pages/software-deployment.md %}#mariadb-discovery)
-through DataManagerDb after completing the remote commands. Backup jobs and
-backup privileges remain future work.
+through DataManagerDb after completing the remote commands. `SSHDb.backup_db`
+runs a manual dump on that same host; see
+[manual backups]({{ site.baseurl }}{% link pages/backups.md %}).

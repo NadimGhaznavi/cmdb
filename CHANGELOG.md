@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-09-27 @ 21:38
+
 ### Changed
 
 - Replaced the machine count and selection hint with the left-aligned machine dropdown.

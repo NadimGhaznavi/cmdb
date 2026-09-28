@@ -11,7 +11,7 @@ import sys
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pymysql
 
@@ -48,6 +48,36 @@ class ServerTests(unittest.TestCase):
                                {'Content-Type': content_type})
             response = connection.getresponse()
             return response.status, json.loads(response.read())
+        finally:
+            connection.close()
+
+    def test_refresh_signals_server_worker_and_exposes_completion(self):
+        scanner = self.server.machine_scanner = Mock()
+        scanner.request_scan.return_value = 7
+        scanner.scan_status.return_value = {
+            'scanId': 7, 'completedScanId': 6, 'running': True, 'error': None,
+        }
+        connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
+        try:
+            connection.request('POST', '/api/scan')
+            response = connection.getresponse()
+            self.assertEqual(response.status, 202)
+            self.assertEqual(json.loads(response.read()), {'scanId': 7})
+        finally:
+            connection.close()
+        scanner.request_scan.assert_called_once()
+        status, body = self.get('/api/scan')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), scanner.scan_status.return_value)
+
+    def test_scan_endpoints_return_503_without_a_worker(self):
+        self.assertEqual(self.get('/api/scan')[0], 503)
+        connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
+        try:
+            connection.request('POST', '/api/scan')
+            response = connection.getresponse()
+            self.assertEqual(response.status, 503)
+            response.read()
         finally:
             connection.close()
 

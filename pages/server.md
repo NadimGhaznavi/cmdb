@@ -13,6 +13,8 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
+| `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
+| `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
 | `/health` | HTTP 200 JSON identifying `cmdb-server`; checks HTTP availability without querying MariaDB. |
 | `/ready` | Queries MariaDB; HTTP 200 when connected, HTTP 503 on a database error. |
 
@@ -21,8 +23,11 @@ only a short status. Each readiness request opens and closes its own database
 connection.
 
 The main panel fills the remaining window below the title. It loads database
-records when the page opens; use Refresh at the bottom left to reload the page
-and see subsequent scan updates.
+records when the page opens. Refresh at the bottom left wakes the existing
+scanner worker, waits for the scan and database writes to finish, then reloads
+the page. It shows Scanning while waiting and an error if the scan fails.
+Requests during an active scan share that scan; scans never overlap.
+Save or cancel a hostname edit before refreshing.
 Nodes use bold white 16px labels inside dark green bubbles; selection uses a
 lighter green. Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines

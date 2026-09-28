@@ -46,7 +46,8 @@ Backup Vault lists all recorded successful database backups,
 newest completion first (newest record first when times match). Its columns are
 Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
 or IP address), Database, Filename (the file name only), Status, and Actions.
-The configured `Backup directory` appears below the heading, followed by Scan Filesystem.
+The configured `Backup directory` appears below the heading. Scan Filesystem sits
+at the bottom left of the vault panel, below the table.
 Elapsed Time measures whole seconds from CMDB's attempt creation to completion,
 including queue time, preparation, dumping, and checksum calculation. Hours do
 not wrap at 24. While a job is starting or running, its progress message is

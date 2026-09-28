@@ -52,6 +52,12 @@
       </aside>
       <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
     </div>
+    <footer id="inventory-footer" class="page-footer">
+      <div class="page-actions">
+        <button id="refresh-button" type="button">Refresh</button>
+      </div>
+      <p>Last refresh: <time id="last-refresh" datetime="{{last_refresh}}">{{last_refresh}}</time></p>
+    </footer>
   </main>
   <main id="backups-page" aria-labelledby="backups-heading" hidden>
     <section class="backup-panel" aria-labelledby="database-heading">
@@ -101,7 +107,6 @@
     <section class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
       <h3 id="backup-files-heading">Backup Vault</h3>
       <p id="backup-directory">Backup directory: <span></span></p>
-      <button id="scan-backup-files" type="button">Scan Filesystem</button>
       <p id="backup-files-status" role="status">Loading backup files…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Backup files">
         <table class="backups-table backup-files-table" aria-label="Backup files">
@@ -119,13 +124,12 @@
           <tbody id="backup-files-rows"></tbody>
         </table>
       </div>
+      <footer class="page-footer">
+        <div class="page-actions">
+          <button id="scan-backup-files" type="button">Scan Filesystem</button>
+        </div>
+      </footer>
     </section>
   </main>
-  <footer id="inventory-footer" class="page-footer">
-    <div class="page-actions">
-      <button id="refresh-button" type="button">Refresh</button>
-    </div>
-    <p>Last refresh: <time id="last-refresh" datetime="{{last_refresh}}">{{last_refresh}}</time></p>
-  </footer>
 </body>
 </html>

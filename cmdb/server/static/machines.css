@@ -20,7 +20,8 @@
 #backups-page { min-width: 0; min-height: 0; border: 0; padding: 0; gap: 1rem; }
 .backup-panel { min-width: 0; border: 1px solid #d98124; padding: 1rem 1.5rem; }
 .backup-panel > h3 { margin: 0 0 1rem; }
-.backup-vault { flex: 1; }
+.backup-vault { flex: 1; display: flex; flex-direction: column; }
+.backup-vault > .backup-table-scroll { flex: 1; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }
@@ -49,7 +50,7 @@ header h1 { margin: 0; }
 header p { margin: .5rem 0 1rem; }
 hr { border: 0; border-top: 3px solid #d98124; margin: 0; }
 main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
-.page-actions button:disabled { opacity: .5; cursor: default; }
+.page-actions button:disabled, .backup-vault button:disabled { opacity: .5; cursor: default; }
 #graph-status { color: #bbb; font-size: .9rem; margin: .75rem 0; }
 #graph-status:empty { display: none; }
 .machine-workspace { flex: 1; display: flex; gap: 1.5rem; min-width: 0; }
@@ -60,9 +61,9 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 #selection-details th, #selection-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 #selection-details th { width: 45%; color: #ffb454; font-weight: normal; }
 .page-actions { margin: 0; }
-.page-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.page-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-top: 1rem; }
 .page-footer p { margin: 0 0 0 auto; text-align: right; }
-.page-actions button {
+.page-actions button, .backup-vault button {
   background: #24272c;
   color: #eee;
   border: 1px solid #d98124;
@@ -70,8 +71,8 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
   font: inherit;
   cursor: pointer;
 }
-.page-actions button:hover { background: #393027; }
-.page-actions button:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+.page-actions button:hover, .backup-vault button:hover { background: #393027; }
+.page-actions button:focus-visible, .backup-vault button:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
 @media (max-width: 600px) {
   body { padding: .5rem; gap: .5rem; }
   header, main { padding: 1rem; }

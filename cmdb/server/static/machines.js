@@ -20,19 +20,19 @@ async function loadMachines() {
     const graph = cytoscape({
       container: document.getElementById("machine-graph"),
       elements: machines.map(machine => {
-        const name = machine.hostName && machine.hostName.length > 40
-          ? `${machine.hostName.slice(0, 37)}…` : machine.hostName;
+        const shortName = machine.hostName ? machine.hostName.split(".")[0] : "";
+        const name = shortName ? shortName.charAt(0).toUpperCase() + shortName.slice(1) : "";
         return { data: {
           ...machine,
           id: machine.ipAddress,
-          label: name ? `${name}\n${machine.ipAddress}` : machine.ipAddress,
+          label: name || machine.ipAddress,
         } };
       }),
       style: [
         { selector: "node", style: {
           "background-color": "#14532d", "border-color": "#4ade80", "border-width": 2,
           "width": 160, "height": 160, "label": "data(label)", "color": "#fff",
-          "font-size": 24, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
+          "font-size": 18, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
         { selector: "node:selected", style: {

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.12.5] - 2026-09-28 @ 18:58
+
 ## [0.12.3] - 2026-09-28 @ 18:53
 
 ### Changed

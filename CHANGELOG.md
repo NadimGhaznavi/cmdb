@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-09-28 @ 15:19
+
 ### Changed
 
 - Split the Backups view into separate Backups, Live Databases, and Backup Vault

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-09-27 @ 21:22
+
 ### Changed
 
 - Refresh now signals the scanner worker, waits for scan completion, and reloads

@@ -15,6 +15,7 @@ import pymysql
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.entity.Machine import Machine
@@ -26,6 +27,12 @@ STATIC_FILES = {
     "/static/vendor/cytoscape-3.34.3.min.js": (
         "vendor/cytoscape-3.34.3.min.js", "text/javascript; charset=utf-8"),
 }
+
+
+def backup_json(value):
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=timezone.utc).isoformat()
+    raise TypeError(f'Unsupported backup value: {type(value).__name__}')
 
 
 def machine_record(machine: Machine) -> dict:
@@ -77,6 +84,28 @@ class CmdbHandler(BaseHTTPRequestHandler):
             records = [machine_record(machine) for machine in machines]
             self.respond(200, json.dumps({"machines": records, "softwareDeployments": deployments})
                          .encode("utf-8"), "application/json")
+        elif path == '/api/backups' or path.startswith('/api/backups/'):
+            try:
+                manager = getattr(self.server, 'backup_manager', None)
+                if manager is not None:
+                    manager.recover()
+                db = DbMgr()
+                try:
+                    backups = BackupDb(db)
+                    if path == '/api/backups':
+                        result = {'databases': backups.databases(), 'hosts': backups.hosts()}
+                    else:
+                        identity = path.removeprefix('/api/backups/')
+                        result = backups.get(int(identity)) if identity.isdecimal() and len(identity) <= 20 and 0 < int(identity) < 2**64 else None
+                finally:
+                    db.close()
+            except pymysql.MySQLError:
+                self.respond(503, b'{"error":"Backup records are unavailable."}', 'application/json')
+                return
+            if result is None:
+                self.respond(404, b'{"error":"Backup not found."}', 'application/json')
+            else:
+                self.respond(200, json.dumps(result, default=backup_json).encode(), 'application/json')
         elif path in STATIC_FILES:
             filename, content_type = STATIC_FILES[path]
             self.respond(200, (Path(__file__).parent / "static" / filename).read_bytes(), content_type)
@@ -90,6 +119,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == '/api/backups':
+            self.request_backup()
+            return
         if urlsplit(self.path).path == "/api/scan":
             scanner = getattr(self.server, "machine_scanner", None)
             try:
@@ -141,6 +173,38 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Machine no longer exists."}', "application/json")
             return
         self.respond(200, json.dumps({"machine": machine_record(machine)}).encode("utf-8"), "application/json")
+
+    def request_backup(self) -> None:
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError
+            values = json.loads(self.rfile.read(length))
+            if (not isinstance(values, dict) or values.keys() != {'modelElement'}
+                    or type(values['modelElement']) is not int or not 0 < values['modelElement'] < 2**64):
+                raise ValueError
+        except (ValueError, UnicodeError):
+            self.respond(400, b'{"error":"Provide a valid modelElement ID."}', 'application/json')
+            return
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
+            return
+        manager = getattr(self.server, 'backup_manager', None)
+        if manager is None:
+            self.respond(503, b'{"error":"Backup manager is unavailable."}', 'application/json')
+            return
+        try:
+            identity = manager.request_backup(values['modelElement'])
+        except LookupError:
+            self.respond(404, b'{"error":"User database not found."}', 'application/json')
+            return
+        except (RuntimeError, pymysql.MySQLError):
+            self.respond(503, b'{"error":"Could not start the backup."}', 'application/json')
+            return
+        self.respond(202, json.dumps({'backupId': identity}).encode(), 'application/json')
 
     def respond(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)

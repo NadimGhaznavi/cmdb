@@ -93,11 +93,11 @@
               <option value="forever">Forever</option>
             </select>
           </td>
-          <td>---</td>
+          <td data-field="lastBackup">---</td>
           <td><div class="backup-actions">
             <button type="button" disabled title="Saving backup settings is not available yet.">Update</button>
-            <button type="button" disabled title="Running backups is not available yet.">Backup Now</button>
-          </div></td>
+            <button type="button" data-action="backup">Backup Now</button>
+          </div><p class="backup-row-status" role="status"></p></td>
         </tr>
       </template>
     </section>

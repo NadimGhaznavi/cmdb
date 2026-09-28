@@ -51,6 +51,37 @@ class ServerTests(unittest.TestCase):
         finally:
             connection.close()
 
+    def test_backup_post_validates_target_and_returns_attempt_id(self):
+        manager = self.server.backup_manager = Mock()
+        manager.request_backup.return_value = 42
+        for payload, expected in [({'modelElement': 7}, 202), ({'modelElement': True}, 400),
+                                  ({'modelElement': -1}, 400), ({'modelElement': 0}, 400),
+                                  ({'modelElement': 7, 'pathname': '/tmp/unsafe'}, 400)]:
+            with self.subTest(payload=payload):
+                connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
+                try:
+                    connection.request('POST', '/api/backups', json.dumps(payload), {'Content-Type': 'application/json'})
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, expected)
+                    body = json.loads(response.read())
+                    if expected == 202:
+                        self.assertEqual(body, {'backupId': 42})
+                finally:
+                    connection.close()
+        manager.request_backup.assert_called_once_with(7)
+
+    @patch('cmdb.server.CmdbHandler.BackupDb')
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_backup_get_serializes_timestamps_and_missing_attempt(self, db, records):
+        records.return_value.databases.return_value = [{'modelElement': 7, 'lastBackup': datetime(2026, 9, 28, 14)}]
+        records.return_value.hosts.return_value = []
+        status, body = self.get('/api/backups')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['databases'][0]['lastBackup'], '2026-09-28T14:00:00+00:00')
+        records.return_value.get.return_value = None
+        self.assertEqual(self.get('/api/backups/42')[0], 404)
+        self.assertEqual(self.get('/api/backups/invalid')[0], 404)
+
     def test_refresh_signals_server_worker_and_exposes_completion(self):
         scanner = self.server.machine_scanner = Mock()
         scanner.request_scan.return_value = 7

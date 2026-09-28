@@ -8,43 +8,102 @@ async function loadBackups() {
   body.replaceChildren();
   status.textContent = "Loading databases…";
   try {
-    const response = await fetch("/api/machines", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+    const response = await fetch("/api/backups", { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error("Databases are unavailable. Return to Inventory and try again.");
-    const { machines, softwareDeployments = [] } = await response.json();
-    const hosts = new Map(machines.map(machine => [machine.id, machine]));
-    const groups = new Map();
-    const systemNames = new Set(["mysql", "information_schema", "performance_schema", "sys"]);
-    for (const system of softwareDeployments) {
-      if (system.type !== "DBMS" || !hosts.has(system.machine)) continue;
-      if (!groups.has(system.machine)) groups.set(system.machine, []);
-      groups.get(system.machine).push(...(system.databases || [])
-        .filter(name => !systemNames.has(name.toLowerCase())));
+    const { databases, hosts: databaseHosts } = await response.json();
+    const hosts = new Map(databaseHosts.map(host => [host.machine, host]));
+    const groups = new Map(databaseHosts.map(host => [host.machine, []]));
+    for (const database of databases) {
+      hosts.set(database.machine, database);
+      if (!groups.has(database.machine)) groups.set(database.machine, []);
+      groups.get(database.machine).push(database);
     }
     const sortedHosts = [...groups.keys()].sort((left, right) =>
       machineLabel(hosts.get(left)).localeCompare(machineLabel(hosts.get(right))));
     const template = document.getElementById("backup-host-template");
     const rowTemplate = document.getElementById("backup-row-template");
     for (const id of sortedHosts) {
-      const names = groups.get(id).sort((left, right) => left.localeCompare(right));
+      const names = groups.get(id).sort((left, right) => left.databaseName.localeCompare(right.databaseName));
       const host = machineLabel(hosts.get(id));
       const section = template.content.cloneNode(true);
       section.querySelector("summary").textContent = `${host} - ${names.length} DB${names.length === 1 ? "" : "s"}`;
       section.querySelector("table").setAttribute("aria-label", `${host} database backups`);
       section.querySelector(".backup-table-scroll").setAttribute("aria-label", `${host} backup settings`);
-      for (const name of names) {
+      for (const database of names) {
+        const name = database.databaseName;
         const row = rowTemplate.content.cloneNode(true);
         row.querySelector('[data-field="database"]').textContent = name;
         row.querySelector('[data-field="enabled"]').setAttribute("aria-label", `Enable backups for ${name} on ${host}`);
         row.querySelector('[data-field="retention"]').setAttribute("aria-label", `Retention for ${name} on ${host}`);
+        const element = row.querySelector("tr");
+        element.querySelector('[data-field="lastBackup"]').textContent = database.lastBackup
+          ? localTimestamp(database.lastBackup) : "---";
+        const button = element.querySelector('[data-action="backup"]');
+        button.addEventListener("click", () => backupNow(element, database.modelElement));
         section.querySelector("tbody").append(row);
+        if (database.latestBackup) element.dataset.backupId = database.latestBackup;
       }
       section.querySelector(".backup-empty").hidden = names.length > 0;
       section.querySelector(".backup-table-scroll").hidden = names.length === 0;
       body.append(section);
+      for (const row of body.querySelectorAll("tr[data-backup-id]")) {
+        const identity = row.dataset.backupId;
+        delete row.dataset.backupId;
+        watchBackup(row, identity);
+      }
     }
     status.textContent = groups.size ? "" : "No databases discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Databases could not be loaded. Return to Inventory and try again.";
+  }
+}
+
+async function backupNow(row, modelElement) {
+  const button = row.querySelector('[data-action="backup"]');
+  const status = row.querySelector(".backup-row-status");
+  button.disabled = true;
+  status.textContent = "Starting backup…";
+  try {
+    const response = await fetch("/api/backups", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modelElement }), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not start the backup.");
+    await watchBackup(row, result.backupId);
+  } catch (error) {
+    status.textContent = `${error.message} Reopen Backups to check the recorded status before retrying.`;
+    button.disabled = false;
+  }
+}
+
+async function watchBackup(row, identity) {
+  const button = row.querySelector('[data-action="backup"]');
+  const status = row.querySelector(".backup-row-status");
+  button.disabled = true;
+  try {
+    while (row.isConnected) {
+      const response = await fetch(`/api/backups/${identity}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+      const backup = await response.json();
+      if (!response.ok) throw new Error(backup.error || "Could not read backup status.");
+      if (backup.status === "succeeded") {
+        row.querySelector('[data-field="lastBackup"]').textContent = localTimestamp(backup.completedOn);
+        status.textContent = "Backup completed.";
+        return;
+      }
+      if (backup.status === "failed") {
+        status.textContent = `Backup failed: ${backup.error || "Unknown error."}`;
+        return;
+      }
+      status.textContent = "Backup queued or running…";
+      button.textContent = "Backing up…";
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  } catch (error) {
+    status.textContent = `${error.message} Reopen Backups to check again.`;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Backup Now";
   }
 }
 

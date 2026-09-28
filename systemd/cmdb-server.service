@@ -11,12 +11,13 @@ EnvironmentFile=@DATABASE_ENV@
 ExecStart=@APP@/.venv/bin/python -B -u @APP@/cmdb-server.py
 Restart=on-failure
 RestartSec=3
-TimeoutStopSec=210
+TimeoutStopSec=3900
 NoNewPrivileges=false
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=@SSH_DIR@
+ReadWritePaths=-@BACKUP_DIR@
 
 [Install]
 WantedBy=multi-user.target

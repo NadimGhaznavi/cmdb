@@ -12,7 +12,7 @@ def result(stdout=''):
     return subprocess.CompletedProcess([], 0, stdout, '')
 
 
-READY = 'cmdbagent@localhost\t11.8.3-MariaDB\nGRANT SHOW DATABASES ON *.* TO `cmdbagent`@`localhost`\n'
+READY = 'cmdbagent@localhost\t11.8.3-MariaDB\nGRANT SELECT, SHOW VIEW, TRIGGER, EVENT, SHOW DATABASES ON *.* TO `cmdbagent`@`localhost`\n'
 DENIED = subprocess.CalledProcessError(1, ['mariadb'], stderr='Access denied')
 
 
@@ -27,6 +27,29 @@ class SSHDbTests(TestCase):
         self.ssh.run.side_effect = [result('MariaDB'), result(READY)]
         self.assertTrue(self.db.ensure_agent('host'))
         self.assertTrue(all('user' not in call.kwargs for call in self.ssh.run.call_args_list))
+
+    def test_backup_quotes_database_and_returns_only_completed_file_metadata(self):
+        with patch.object(self.db, 'ensure_agent', return_value=True):
+            self.ssh.run.return_value = result('123 ' + 'a' * 64 + '\n')
+            path = 'sally/db/mariadb-sally-db-1.dump'
+            self.assertEqual(self.db.backup_db('host', "db'; touch /tmp/injected; #", path),
+                             dict(pathname=path, sizeBytes=123, checksum='a' * 64))
+            import shlex
+            command = shlex.split(self.ssh.run.call_args.args[1])
+            self.assertIn("db'; touch /tmp/injected; #", command)
+            self.assertGreater(self.ssh.run.call_args.kwargs['timeout'], 30)
+            self.assertIn('mktemp "$directory/.backup-', self.ssh.run.call_args.kwargs['input'])
+            for value in ('bad output', '1 ' + 'z' * 64):
+                self.ssh.run.return_value = result(value)
+                with self.assertRaises(ValueError):
+                    self.db.backup_db('host', 'db', path)
+
+    def test_backup_rejects_system_databases_and_path_traversal(self):
+        for database, path in [('mysql', 'host/db/file.dump'), ('db', '../db/file.dump'),
+                               ('db', '/host/db/file.dump'), ('db', 'host/db/../../file.dump')]:
+            with self.subTest(database=database, path=path), self.assertRaises(ValueError):
+                self.db.backup_db('host', database, path)
+        self.ssh.run.assert_not_called()
 
     def test_provisions_then_retests_as_agent(self):
         self.ssh.run.side_effect = [result('MariaDB'), DENIED, result(), result(READY)]

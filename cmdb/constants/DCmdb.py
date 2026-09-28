@@ -14,6 +14,8 @@ class DCmdb:
     SSH_KNOWN_HOSTS: Final[str] = SSH_DIR + "/known_hosts"
     SSH_CONNECT_TIMEOUT_SECONDS: Final[int] = 5
     SSH_COMMAND_TIMEOUT_SECONDS: Final[int] = 30
+    BACKUP_DIR: Final[str] = "/imports/backups"
+    BACKUP_TIMEOUT_SECONDS: Final[int] = 3600
     SERVICE_UNIT: Final[str] = "cmdb-server.service"
     DATABASE_ENV: Final[str] = "/etc/cmdb/database.env"
     DATABASE_NAME: Final[str] = "cmdb"

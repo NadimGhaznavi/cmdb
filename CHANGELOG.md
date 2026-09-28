@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-28 @ 07:33
+
 ### Added
 
 - OS scanning with SoftwareSystem, Component, and DeployedSoftwareSystem entities

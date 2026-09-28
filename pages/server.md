@@ -128,7 +128,7 @@ The server starts a background machine scanner immediately, then waits
 
 The worker uses host discovery with DNS resolution disabled (`-sn -n`) and
 upserts responding hosts into
-`machines`. Each observation refreshes `updatedOn`, even when no attributes
+`Machine`. Each observation refreshes `updatedOn`, even when no attributes
 change; `createdOn` stays fixed. Scans do not resolve or populate hostnames.
 When Nmap reports a MAC address, the worker stores it in `macAddress`, shown in
 the details table. Scans without a MAC preserve any previously stored address.

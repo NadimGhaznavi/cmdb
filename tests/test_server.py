@@ -87,7 +87,7 @@ class ServerTests(unittest.TestCase):
             'id': 7, 'ipAddress': '192.168.0.7', 'hostName': 'worker.lan',
             'site': 'home',
             'createdOn': datetime(2026, 9, 27, 12), 'updatedOn': datetime(2026, 9, 27, 13),
-        }], []]
+        }], [], []]
         status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': ' worker.lan '})
         self.assertEqual(status, 200)
         self.assertEqual(body['machine']['hostName'], 'worker.lan')
@@ -164,7 +164,8 @@ class ServerTests(unittest.TestCase):
             'id': 7, 'ipAddress': '192.168.0.7', 'hostName': '<script>host</script>',
             'site': None,
             'createdOn': datetime(2026, 9, 27, 12, 0), 'updatedOn': datetime(2026, 9, 27, 13, 0),
-        }], [{'id': 21, 'machine': 7}, {'id': 22, 'machine': 7}]]
+        }], [{'id': 21, 'machine': 7}, {'id': 22, 'machine': 7}],
+            [{'id': 21, 'namespace': 7}, {'id': 22, 'namespace': 7}]]
         status, body = self.get('/api/machines')
         self.assertEqual(status, 200)
         record = json.loads(body)['machines'][0]

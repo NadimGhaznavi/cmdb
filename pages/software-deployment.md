@@ -11,24 +11,33 @@ The model uses the needed subset of
 Each entity maps to its own table. IDs are database identity keys; references
 use those IDs rather than IP addresses.
 
-| Entity | Table | Stored attributes and relationships |
-| --- | --- | --- |
-| SoftwareSystem | `softwareSystems` | `type`, `subtype`, `supplier`, `version` |
-| Component | `components` | Identity; `deployment` is the inverse of `DeployedComponent.component` |
-| DeployedSoftwareSystem | `deployedSoftwareSystems` | Required `softwareSystem` reference; `deployedComponent` association |
-| DeployedComponent | `deployedComponents` | `pathname`, required `machine` and `component` references; `deployedSoftwareSystem` association |
-| Machine | `machines` | `deployedComponent` is the collection of deployed component IDs referencing the machine |
+| Entity and table | Stored attributes and relationships |
+| --- | --- |
+| ModelElement | Auto-increment `id`; optional `namespace` reference to Namespace |
+| Namespace | Shared `id` referencing ModelElement; `ownedElement` is the inverse of `ModelElement.namespace` |
+| SoftwareSystem | Shared Namespace identity; `type`, `subtype`, `supplier`, `version` |
+| Component | Shared Namespace identity; inherited `namespace` identifies its owning SoftwareSystem when present; `deployment` is the inverse of `DeployedComponent.component` |
+| DeployedComponent | Shared Namespace identity; `pathname`, required `machine` and `component` references |
+| Machine | Shared Namespace identity; `deployedComponent` is the collection of deployments referencing the machine |
 
-The `deployedSoftwareSystemComponents` association table connects deployed
-systems and components, with zero or more at both ends as specified by CWM.
-One Component can have multiple deployments, each on exactly one Machine.
-One DeployedSoftwareSystem refers to exactly one SoftwareSystem.
+The stored path is `SoftwareSystem → Component → DeployedComponent → Machine`.
+A SoftwareSystem owns zero or more Components; a Component has zero or one
+owning namespace. A Component has zero or more deployments, each referencing
+exactly one Component and exactly one Machine.
 
-Core parent classes are omitted because their attributes are not currently
-needed for storage. No inherited `name`, `namespace`, or other parent attribute
-is copied onto these entities. Component currently needs only an identity for
-the deployment reference. We do not yet store product-level ownership of
-Components; adopting that relationship will require its owning core classes.
+Ownership is stored on `ModelElement.namespace`, with a foreign key to
+`Namespace.id`. `Namespace.ownedElement` is derived by reading that inverse
+relationship. Both fields stay on their owning parent classes. Each adopted
+subclass shares its parent's ID through foreign keys. The scanner assigns a
+Component's namespace to its SoftwareSystem and a DeployedComponent's namespace
+to its Machine.
+
+Only ModelElement and Namespace are needed from the core hierarchy to store
+this ownership. Intermediate core classes with no currently needed fields
+(such as Classifier, Package, and Subsystem) remain omitted; the Python entities
+inherit from their nearest implemented ancestor, Namespace. No inherited
+`name` or other unused parent attribute is copied onto a child.
+There is no DeployedSoftwareSystem entity or association table in this subset.
 
 ## Discovery mapping
 
@@ -51,7 +60,7 @@ versions are not inferred from the freeform fingerprint description.
 The scanner represents the OS deployment using `pathname="/"`, our current
 modeling convention. Nmap does not inspect the remote filesystem or verify
 that path. Identical OS classifications share a SoftwareSystem and Component;
-each machine gets its own DeployedSoftwareSystem and DeployedComponent.
+each machine gets its own DeployedComponent.
 Repeat scans reuse those records. A changed classification updates that
 machine's deployment without changing another machine's software definition.
 Unused definitions are retained.
@@ -67,10 +76,10 @@ This query follows the stored relationships from a machine to its OS:
 ```sql
 SELECT m.id, m.ipAddress, m.hostName, dc.pathname,
        ss.type, ss.subtype, ss.supplier, ss.version
-FROM machines AS m
-JOIN deployedComponents AS dc ON dc.machine = m.id
-JOIN deployedSoftwareSystemComponents AS link ON link.deployedComponent = dc.id
-JOIN deployedSoftwareSystems AS ds ON ds.id = link.deployedSoftwareSystem
-JOIN softwareSystems AS ss ON ss.id = ds.softwareSystem
+FROM Machine AS m
+JOIN DeployedComponent AS dc ON dc.machine = m.id
+JOIN Component AS c ON c.id = dc.component
+JOIN ModelElement AS me ON me.id = c.id
+JOIN SoftwareSystem AS ss ON ss.id = me.namespace
 WHERE ss.type = 'OS';
 ```

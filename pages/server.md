@@ -33,7 +33,9 @@ unnamed machines have grey bubbles. Selection lightens the corresponding color.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.
-Click a node or use the machine selector to see its fields and UTC timestamps.
+Click a node or use the machine selector to see its fields and timestamps in
+browser-local time (`YYYY-MM-DD HH:MM:SS`)
+in a key/value table left of the graph (above it on narrow screens).
 An empty inventory and an unavailable database show distinct status messages.
 
 Selecting a machine reveals Edit beside Refresh. Edit turns `hostName` into a

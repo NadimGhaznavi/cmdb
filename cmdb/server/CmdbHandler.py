@@ -77,7 +77,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200, (Path(__file__).parent / "static" / filename).read_bytes(), content_type)
         elif path == "/":
             template = (Path(__file__).parent / "templates" / "home.html").read_text()
-            body = template.replace("{{last_refresh}}", datetime.now().strftime("%b %d - %H:%M:%S"))
+            body = template.replace("{{last_refresh}}", datetime.now(timezone.utc).isoformat(timespec="seconds"))
             self.respond(200, body.encode("utf-8"), "text/html; charset=utf-8")
         else:
             self.send_error(404, "Page not found")

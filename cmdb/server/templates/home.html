@@ -15,7 +15,6 @@
       <nav aria-label="Main navigation"><a id="page-link" href="#backups">Backups</a></nav>
     </div>
     <p>Configuration Management Database</p>
-    <hr>
   </header>
   <main id="inventory-page" aria-label="Machines">
     <p id="graph-status" role="status">Loading machines…</p>
@@ -59,10 +58,17 @@
     <section aria-labelledby="database-heading">
       <h3 id="database-heading">Databases</h3>
       <p id="backups-status" role="status">Loading databases…</p>
-      <table class="backups-table" aria-label="Database backups">
-        <thead><tr><th scope="col">Host</th><th scope="col">Database</th><th scope="col">Last Backup</th></tr></thead>
-        <tbody id="backup-rows"></tbody>
-      </table>
+      <div id="backup-hosts"></div>
+      <template id="backup-host-template">
+        <details class="backup-host">
+          <summary></summary>
+          <p class="backup-empty" hidden>No user databases discovered yet.</p>
+          <table class="backups-table">
+            <thead><tr><th scope="col">Database</th><th scope="col">Last Backup</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </details>
+      </template>
     </section>
   </main>
   <footer id="inventory-footer" class="page-footer">

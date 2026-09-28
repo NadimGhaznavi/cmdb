@@ -24,9 +24,14 @@ connection.
 
 The homepage keeps the machine inventory graph. A Backups link at the top right
 switches the main panel to a Backups page and becomes an Inventory link to return.
-The Databases section lists discovered databases by host and database name,
-including system databases, using the stored inventory. Host shows the full
-hostname or the IP address when unnamed. Last Backup displays `---` for now;
+The Databases section groups stored databases into collapsible host sections,
+initially collapsed, with headings such as `Islands - 1 DB` or
+`Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
+as the inventory graph, or the IP address when unnamed. Each section contains
+Database and Last Backup columns. The system databases `mysql`,
+`information_schema`, `performance_schema`, and `sys` are excluded from both
+the rows and counts. DBMS hosts without user databases show `0 DBs` and an empty
+state when expanded. Last Backup displays `---` for now;
 backup tracking is not yet implemented. Browser Back and Forward also switch
 views. The scan button and refresh timestamp are shown only on Inventory.
 

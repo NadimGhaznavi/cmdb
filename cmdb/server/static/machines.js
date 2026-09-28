@@ -70,8 +70,11 @@ function localTimestamp(value) {
 function softwareLabel(system) {
   const name = system.subtype || system.type || "Software";
   const title = name.charAt(0).toUpperCase() + name.slice(1);
+  const version = system.subtype === "MariaDB"
+    ? system.version?.match(/^(?:5\.5\.5-)?(\d+\.\d+\.\d+)/)?.[1] || system.version
+    : system.version;
   return title + (system.codename ? ` (${system.codename})` : "")
-    + (system.version ? ` ${system.version}` : "");
+    + (version ? ` ${version}` : "");
 }
 
 function compareSoftware(left, right) {

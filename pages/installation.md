@@ -17,7 +17,7 @@ downloaded during installation. On Debian/Ubuntu, the maintainer can prepare
 the system with:
 
 ```sh
-sudo apt install python3 python3-venv mariadb-server mariadb-client nmap sudo
+sudo apt install python3 python3-venv mariadb-server mariadb-client nmap sudo openssh-client
 sudo systemctl enable --now mariadb
 ```
 
@@ -34,6 +34,23 @@ and database account. It generates `/etc/cmdb/database.env` owned by root with
 mode `600`. Repeated installation reuses the credentials without resetting an
 existing database password. An existing account with different credentials
 causes installation to fail; it is not silently taken over.
+
+The local `cmdb` account uses `/var/lib/cmdb` as its home, retaining its
+`nologin` shell. The installer generates an Ed25519 SSH key without a passphrase
+for unattended outbound connections:
+
+- Private key: `/var/lib/cmdb/.ssh/id_ed25519` (mode `600`).
+- Public key: `/var/lib/cmdb/.ssh/id_ed25519.pub` (mode `644`).
+- Known hosts: `/var/lib/cmdb/.ssh/known_hosts` (mode `600`).
+
+These files belong to `cmdb`; `.ssh` has mode `700`. Reinstallation reuses the
+private key and known hosts. A missing public key is reconstructed from the
+private key. An invalid or encrypted existing private key causes installation
+to fail without replacing it. The service can write its SSH directory under
+the otherwise read-only system filesystem configuration.
+
+Remote accounts and public-key authorization are not configured by the installer.
+See [SSH interface]({{ site.baseurl }}{% link pages/ssh.md %}) for usage.
 
 Installation and upgrade validate and install `/etc/sudoers.d/cmdb-nmap`, owned
 by root with mode `0440`, containing:
@@ -103,7 +120,8 @@ sudo scripts/uninstall.sh
 This stops and disables the service, drops the `cmdb` database (including all
 inventory), and removes the service unit, `/opt/prod/cmdb`, and the Nmap sudoers rule.
 It retains `/etc/cmdb/database.env`, the MariaDB account and password, and the
-Linux service account and group for reinstallation.
+Linux service account and group for reinstallation. `/var/lib/cmdb`, including
+the SSH key and known-hosts file, is retained too.
 
 The checkout and system packages (including MariaDB and Nmap) remain installed.
 Uninstall requires local MariaDB root access. It can be rerun from the checkout

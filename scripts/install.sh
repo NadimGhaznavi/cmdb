@@ -15,6 +15,8 @@ command -v systemctl >/dev/null
 command -v systemd-analyze >/dev/null
 command -v sudo >/dev/null
 command -v visudo >/dev/null
+command -v ssh >/dev/null
+command -v ssh-keygen >/dev/null
 [[ -x /usr/bin/nmap ]] || { printf 'Install /usr/bin/nmap before installing CMDB.\n' >&2; exit 1; }
 python3 -B - <<'PY'
 import sys
@@ -33,14 +35,16 @@ if installation.is_symlink() or Path.cwd().resolve() == installation.resolve():
     raise SystemExit('Run deployment from a separate checkout; installation must not be a symlink.')
 print(DCmdb.BASE_DIR)
 print(DCmdb.SERVICE_USER)
+print(DCmdb.SERVICE_HOME)
 PY
 )
 mapfile -t settings <<< "$settings_output"
 install_dir=${settings[0]}
 account=${settings[1]}
+account_home=${settings[2]}
 getent group "$account" >/dev/null || groupadd --system "$account"
 getent passwd "$account" >/dev/null || useradd --system --gid "$account" \
-    --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin "$account"
+    --no-create-home --home-dir "$account_home" --shell /usr/sbin/nologin "$account"
 install -d -m 755 -- "$install_dir"
 
 # Credentials are never sourced as shell code or passed in command arguments.

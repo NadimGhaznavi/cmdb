@@ -16,6 +16,7 @@ NoNewPrivileges=false
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
+ReadWritePaths=@SSH_DIR@
 
 [Install]
 WantedBy=multi-user.target

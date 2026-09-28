@@ -24,16 +24,20 @@ if values['DB_NAME'] != DCmdb.DATABASE_NAME or values['DB_USER'] != DCmdb.DATABA
 print(DCmdb.BASE_DIR)
 print(DCmdb.SERVICE_USER)
 print(DCmdb.SERVICE_UNIT)
+print(DCmdb.SERVICE_HOME)
 PY
 )
 mapfile -t settings <<< "$settings_output"
 install_dir=${settings[0]}
 account=${settings[1]}
 unit=${settings[2]}
+account_home=${settings[3]}
 getent passwd "$account" >/dev/null
 command -v systemd-analyze >/dev/null
 command -v sudo >/dev/null
 command -v visudo >/dev/null
+command -v ssh >/dev/null
+command -v ssh-keygen >/dev/null
 [[ -x /usr/bin/nmap ]] || { printf 'Install /usr/bin/nmap before deploying CMDB.\n' >&2; exit 1; }
 
 # Validate the complete rule before atomically installing it.
@@ -66,6 +70,8 @@ PY
 if [[ -e /etc/systemd/system/$unit ]]; then
     systemctl stop "$unit"
 fi
+usermod --home "$account_home" "$account"
+scripts/install-ssh.sh
 
 printf 'Installing Python dependencies...\n'
 if [[ ! -x $install_dir/.venv/bin/python ]]; then
@@ -87,6 +93,7 @@ for name in ('cmdb-server.py', 'requirements.txt', 'VERSION'):
 template = Path('systemd', DCmdb.SERVICE_UNIT).read_text()
 unit = template.replace('@APP@', DCmdb.BASE_DIR).replace('@USER@', DCmdb.SERVICE_USER)
 unit = unit.replace('@DATABASE_ENV@', DCmdb.DATABASE_ENV)
+unit = unit.replace('@SSH_DIR@', DCmdb.SSH_DIR)
 target = Path('/etc/systemd/system', DCmdb.SERVICE_UNIT)
 target.write_text(unit)
 target.chmod(0o644)

@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-09-27 @ 21:22
+
+### Changed
+
+- Refresh now signals the scanner worker, waits for scan completion, and reloads
+  the inventory. Concurrent refreshes share the active scan; failures are shown in the UI.
+
 ## [0.3.6] - 2026-09-27 @ 21:12
 
 ### Added

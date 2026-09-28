@@ -29,6 +29,7 @@ def main() -> None:
         with ThreadingHTTPServer((args.host, args.port), CmdbHandler) as server:
             print(f"CMDB: http://{args.host}:{server.server_port}/", flush=True)
             scanner = MachineScanner()
+            server.machine_scanner = scanner
             scanner.start()
             try:
                 server.serve_forever()

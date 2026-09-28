@@ -2,6 +2,7 @@
 
 from unittest import TestCase
 from unittest.mock import Mock, patch
+from threading import Event
 import socket
 
 import nmap
@@ -69,21 +70,76 @@ class MachineScannerTests(TestCase):
     def test_empty_or_failed_scans_do_not_open_database(self, scanner, db):
         for info in ({}, {"error": ["socket unavailable"]}):
             scanner.return_value.scan.return_value = {"nmap": {"scaninfo": info}, "scan": {}}
-            MachineScanner().scan_once()
+            if info:
+                with self.assertRaises(nmap.PortScannerError):
+                    MachineScanner().scan_once()
+            else:
+                MachineScanner().scan_once()
         db.assert_not_called()
 
     @patch("builtins.print")
     def test_expected_errors_retry_after_interval_and_print_only_start(self, output):
         worker = MachineScanner()
-        worker._stop_requested = Mock()
-        worker._stop_requested.is_set.return_value = False
-        worker._stop_requested.wait.side_effect = [False, False, True]
-        worker.scan_once = Mock(side_effect=[nmap.PortScannerTimeout("timeout"),
-                                            pymysql.OperationalError("unavailable"), None])
+        worker._wake.wait = Mock()
+        failures = [nmap.PortScannerTimeout("timeout"), pymysql.OperationalError("unavailable")]
+        def scan():
+            if failures:
+                raise failures.pop(0)
+            worker._stop_requested.set()
+        worker.scan_once = Mock(side_effect=scan)
         worker.run()
         self.assertEqual(worker.scan_once.call_count, 3)
-        self.assertEqual(worker._stop_requested.wait.call_count, 3)
+        self.assertEqual(worker._wake.wait.call_count, 3)
+        self.assertEqual(worker.scan_status()["completedScanId"], 3)
         output.assert_called_once()
+
+    @patch("builtins.print")
+    def test_requests_wake_worker_and_share_an_active_scan(self, output):
+        worker = MachineScanner()
+        entered = Event()
+        release = Event()
+        def scan():
+            entered.set()
+            self.assertTrue(release.wait(3))
+        worker.scan_once = Mock(side_effect=scan)
+        worker.start()
+        try:
+            self.assertTrue(entered.wait(3))
+            self.assertEqual(worker.request_scan(), 1)
+            self.assertEqual(worker.request_scan(), 1)
+            self.assertEqual(worker.scan_once.call_count, 1)
+            release.set()
+            # Waiting on the worker's event means the first scan has finished.
+            waiting = Event()
+            original_wait = worker._wake.wait
+            def wait(timeout):
+                waiting.set()
+                return original_wait(timeout)
+            worker._wake.wait = wait
+            # If already waiting, an explicit request still wakes the same worker.
+            entered.clear()
+            requested = worker.request_scan()
+            if requested == 1:
+                self.assertTrue(waiting.wait(3))
+                requested = worker.request_scan()
+            self.assertEqual(requested, 2)
+            self.assertTrue(entered.wait(3))
+        finally:
+            release.set()
+            worker.stop()
+        self.assertEqual(worker.scan_once.call_count, 2)
+
+    @patch("builtins.print")
+    def test_scan_failure_is_reported_and_stopped_worker_rejects_requests(self, output):
+        worker = MachineScanner()
+        def fail():
+            worker._stop_requested.set()
+            raise nmap.PortScannerTimeout("private details")
+        worker.scan_once = fail
+        worker.run()
+        self.assertEqual(worker.scan_status()["error"], "Scan failed. Try again.")
+        with self.assertRaises(RuntimeError):
+            worker.request_scan()
 
     @patch("builtins.print")
     def test_stop_wakes_waiting_worker(self, output):

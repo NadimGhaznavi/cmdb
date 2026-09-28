@@ -54,6 +54,12 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"status":"unavailable","service":"cmdb-server"}', "application/json")
                 return
             self.respond(200, b'{"status":"ready","service":"cmdb-server"}', "application/json")
+        elif path == "/api/scan":
+            scanner = getattr(self.server, "machine_scanner", None)
+            if scanner is None or not scanner.is_alive():
+                self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
+                return
+            self.respond(200, json.dumps(scanner.scan_status()).encode("utf-8"), "application/json")
         elif path == "/api/machines":
             try:
                 db = DbMgr()
@@ -77,6 +83,17 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == "/api/scan":
+            scanner = getattr(self.server, "machine_scanner", None)
+            try:
+                if scanner is None:
+                    raise RuntimeError("Scanner is unavailable.")
+                scan_id = scanner.request_scan()
+            except RuntimeError:
+                self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
+                return
+            self.respond(202, json.dumps({"scanId": scan_id}).encode("utf-8"), "application/json")
+            return
         if urlsplit(self.path).path != "/api/machines/hostname":
             self.send_error(404, "Page not found")
             return

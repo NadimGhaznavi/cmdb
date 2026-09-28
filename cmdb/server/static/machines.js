@@ -1,5 +1,45 @@
 "use strict";
 
+let refreshing = false;
+
+async function refreshMachines() {
+  if (refreshing) return;
+  refreshing = true;
+  const refresh = document.getElementById("refresh-button");
+  const edit = document.getElementById("edit-button");
+  const picker = document.getElementById("machine-picker");
+  const status = document.getElementById("graph-status");
+  const pickerWasDisabled = picker.disabled;
+  refresh.disabled = edit.disabled = picker.disabled = true;
+  refresh.textContent = "Scanning…";
+  status.textContent = "Scanning the LAN…";
+  try {
+    const response = await fetch("/api/scan", { method: "POST", signal: AbortSignal.timeout(15000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not start a scan.");
+    while (true) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch("/api/scan", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+      const scan = await response.json();
+      if (!response.ok) throw new Error(scan.error || "Could not check the scan.");
+      if (scan.completedScanId >= result.scanId) {
+        if (scan.error) throw new Error(scan.error);
+        window.location.reload();
+        return;
+      }
+    }
+  } catch (error) {
+    status.textContent = error.message || "Scan failed. Try again.";
+  } finally {
+    refreshing = false;
+    refresh.disabled = edit.disabled = false;
+    picker.disabled = pickerWasDisabled;
+    refresh.textContent = "Refresh";
+  }
+}
+
+document.getElementById("refresh-button").addEventListener("click", refreshMachines);
+
 function machineLabel(machine) {
   const shortName = machine.hostName ? machine.hostName.split(".")[0] : "";
   return shortName ? shortName.charAt(0).toUpperCase() + shortName.slice(1) : machine.ipAddress;
@@ -58,7 +98,7 @@ async function loadMachines() {
       maxZoom: 3,
     });
     function selectMachine(node) {
-      if (editing) return;
+      if (editing || refreshing) return;
       selectedNode = node;
       graph.nodes().unselect();
       node.select();
@@ -96,6 +136,7 @@ async function loadMachines() {
       saveButton.hidden = !value;
       cancelButton.hidden = !value;
       picker.disabled = value;
+      refreshButton.disabled = value;
       graph.autounselectify(value);
     }
     editButton.addEventListener("click", () => {

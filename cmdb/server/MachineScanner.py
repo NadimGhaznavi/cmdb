@@ -1,6 +1,6 @@
 """Periodically discover machines and refresh their database records."""
 
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 import socket
 
 import nmap
@@ -17,26 +17,62 @@ class MachineScanner(Thread):
     def __init__(self) -> None:
         super().__init__(name="machine-scanner")
         self._stop_requested = Event()
+        self._wake = Event()
+        self._wake.set()
+        self._state_lock = Lock()
+        self._scan_id = 0
+        self._completed_scan_id = 0
+        self._running_scan = False
+        self._error = None
+
+    def request_scan(self) -> int:
+        """Wake the worker, or share the scan already in progress."""
+        with self._state_lock:
+            if self._stop_requested.is_set() or not self.is_alive():
+                raise RuntimeError("Scanner is unavailable.")
+            if self._running_scan:
+                return self._scan_id
+            self._wake.set()
+            return self._scan_id + 1
+
+    def scan_status(self) -> dict:
+        with self._state_lock:
+            return {"scanId": self._scan_id, "completedScanId": self._completed_scan_id,
+                    "running": self._running_scan, "error": self._error}
 
     def stop(self) -> None:
         self._stop_requested.set()
+        self._wake.set()
         self.join()
 
     def run(self) -> None:
         print(f"Machine scanner started: {DCmdb.SCAN_TARGET}, "
               f"interval {DCmdb.SCAN_INTERVAL_SECONDS}s", flush=True)
         while not self._stop_requested.is_set():
+            self._wake.wait(DCmdb.SCAN_INTERVAL_SECONDS)
+            with self._state_lock:
+                if self._stop_requested.is_set():
+                    break
+                self._wake.clear()
+                self._scan_id += 1
+                self._running_scan = True
+            error = None
             try:
                 self.scan_once()
             except (nmap.PortScannerError, nmap.PortScannerTimeout, pymysql.MySQLError, OSError):
-                pass
-            if self._stop_requested.wait(DCmdb.SCAN_INTERVAL_SECONDS):
-                break
+                error = "Scan failed. Try again."
+            finally:
+                with self._state_lock:
+                    self._completed_scan_id = self._scan_id
+                    self._running_scan = False
+                    self._error = error
 
     def scan_once(self) -> None:
         result = Nmap().scan(DCmdb.SCAN_TARGET, arguments="-sn",
                              timeout=DCmdb.SCAN_TIMEOUT_SECONDS)
-        if result["nmap"]["scaninfo"].get("error") or self._stop_requested.is_set():
+        if result["nmap"]["scaninfo"].get("error"):
+            raise nmap.PortScannerError("Nmap reported a scan error.")
+        if self._stop_requested.is_set():
             return
         machines = []
         for address, host in result["scan"].items():

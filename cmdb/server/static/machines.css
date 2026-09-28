@@ -28,8 +28,11 @@
 .patch-row-status:empty { display: none; }
 .backups-table th, .backups-table td { text-align: left; padding: .75rem .25rem; border-bottom: 1px solid #35383d; overflow-wrap: anywhere; }
 .backups-table th { color: #ffb454; }
-.debian-hosts-table thead tr:first-child th:nth-child(-n+3),
+.debian-hosts-table thead tr:last-child th:nth-child(-n+3),
 .debian-hosts-table tbody td:nth-child(-n+3) { white-space: nowrap; overflow-wrap: normal; width: 1%; }
+.debian-hosts-table thead th { vertical-align: bottom; }
+.debian-hosts-table thead tr:last-child th:nth-child(n+4):nth-child(-n+8) { font-size: calc(1em - 2pt); }
+.debian-hosts-table thead tr:first-child td { border-bottom: 0; }
 .debian-hosts-table .patch-row-status { width: 100%; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }
 .backup-host { margin: 1rem 0; }

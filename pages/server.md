@@ -72,6 +72,15 @@ python3 -m venv .venv
 .venv/bin/python -B -m unittest discover -s tests -v
 ```
 
+Database integration tests are skipped unless `CMDB_TEST_DB_SOCKET` points to
+a test MariaDB instance with local root access. They create and remove their
+own randomly named databases. For example, with a disposable instance already
+running at `/tmp/cmdb-test/db.sock`:
+
+```sh
+CMDB_TEST_DB_SOCKET=/tmp/cmdb-test/db.sock .venv/bin/python -B -m unittest discover -s tests -p test_software_deployment_db.py -v
+```
+
 To start manually, provide `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 `DB_PASSWORD` in the process environment, then run:
 
@@ -123,8 +132,23 @@ upserts responding hosts into
 change; `createdOn` stays fixed. Scans do not resolve or populate hostnames.
 When Nmap reports a MAC address, the worker stores it in `macAddress`, shown in
 the details table. Scans without a MAC preserve any previously stored address.
-Existing hostnames, including manual edits, are preserved. Existing `site` and
-`deployedComponent` values and machines absent from a scan are retained.
+Existing hostnames, including manual edits, are preserved. Existing `site`
+values and machines absent from a scan are retained.
+
+After committing machine discovery and closing its database connection, the
+worker runs a separate OS scan against the responding IPs using
+`-O -n --osscan-limit --max-os-tries 1`. It uses Nmap's default TCP port set;
+port results are not stored. `OS_SCAN_TIMEOUT_SECONDS` defaults to `180`.
+[Nmap OS detection](https://nmap.org/book/man-os-detection.html) works best with
+an open and a closed TCP port; `--osscan-limit` skips targets without both.
+The complete refresh includes both passes and can take longer than discovery
+alone. If OS scanning fails, the machine updates remain committed and the
+refresh reports a scan failure. OS writes use a separate transaction.
+
+OS classifications populate the
+[software deployment model]({{ site.baseurl }}{% link pages/software-deployment.md %}).
+Missing or inconclusive results preserve existing OS records. The service's
+stop timeout is 210 seconds to allow the active scan to finish or time out.
 
 The worker prints its startup message to the journal. Scan and database failures
 are retried on the next interval without logging. It owns a database connection

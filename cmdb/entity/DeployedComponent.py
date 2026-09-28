@@ -1,6 +1,6 @@
 """A component deployed on a machine."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -9,3 +9,6 @@ class DeployedComponent:
 
     pathname: str
     machine: int
+    component: int
+    id: int | None = None
+    deployedSoftwareSystem: list[int] = field(default_factory=list)

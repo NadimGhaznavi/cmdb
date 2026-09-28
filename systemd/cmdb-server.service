@@ -11,6 +11,7 @@ EnvironmentFile=@DATABASE_ENV@
 ExecStart=@APP@/.venv/bin/python -B -u @APP@/cmdb-server.py
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=210
 NoNewPrivileges=false
 PrivateTmp=true
 ProtectHome=true

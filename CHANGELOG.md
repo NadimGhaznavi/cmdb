@@ -7,6 +7,24 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- OS scanning with SoftwareSystem, Component, and DeployedSoftwareSystem entities
+  and tables, linked to each machine through its root DeployedComponent.
+- Separate OS scan timeout and reporting documentation. Inconclusive OS results
+  preserve stored classifications; failed OS scans retain machine discovery.
+
+### Changed
+
+- Use fresh-install schemas without record migrations during initial development.
+- Represent `Machine.deployedComponent` as a collection of deployment IDs.
+- Clarify that storage needs determine the CWM subset and that inherited
+  attributes stay on their owning parent classes.
+- Document CWM 1.1 SoftwareDeployment as the core model reference, with scope
+  limited to the classes, attributes, and relationships the application needs,
+  and require one-to-one mapping to Python entities and the database schema.
+- Installer completion message now reports `CMDB server listening on port: 14444`.
+
 ## [0.4.2] - 2026-09-28 @ 07:07
 
 ### Changed

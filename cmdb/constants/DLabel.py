@@ -10,6 +10,7 @@ class DLabel:
         "supplier": "Supplier",
         "version": "Version",
         "codename": "Codename",
+        "databases": "Database(s)",
         "ipAddress": "IP Address",
         "macAddress": "MAC Address",
         "hostName": "Host Name",

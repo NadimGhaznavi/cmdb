@@ -160,6 +160,18 @@ async function loadMachines() {
         for (const cell of section.querySelectorAll("[data-field]")) {
           if (cell.dataset.field === "codename" && system.subtype === "MariaDB") {
             cell.closest("tr").remove();
+          } else if (cell.dataset.field === "databases") {
+            if (system.subtype !== "MariaDB") {
+              cell.closest("tr").remove();
+            } else if (system.databases?.length) {
+              for (const name of system.databases) {
+                const line = document.createElement("div");
+                line.textContent = name;
+                cell.append(line);
+              }
+            } else {
+              cell.textContent = "—";
+            }
           } else {
             cell.textContent = system[cell.dataset.field] ?? "—";
           }

@@ -1,7 +1,6 @@
 """Periodically discover machines and refresh their database records."""
 
 from threading import Event, Lock, Thread
-import socket
 
 import nmap
 import pymysql
@@ -68,7 +67,7 @@ class MachineScanner(Thread):
                     self._error = error
 
     def scan_once(self) -> None:
-        result = Nmap().scan(DCmdb.SCAN_TARGET, arguments="-sn",
+        result = Nmap().scan(DCmdb.SCAN_TARGET, arguments="-sn -n",
                              timeout=DCmdb.SCAN_TIMEOUT_SECONDS)
         if result["nmap"]["scaninfo"].get("error"):
             raise nmap.PortScannerError("Nmap reported a scan error.")
@@ -80,14 +79,7 @@ class MachineScanner(Thread):
                 return
             if host["status"]["state"] != "up":
                 continue
-            host_name = next((entry["name"] for entry in host.get("hostnames", [])
-                              if entry["name"]), None)
-            if not host_name:
-                try:
-                    host_name = socket.gethostbyaddr(address)[0] or None
-                except OSError:
-                    pass
-            machines.append(Machine(ipAddress=address, hostName=host_name))
+            machines.append(Machine(ipAddress=address))
         if not machines:
             return
         db = DbMgr()

@@ -21,7 +21,6 @@ class MachineDb:
             "INSERT INTO machines (ipAddress, hostName, site, deployedComponent) "
             "VALUES (%s, %s, %s, %s) "
             "ON DUPLICATE KEY UPDATE "
-            "hostName = COALESCE(hostName, VALUES(hostName)), "
             "updatedOn = CURRENT_TIMESTAMP(6)",
             (machine.ipAddress, machine.hostName, machine.site, machine.deployedComponent),
         )

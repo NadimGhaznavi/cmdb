@@ -27,7 +27,7 @@ class SSH:
                 continue
         return False
 
-    def run(self, host: str, command: str, *, user: str = DCmdb.SERVICE_USER, port: int = 22,
+    def run(self, host: str, command: str, *, user: str = DCmdb.AGENT_USER, port: int = 22,
             timeout: int = 30, connect_timeout: int = 10,
             input: str | None = None) -> subprocess.CompletedProcess[str]:
         """Execute a host shell command and return captured stdout/stderr.
@@ -46,9 +46,15 @@ class SSH:
         if not 1 <= port <= 65535 or timeout <= 0 or connect_timeout <= 0:
             raise ValueError("Use a valid port and positive timeouts.")
         if self.is_local(host):
-            if pwd.getpwnam(user).pw_uid != os.geteuid():
-                raise PermissionError("Local commands require the current service identity.")
             argv = ["/bin/sh", "-c", command]
+            try:
+                target_uid = pwd.getpwnam(user).pw_uid
+            except KeyError as error:
+                raise PermissionError("Local inventory account is not installed.") from error
+            if target_uid != os.geteuid():
+                if user != DCmdb.AGENT_USER:
+                    raise PermissionError("Local identity switching is limited to the inventory agent.")
+                argv = ["/usr/bin/sudo", "-n", "-H", "-u", user, "--", *argv]
         else:
             argv = ["/usr/bin/ssh", "-F", "/dev/null", "-T",
              "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",

@@ -51,7 +51,10 @@ from cmdb.constants.DCmdb import DCmdb
 
 if re.fullmatch(r'[a-z_][a-z0-9_]*', DCmdb.SERVICE_USER) is None:
     raise SystemExit('Invalid CMDB service account name.')
+if re.fullmatch(r'[a-z_][a-z0-9_]*', DCmdb.AGENT_USER) is None or DCmdb.AGENT_USER == DCmdb.SERVICE_USER:
+    raise SystemExit('Invalid CMDB inventory account name.')
 rule = Path('sudoers/cmdb-nmap').read_text().replace('@USER@', DCmdb.SERVICE_USER)
+rule = rule.replace('@AGENT@', DCmdb.AGENT_USER)
 target = Path('/etc/sudoers.d/cmdb-nmap')
 target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
 with NamedTemporaryFile(mode='w', prefix='.cmdb-nmap-', dir=target.parent, delete=False) as stream:
@@ -72,6 +75,7 @@ if [[ -e /etc/systemd/system/$unit ]]; then
 fi
 usermod --home "$account_home" "$account"
 scripts/install-ssh.sh
+python3 -B scripts/install-agent.py
 
 printf 'Installing Python dependencies...\n'
 if [[ ! -x $install_dir/.venv/bin/python ]]; then

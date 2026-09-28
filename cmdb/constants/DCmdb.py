@@ -6,6 +6,8 @@ from typing import Final
 class DCmdb:
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
     SERVICE_USER: Final[str] = "cmdb"
+    AGENT_USER: Final[str] = "cmdbagent"
+    AGENT_HOME: Final[str] = "/var/lib/cmdbagent"
     SERVICE_HOME: Final[str] = "/var/lib/cmdb"
     SSH_DIR: Final[str] = SERVICE_HOME + "/.ssh"
     SSH_KEY: Final[str] = SSH_DIR + "/id_ed25519"

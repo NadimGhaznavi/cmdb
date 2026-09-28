@@ -52,11 +52,11 @@ class RemoteProvisioningTests(TestCase):
         self.state = self.root / 'state.json'
         self.state.write_text(json.dumps({'exists': False, 'home': str(self.home),
                                          'shell': '/bin/sh', 'password': '!', 'creates': 0}))
-        self.script = Path(__file__).resolve().parents[1] / 'cmdb/activity/scripts/provision-cmdb.sh'
+        self.script = Path(__file__).resolve().parents[1] / 'cmdb/activity/scripts/provision-agent.sh'
         self.key = 'ssh-ed25519 AAAATEST cmdb'
 
     def provision(self):
-        return subprocess.run(['/bin/sh', str(self.script), 'cmdb', self.key],
+        return subprocess.run(['/bin/sh', str(self.script), 'cmdbagent', self.key],
                               env={**os.environ, 'PATH': str(self.bin) + ':/usr/bin:/bin',
                                    'CMDB_ACCOUNT_FIXTURE': str(self.state)},
                               capture_output=True, text=True, check=True)

@@ -7,6 +7,39 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-09-28 @ 10:09
+
+### Changed
+
+- Use `cmdbagent` for managed-host inventory, retaining local `cmdb` as the
+  service/key owner. Install and upgrade provision the local agent and sudo rule.
+
+### Added
+
+- One-time remote cleanup script to delete legacy `cmdb` accounts and homes,
+  skipping the local server and reporting per-host failures.
+
+### Upgrade instructions
+
+Run these commands in order from the development checkout:
+
+```sh
+sudo scripts/upgrade.sh
+sudo /opt/prod/cmdb/.venv/bin/python -B scripts/cleanup-remote-cmdb.py
+```
+
+Upgrade provisions the local `cmdbagent` account and switches inventory access
+to that identity. The scanner provisions remote `cmdbagent` accounts as needed.
+
+The one-time cleanup reads discovered hosts from the database, connects as root
+using the existing CMDB SSH key, and removes each legacy remote `cmdb` account
+and its home directory. Remote root must authorize that key. The local machine
+is skipped, preserving its `cmdb` service account, SSH key, and home.
+
+Review the per-host results. Failed removals produce a nonzero exit status;
+resolve those failures and rerun the cleanup as needed. Already-removed
+accounts are skipped safely.
+
 ## [0.6.1] - 2026-09-28 @ 09:43
 
 ### Added

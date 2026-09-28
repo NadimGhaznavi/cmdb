@@ -33,6 +33,16 @@ class SSHTests(unittest.TestCase):
 
     @patch('cmdb.interface.SSH.pwd.getpwnam')
     @patch('cmdb.interface.SSH.subprocess.run')
+    def test_local_inventory_runs_as_agent_without_ssh(self, run, account):
+        self.local.return_value = True
+        account.return_value.pw_uid = os.geteuid() + 1
+        SSH().run('127.0.0.1', 'hostname', input='example')
+        self.assertEqual(run.call_args.args[0],
+                         ['/usr/bin/sudo', '-n', '-H', '-u', 'cmdbagent', '--', '/bin/sh', '-c', 'hostname'])
+        self.assertEqual(run.call_args.kwargs['input'], 'example')
+
+    @patch('cmdb.interface.SSH.pwd.getpwnam')
+    @patch('cmdb.interface.SSH.subprocess.run')
     def test_local_command_does_not_silently_use_a_different_identity(self, run, account):
         self.local.return_value = True
         account.return_value.pw_uid = os.geteuid() + 1
@@ -56,7 +66,7 @@ class SSHTests(unittest.TestCase):
         args, options = run.call_args
         argv = args[0]
         self.assertEqual(argv[-3:], ['--', '192.168.0.7', command])
-        self.assertEqual(argv[argv.index('-l') + 1], 'cmdb')
+        self.assertEqual(argv[argv.index('-l') + 1], 'cmdbagent')
         self.assertEqual(argv[argv.index('-i') + 1], DCmdb.SSH_KEY)
         self.assertEqual(argv[argv.index('-p') + 1], '2222')
         self.assertIn('BatchMode=yes', argv)

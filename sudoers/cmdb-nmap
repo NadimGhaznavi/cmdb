@@ -1,1 +1,2 @@
 @USER@ ALL=(root) NOPASSWD: /usr/bin/nmap
+@USER@ ALL=(@AGENT@) NOPASSWD: /bin/sh

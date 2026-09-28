@@ -8,6 +8,7 @@ import signal
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 from cmdb.server.CmdbHandler import CmdbHandler
+from cmdb.server.MachineScanner import MachineScanner
 
 
 def main() -> None:
@@ -27,9 +28,13 @@ def main() -> None:
     try:
         with ThreadingHTTPServer((args.host, args.port), CmdbHandler) as server:
             print(f"CMDB: http://{args.host}:{server.server_port}/", flush=True)
+            scanner = MachineScanner()
+            scanner.start()
             try:
                 server.serve_forever()
             except KeyboardInterrupt:
                 pass
+            finally:
+                scanner.stop()
     finally:
         signal.signal(signal.SIGTERM, previous)

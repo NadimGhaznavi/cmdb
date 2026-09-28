@@ -7,6 +7,24 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Removed the database readiness and documentation links from the landing page.
+- Boxed the landing-page title and horizontal rule, and replaced the running
+  message with the page refresh time in `MMM DD - HH:MM:SS` format (server local time).
+
+### Added
+
+- Full-height machine panel using locally bundled Cytoscape.js, a database-backed
+  machine endpoint, and clickable nodes showing stored machine details.
+- Periodic machine discovery with a configurable scan interval, database upserts,
+  and `createdOn` / `updatedOn` timestamps, including existing-table upgrades.
+- External `schema/cmdb-schema-v1.sql` applied during installation and upgrades to
+  create the `machines` table with the Machine entity's attributes.
+- Machine entity with `ipAddress`, `hostName`, `site`, and `deployedComponent` attributes.
+- Nmap interface using python-nmap for network scans, with configurable targets,
+  ports, scan arguments, and timeout.
+
 ## [0.2.0] - 2026-09-27 @ 19:20
 
 ## [0.1.0] - 2026-09-27 @ 19:11

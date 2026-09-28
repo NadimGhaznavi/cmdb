@@ -27,9 +27,9 @@ class SSHDb:
         """Dump on the database host and return completed-file metadata."""
         from pathlib import PurePosixPath
         path = PurePosixPath(pathname)
-        if (path.is_absolute() or len(path.parts) != 3 or path.parts[1] != 'db'
+        if (path.is_absolute() or len(path.parts) != 4 or path.parts[1] != 'db'
                 or any(part in ('.', '..') for part in path.parts)
-                or not re.fullmatch(r'[A-Za-z0-9_.%:-]+/db/[A-Za-z0-9_.%:-]+\.dump', pathname)):
+                or not re.fullmatch(r'[A-Za-z0-9_.%:-]+/db/[A-Za-z0-9_.%:-]+/[A-Za-z0-9_.%:-]+\.dump', pathname)):
             raise ValueError('Invalid backup pathname.')
         if not database or '\0' in database or database.lower() in ('mysql', 'information_schema', 'performance_schema', 'sys'):
             raise ValueError('Select a user database to back up.')

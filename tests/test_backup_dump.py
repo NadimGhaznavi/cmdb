@@ -24,16 +24,16 @@ class BackupDumpTests(unittest.TestCase):
                 executable.write_text(contents)
                 executable.chmod(0o755)
             env = dict(os.environ, PATH=str(binaries) + ':' + os.environ['PATH'])
-            command = ['sh', str(SCRIPT), str(root), 'host/db/test.dump', 'db', 'agent']
+            command = ['sh', str(SCRIPT), str(root), 'host/db/db/test.dump', 'db', 'agent']
             result = subprocess.run(command, env=env, text=True, capture_output=True, check=True)
-            final = root / 'host/db/test.dump'
+            final = root / 'host/db/db/test.dump'
             self.assertEqual(result.stdout.split(), [str(final.stat().st_size), hashlib.sha256(final.read_bytes()).hexdigest()])
             self.assertEqual(final.stat().st_mode & 0o777, 0o600)
             self.assertEqual(list(final.parent.glob('*.part')), [])
             self.assertEqual(list(final.parent.glob('.backup-*')), [])
             self.assertNotEqual(subprocess.run(command, env=env, capture_output=True).returncode, 0)
             self.assertEqual(final.read_text(), 'database dump\n')
-            command[3] = 'host/db/failed.dump'
+            command[3] = 'host/db/db/failed.dump'
             self.assertNotEqual(subprocess.run(command, env=dict(env, DUMP_EXIT='1'), capture_output=True).returncode, 0)
             self.assertFalse((final.parent / 'failed.dump').exists())
             self.assertEqual(list(final.parent.glob('.backup-*')), [])

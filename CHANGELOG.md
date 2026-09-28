@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-28 @ 16:04
+
+### Changed
+
+- Store new database dumps in `<host>/db/<database>/`, creating the directory
+  as needed and keeping temporary files alongside the final dump.
+- Remove the Frequency column from Live Databases; scheduled backups remain
+  fixed to daily at noon.
+
 ## [0.10.0] - 2026-09-28 @ 15:57
 
 ### Added

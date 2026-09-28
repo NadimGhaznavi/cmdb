@@ -13,12 +13,12 @@ class BackupManagerTests(unittest.TestCase):
     def test_duplicate_requests_share_attempt_and_persist_remote_result(self):
         started, release = Event(), Event()
         item = dict(modelElement=12, hostName='sally.example', ipAddress='192.0.2.2', databaseName='cmdb')
-        metadata = dict(pathname='sally/db/file.dump', sizeBytes=42, checksum='a' * 64)
+        metadata = dict(pathname='sally/db/cmdb/file.dump', sizeBytes=42, checksum='a' * 64)
         def dump(*args):
             started.set()
             self.assertTrue(release.wait(5))
             self.assertEqual(args[:2], ('192.0.2.2', 'cmdb'))
-            self.assertTrue(args[2].startswith('sally/db/mariadb-sally-cmdb-'))
+            self.assertTrue(args[2].startswith('sally/db/cmdb/mariadb-sally-cmdb-'))
             return metadata
         with patch('cmdb.activity.BackupManager.DbMgr') as db, \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \

@@ -20,7 +20,9 @@ Repeated clicks for a machine with an active job return the same job.
 
 Uptime starts as `---` and refreshes automatically when Patching opens. Refresh
 Uptime at the bottom left also reads `/proc/uptime`
-through the existing SSH interface and displays days, hours, and minutes. Hosts
+through the existing SSH interface and displays a single unit: seconds below a
+minute, whole minutes below an hour, hours below a day, and days thereafter.
+Hours and days use one decimal place. Hosts
 that cannot be reached show Unavailable. Values are snapshots, preserved during
 job polling but not stored in the database or refreshed by those polls.
 

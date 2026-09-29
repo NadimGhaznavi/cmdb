@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-09-29 @ 05:19
+
+### Changed
+
+- Simplify patching uptime to a single unit: seconds, minutes, hours, or days,
+  with one decimal place for hours and days.
+
 ## [0.13.2] - 2026-09-29 @ 04:47
 
 ### Changed

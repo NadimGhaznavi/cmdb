@@ -349,6 +349,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(record['ipAddress'], '192.168.0.7')
         self.assertEqual(record['hostName'], '<script>host</script>')
         self.assertIsNone(record['site'])
+        self.assertIsNone(record['reachable'])
         self.assertEqual(record['deployedComponent'], [21, 22])
         self.assertEqual(record['createdOn'], '2026-09-27T12:00:00+00:00')
         self.assertEqual(record['updatedOn'], '2026-09-27T13:00:00+00:00')

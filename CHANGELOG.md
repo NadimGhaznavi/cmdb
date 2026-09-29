@@ -7,6 +7,16 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-09-29 @ 04:47
+
+### Changed
+
+- Show machines absent from the latest successful discovery in muted red, including
+  their software boxes; selection retains the orange border.
+- Match selected inventory machine borders to the page's orange border color.
+- Use one per-host Status cell for the latest patch, schedule, or uptime message. New
+  messages replace it immediately; unchanged polling does not restore old results.
+
 ## [0.13.1] - 2026-09-28 @ 19:37
 
 ### Changed

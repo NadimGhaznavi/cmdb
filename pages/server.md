@@ -187,6 +187,12 @@ so collection does not require a local SSH server or Nmap-reported MAC.
 The Nmap pass preserves existing hostnames, including manual edits. Existing `site`
 values and machines absent from a scan are retained.
 
+Inventory shows machines absent from the latest successful discovery in muted
+red, including their software boxes. Selected machines keep the orange border.
+Reachability is held in memory until restart; failed discovery scans preserve
+the previous result. Hosts outside the scanned subnet and hosts awaiting the
+first successful scan keep their usual colors.
+
 After committing machine discovery and closing its database connection, the
 worker runs a separate OS scan against the responding IPs using
 `-O -n --osscan-limit --max-os-tries 1`. It uses Nmap's default TCP port set;

@@ -486,10 +486,11 @@ async function refreshUptime() {
         const response = await fetch(`/api/patching/hosts/${row.dataset.id}/uptime`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
         if (!response.ok) throw new Error('Uptime unavailable');
         const { uptimeSeconds: seconds } = await response.json();
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor(seconds % 86400 / 3600);
-        const minutes = Math.floor(seconds % 3600 / 60);
-        updateText(cell, `${days}d ${hours}h ${minutes}m`);
+        const uptime = seconds < 60 ? `${Math.floor(seconds)} secs`
+          : seconds < 3600 ? `${Math.floor(seconds / 60)} min`
+          : seconds < 86400 ? `${(seconds / 3600).toFixed(1)} hours`
+          : `${(seconds / 86400).toFixed(1)} days`;
+        updateText(cell, uptime);
         updateText(rowStatus, 'Uptime refreshed');
       } catch (error) {
         failures++;

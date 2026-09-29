@@ -643,7 +643,7 @@ async function loadMachines() {
       const systems = softwareDeployments.filter(system => system.machine === machine.id)
         .sort(compareSoftware);
       elements.push({ data: { ...machine, id: machine.ipAddress, label: machineLabel(machine) },
-        classes: "machine", position: center });
+        classes: machine.reachable === false ? "machine down" : "machine", position: center });
       systems.forEach((system, offset) => {
         elements.push({ data: { ...system, id: `deployment-${system.id}`,
           parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
@@ -665,13 +665,13 @@ async function loadMachines() {
           "shape": "round-rectangle", "width": 160, "height": 80,
         } },
         { selector: "node:selected", style: {
-          "background-color": "#14532d", "border-color": "#fff", "border-width": 3,
+          "background-color": "#14532d", "border-color": "#d98124", "border-width": 3,
         } },
         { selector: ".machine[!hostName]", style: {
           "background-color": "#3f454b", "border-color": "#9ca3af",
         } },
         { selector: ".machine[!hostName]:selected", style: {
-          "background-color": "#5b626a", "border-color": "#fff",
+          "background-color": "#5b626a", "border-color": "#d98124",
         } },
         { selector: ".machine:parent", style: {
           "shape": "round-rectangle", "padding": 35,
@@ -681,6 +681,15 @@ async function loadMachines() {
           "shape": "round-rectangle", "width": 230, "height": 60,
           "background-color": "#123c29", "border-color": "#4ade80",
           "text-max-width": 210,
+        } },
+        { selector: ".machine.down", style: {
+          "background-color": "#522d30", "border-color": "#b66b70",
+        } },
+        { selector: ".machine.down > .software", style: {
+          "background-color": "#66383c", "border-color": "#b66b70",
+        } },
+        { selector: ".machine.down:selected", style: {
+          "border-color": "#d98124", "border-width": 3,
         } },
       ],
       layout: { name: "preset", padding: 40 },

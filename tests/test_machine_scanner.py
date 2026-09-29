@@ -99,7 +99,12 @@ class MachineScannerTests(TestCase):
             },
         }
         worker = MachineScanner()
+        self.assertIsNone(worker.host_is_up("192.168.0.1"))
         worker.scan_once()
+        self.assertTrue(worker.host_is_up("192.168.0.1"))
+        self.assertFalse(worker.host_is_up("192.168.0.3"))
+        self.assertFalse(worker.host_is_up("192.168.0.99"))
+        self.assertIsNone(worker.host_is_up("192.168.1.1"))
         self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
                          [Machine("192.168.0.1", macAddress="00:11:22:33:44:55"),
                           Machine("192.168.0.2")])
@@ -136,6 +141,23 @@ class MachineScannerTests(TestCase):
                          [Machine("192.168.0.1"), Machine("192.168.0.2"),
                           Machine("192.168.0.3")])
         self.ssh_activity.return_value.run.assert_called_once()
+
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
+    def test_reachability_retains_last_successful_discovery(self, scanner, db):
+        worker = MachineScanner()
+        scanner.return_value.scan.return_value = {"nmap": {"scaninfo": {}}, "scan": {}}
+        worker.scan_once()
+        self.assertFalse(worker.host_is_up("192.168.0.7"))
+        scanner.return_value.scan.side_effect = nmap.PortScannerTimeout("timeout")
+        with self.assertRaises(nmap.PortScannerTimeout):
+            worker.scan_once()
+        self.assertFalse(worker.host_is_up("192.168.0.7"))
+        fresh_worker = MachineScanner()
+        with self.assertRaises(nmap.PortScannerTimeout):
+            fresh_worker.scan_once()
+        self.assertIsNone(fresh_worker.host_is_up("192.168.0.7"))
+        db.assert_not_called()
 
     @patch("cmdb.activity.MachineScanner.DbMgr")
     @patch("cmdb.activity.MachineScanner.Nmap")

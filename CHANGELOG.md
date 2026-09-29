@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-09-29 @ 05:19
+
 ### Changed
 
 - Simplify patching uptime to a single unit: seconds, minutes, hours, or days,

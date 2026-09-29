@@ -1,6 +1,7 @@
 """Periodically discover machines and refresh their database records."""
 
 from threading import Event, Lock, Thread
+from ipaddress import ip_address, ip_network
 
 import nmap
 import pymysql
@@ -26,6 +27,19 @@ class MachineScanner(Thread):
         self._completed_scan_id = 0
         self._running_scan = False
         self._error = None
+        self._up_hosts = None
+        self._scan_network = None
+
+    def host_is_up(self, address: str) -> bool | None:
+        """Return the last discovery result, or unknown outside its scope."""
+        with self._state_lock:
+            if self._up_hosts is None:
+                return None
+            if address in self._up_hosts:
+                return True
+            if self._scan_network is not None and ip_address(address) in self._scan_network:
+                return False
+            return None
 
     def request_scan(self) -> int:
         """Wake the worker, or share the scan already in progress."""
@@ -84,6 +98,13 @@ class MachineScanner(Thread):
                 continue
             mac_address = host.get("addresses", {}).get("mac") or None
             machines.append(Machine(ipAddress=address, macAddress=mac_address))
+        try:
+            network = ip_network(DCmdb.SCAN_TARGET, strict=False)
+        except ValueError:
+            network = None
+        with self._state_lock:
+            self._up_hosts = {machine.ipAddress for machine in machines}
+            self._scan_network = network
         if not machines:
             return
         db = DbMgr()

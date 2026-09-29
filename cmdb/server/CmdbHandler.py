@@ -103,6 +103,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"error":"Machines are unavailable."}', "application/json")
                 return
             records = [machine_record(machine) for machine in machines]
+            scanner = getattr(self.server, "machine_scanner", None)
+            for record in records:
+                record["reachable"] = scanner.host_is_up(record["ipAddress"]) if scanner else None
             self.respond(200, json.dumps({"machines": records, "softwareDeployments": deployments})
                          .encode("utf-8"), "application/json")
         elif path == '/api/backups' or path.startswith('/api/backups/'):

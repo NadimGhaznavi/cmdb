@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-09-29 @ 04:47
+
 ### Changed
 
 - Show machines absent from the latest successful discovery in muted red, including

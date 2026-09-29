@@ -317,7 +317,8 @@ function updatePatchRows(body, items, render) {
 
 async function queuePatch(row, identity) {
   const button = row.querySelector('[data-action="patch"]');
-  const status = document.getElementById('patching-status');
+  const status = row.querySelector('.patch-row-status');
+  updateText(status, 'Queuing patch job…');
   button.disabled = true;
   row.dataset.submitting = 'true';
   clearTimeout(patchingTimer);
@@ -329,6 +330,7 @@ async function queuePatch(row, identity) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not queue patch job.');
+    updateText(status, 'Queued');
     delete row.dataset.submitting;
     if (window.location.hash === '#patching') loadPatchingHosts();
   } catch (error) {
@@ -372,9 +374,6 @@ async function loadPatchingHosts() {
         expression.setAttribute('aria-label', `Cron schedule for ${machineLabel(host)}`);
         expression.addEventListener('input', () => { row.dataset.scheduleDirty = 'true'; });
         scheduleCell.append(expression);
-        const scheduleStatus = document.createElement('p');
-        scheduleStatus.className = 'schedule-row-status';
-        scheduleStatus.setAttribute('role', 'status');
         const actions = document.createElement('td');
         const buttons = document.createElement('div');
         buttons.className = 'backup-actions';
@@ -392,7 +391,7 @@ async function loadPatchingHosts() {
         progress.className = 'patch-row-status';
         progress.setAttribute('role', 'status');
         buttons.append(update, button);
-        actions.append(buttons, scheduleStatus);
+        actions.append(buttons);
         row.append(name, uptime, enabledCell, scheduleCell, actions, progress);
       }
       updateText(row.cells[0], machineLabel(host));
@@ -405,7 +404,15 @@ async function loadPatchingHosts() {
       const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);
       if (button.disabled !== disabled) button.disabled = disabled;
       const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
-      updateText(row.querySelector('.patch-row-status'), host.job ? labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : '') : '');
+      const jobState = JSON.stringify(host.job ? [host.job.id, host.job.status, host.job.error] : null);
+      if (jobState !== row.patchJobState) {
+        row.patchJobState = jobState;
+        const active = ['queued', 'patching', 'rebooting'].includes(host.job?.status);
+        // A repeated poll is not a new message; historical outcomes live in Patch Report.
+        if (host.job && (!isNew || active)) {
+          updateText(row.querySelector('.patch-row-status'), labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : ''));
+        }
+      }
     });
     updateText(status, hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.');
     if (initialUptimePending) {
@@ -431,7 +438,7 @@ async function savePatchSchedule(row, machine) {
   const enabled = row.querySelector('[data-field="scheduleEnabled"]');
   const expression = row.querySelector('[data-field="expression"]');
   const button = row.querySelector('[data-action="schedule"]');
-  const status = row.querySelector('.schedule-row-status');
+  const status = row.querySelector('.patch-row-status');
   row.dataset.scheduleSaving = 'true';
   enabled.disabled = button.disabled = true;
   expression.disabled = true;
@@ -473,6 +480,8 @@ async function refreshUptime() {
     while (rows.length) {
       const row = rows.shift();
       const cell = row.querySelector('[data-field="uptime"]');
+      const rowStatus = row.querySelector('.patch-row-status');
+      updateText(rowStatus, 'Refreshing uptime…');
       try {
         const response = await fetch(`/api/patching/hosts/${row.dataset.id}/uptime`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
         if (!response.ok) throw new Error('Uptime unavailable');
@@ -481,9 +490,11 @@ async function refreshUptime() {
         const hours = Math.floor(seconds % 86400 / 3600);
         const minutes = Math.floor(seconds % 3600 / 60);
         updateText(cell, `${days}d ${hours}h ${minutes}m`);
+        updateText(rowStatus, 'Uptime refreshed');
       } catch (error) {
         failures++;
         updateText(cell, 'Unavailable');
+        updateText(rowStatus, 'Host unavailable');
       }
     }
   }

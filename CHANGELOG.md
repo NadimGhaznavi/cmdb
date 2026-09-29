@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Use one per-host Status cell for the latest patch, schedule, or uptime message. New
+  messages replace it immediately; unchanged polling does not restore old results.
+
 ## [0.13.1] - 2026-09-28 @ 19:37
 
 ### Changed

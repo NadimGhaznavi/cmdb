@@ -8,7 +8,10 @@ title: Debian Patching
 
 Patching lists machines whose root operating system is identified as Debian by
 inventory. Generic Linux fingerprints and Debian derivatives are excluded.
-Patch Now queues a job and shows progress beside that host. Status appears in a separate column beside Patch Now. Schedules are optional and start disabled. Reopening the page loads the last recorded job status.
+Patch Now queues a job and shows progress beside that host. Status appears in a separate column beside Patch Now. Schedules are optional and start disabled. The Status cell shows the latest patch or schedule message. New messages replace
+it immediately. Unchanged job polls do not overwrite newer schedule messages;
+historical completed results remain in Patch Report. Active jobs still show progress
+when the page loads.
 
 The independent `cmdb-patch.service` runs `cmdb-patch.py` using the application
 venv and database configuration. The web service only queues work and reads status.

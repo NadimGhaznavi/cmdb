@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-30 @ 19:01
+
 ### Changed
 
 - Simplify Applications to one table with Host, Application, Version, and Install

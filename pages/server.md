@@ -38,9 +38,11 @@ connection.
 
 The homepage keeps the machine inventory graph. The top navigation links to
 Inventory, Applications, Patching, and Backups, in that order.
+The header logo and browser favicon use `pages/images/cmdb.png`, also used by
+the documentation site. Clicking the application logo returns to Inventory.
 Applications shows one Deployed Applications table for existing software deployments,
 including Debian and MariaDB, with Host, Application, Version, and Install Directory
-columns. It starts sorted by Host ascending. Click Host, Application, or Version
+columns. It starts sorted by Host ascending. Click any column heading
 to sort ascending; clicking the active heading reverses the order. Version sorting
 compares numeric parts naturally (for example, 11.9 precedes 11.10). An arrow
 marks the active sort direction, which is retained when reopening the page.

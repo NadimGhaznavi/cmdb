@@ -405,6 +405,7 @@ class ServerTests(unittest.TestCase):
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_local_graph_assets_and_unlisted_paths(self, factory):
         for path in ('/static/machines.css', '/static/machines.js',
+                     '/pages/images/cmdb.png',
                      '/static/vendor/cytoscape-3.34.3.min.js'):
             with self.subTest(path=path):
                 status, body = self.get(path)

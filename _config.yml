@@ -7,6 +7,7 @@ mycount:
   endpoint: "https://count.osoyalce.com/count"
   site: "cmdb"
 repository: "NadimGhaznavi/cmdb"
+logo: "/pages/images/cmdb.png"
 locale: "en-US"
 remote_theme: "NadimGhaznavi/minimal-mistakes"
 minimal_mistakes_skin: "dark"

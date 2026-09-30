@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-09-30 @ 19:27
+
+### Changed
+
+- Make the CMDB logo and favicon background transparent.
+
 ## [0.14.1] - 2026-09-30 @ 19:22
 
 ### Added

@@ -7,6 +7,17 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-09-30 @ 18:48
+
+### Added
+
+- Add Applications navigation between Inventory and Patching, with a Deployed
+  Applications table showing existing software deployments grouped by machine
+  in the same collapsible layout as Live Databases.
+
+- Add Re-Scan beneath the selected inventory machine's header to refresh that
+  host through discovery, OS detection, and SSH inventory, retaining selection.
+
 ## [0.13.4] - 2026-09-29 @ 05:19
 
 ### Changed

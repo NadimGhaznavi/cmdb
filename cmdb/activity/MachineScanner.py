@@ -29,10 +29,15 @@ class MachineScanner(Thread):
         self._error = None
         self._up_hosts = None
         self._scan_network = None
+        self._host_results = {}
+        self._requested_target = None
+        self._active_target = None
 
     def host_is_up(self, address: str) -> bool | None:
         """Return the last discovery result, or unknown outside its scope."""
         with self._state_lock:
+            if address in self._host_results:
+                return self._host_results[address]
             if self._up_hosts is None:
                 return None
             if address in self._up_hosts:
@@ -41,13 +46,18 @@ class MachineScanner(Thread):
                 return False
             return None
 
-    def request_scan(self) -> int:
+    def request_scan(self, target: str | None = None) -> int:
         """Wake the worker, or share the scan already in progress."""
         with self._state_lock:
             if self._stop_requested.is_set() or not self.is_alive():
                 raise RuntimeError("Scanner is unavailable.")
             if self._running_scan:
+                if target != self._active_target:
+                    raise ValueError("Another scan is in progress. Try again when it finishes.")
                 return self._scan_id
+            if self._requested_target is not None and target != self._requested_target:
+                raise ValueError("Another scan is pending. Try again when it finishes.")
+            self._requested_target = target
             self._wake.set()
             return self._scan_id + 1
 
@@ -72,9 +82,15 @@ class MachineScanner(Thread):
                 self._wake.clear()
                 self._scan_id += 1
                 self._running_scan = True
+                target = self._requested_target
+                self._requested_target = None
+                self._active_target = target
             error = None
             try:
-                self.scan_once()
+                if target is None:
+                    self.scan_once()
+                else:
+                    self.scan_once(target)
             except (nmap.PortScannerError, nmap.PortScannerTimeout, pymysql.MySQLError, OSError):
                 error = "Scan failed. Try again."
             finally:
@@ -83,8 +99,8 @@ class MachineScanner(Thread):
                     self._running_scan = False
                     self._error = error
 
-    def scan_once(self) -> None:
-        result = Nmap().scan(DCmdb.SCAN_TARGET, arguments="-sn -n",
+    def scan_once(self, target: str | None = None) -> None:
+        result = Nmap().scan(target or DCmdb.SCAN_TARGET, arguments="-sn -n",
                              timeout=DCmdb.SCAN_TIMEOUT_SECONDS)
         if result["nmap"]["scaninfo"].get("error"):
             raise nmap.PortScannerError("Nmap reported a scan error.")
@@ -103,8 +119,13 @@ class MachineScanner(Thread):
         except ValueError:
             network = None
         with self._state_lock:
-            self._up_hosts = {machine.ipAddress for machine in machines}
-            self._scan_network = network
+            up_hosts = {machine.ipAddress for machine in machines}
+            if target is None:
+                self._up_hosts = up_hosts
+                self._scan_network = network
+                self._host_results.clear()
+            else:
+                self._host_results[target] = target in up_hosts
         if not machines:
             return
         db = DbMgr()

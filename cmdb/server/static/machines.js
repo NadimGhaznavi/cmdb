@@ -267,26 +267,74 @@ async function watchBackup(row, identity, refreshFiles = false) {
   }
 }
 
+let applicationsRequest = 0;
+
+async function loadApplications() {
+  const request = ++applicationsRequest;
+  const status = document.getElementById('applications-status');
+  const body = document.getElementById('application-hosts');
+  body.replaceChildren();
+  status.textContent = 'Loading applications…';
+  try {
+    const response = await fetch('/api/machines', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Applications are unavailable. Reopen Applications to try again.');
+    const { machines, softwareDeployments } = await response.json();
+    if (request !== applicationsRequest) return;
+    const hosts = new Map(machines.map(machine => [machine.id, machine]));
+    const groups = new Map();
+    for (const deployment of softwareDeployments) {
+      if (!groups.has(deployment.machine)) groups.set(deployment.machine, []);
+      groups.get(deployment.machine).push(deployment);
+    }
+    const hostLabel = id => hosts.has(id) ? machineLabel(hosts.get(id)) : `Machine ${id}`;
+    const applicationLabel = deployment => {
+      const name = deployment.subtype || deployment.type || 'Unknown application';
+      return name[0].toUpperCase() + name.slice(1);
+    };
+    const template = document.getElementById('application-host-template');
+    for (const id of [...groups.keys()].sort((a, b) => hostLabel(a).localeCompare(hostLabel(b)))) {
+      const deployments = groups.get(id).sort((a, b) => applicationLabel(a).localeCompare(applicationLabel(b)));
+      const host = hostLabel(id);
+      const section = template.content.cloneNode(true);
+      section.querySelector('summary').textContent = `${host} - ${deployments.length} Application${deployments.length === 1 ? '' : 's'}`;
+      section.querySelector('table').setAttribute('aria-label', `${host} deployed applications`);
+      section.querySelector('.backup-table-scroll').setAttribute('aria-label', `${host} deployed applications`);
+      for (const deployment of deployments) {
+        const row = document.createElement('tr');
+        for (const value of [applicationLabel(deployment), deployment.version, deployment.pathname]) {
+          const cell = document.createElement('td');
+          cell.textContent = value ?? '—';
+          row.append(cell);
+        }
+        section.querySelector('tbody').append(row);
+      }
+      body.append(section);
+    }
+    status.textContent = groups.size ? '' : 'No deployed applications recorded yet.';
+  } catch (error) {
+    if (request !== applicationsRequest) return;
+    status.textContent = error.message || 'Applications could not be loaded. Reopen Applications to try again.';
+  }
+}
+
 function showPage() {
   clearTimeout(patchingTimer);
   ++patchingRequest;
-  const backups = window.location.hash === "#backups";
-  const patching = window.location.hash === '#patching';
+  const page = ['applications', 'patching', 'backups'].includes(window.location.hash.slice(1))
+    ? window.location.hash.slice(1) : 'inventory';
+  const backups = page === 'backups';
+  const patching = page === 'patching';
   initialUptimePending = patching;
-  document.getElementById("backups-heading").hidden = !backups;
-  document.getElementById("inventory-heading").hidden = backups || patching;
-  document.getElementById("inventory-page").hidden = backups || patching;
-  document.getElementById("inventory-footer").hidden = backups || patching;
-  document.getElementById("backups-page").hidden = !backups;
-  document.getElementById('patching-page').hidden = !patching;
-  document.getElementById('patching-heading').hidden = !patching;
-  const link = document.getElementById("page-link");
-  link.textContent = backups || patching ? "Inventory" : "Backups";
-  link.href = backups || patching ? "#inventory" : "#backups";
-  const patchingLink = document.getElementById('patching-link');
-  patchingLink.textContent = patching ? 'Backups' : 'Patching';
-  patchingLink.href = patching ? '#backups' : '#patching';
-  document.title = patching ? 'Patching — CMDB' : backups ? "Backups — CMDB" : "CMDB";
+  for (const name of ['inventory', 'applications', 'patching', 'backups']) {
+    document.getElementById(`${name}-heading`).hidden = page !== name;
+    document.getElementById(`${name}-page`).hidden = page !== name;
+    const link = document.getElementById(name === 'backups' ? 'page-link' : `${name}-link`);
+    if (page === name) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  document.getElementById('inventory-footer').hidden = page !== 'inventory';
+  document.title = page === 'inventory' ? 'CMDB' : `${page[0].toUpperCase() + page.slice(1)} — CMDB`;
+  if (page === 'applications') loadApplications();
   if (patching) loadPatchingHosts();
   if (backups) {
     loadBackups();
@@ -538,16 +586,20 @@ async function loadPatchReport() {
 window.addEventListener("hashchange", showPage);
 showPage();
 
-async function refreshMachines() {
+async function refreshMachines(address = null) {
   if (refreshing) return;
   refreshing = true;
   const refresh = document.getElementById("refresh-button");
+  const rescan = document.getElementById("rescan-machine");
   const status = document.getElementById("graph-status");
   refresh.disabled = true;
-  refresh.textContent = "Scanning…";
-  status.textContent = "Scanning the LAN…";
+  rescan.disabled = true;
+  const button = address ? rescan : refresh;
+  button.textContent = "Scanning…";
+  status.textContent = address ? `Scanning ${address}…` : "Scanning the LAN…";
   try {
-    const response = await fetch("/api/scan", { method: "POST", signal: AbortSignal.timeout(15000) });
+    const endpoint = address ? `/api/machines/${address}/scan` : "/api/scan";
+    const response = await fetch(endpoint, { method: "POST", signal: AbortSignal.timeout(15000) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not start a scan.");
     while (true) {
@@ -557,6 +609,7 @@ async function refreshMachines() {
       if (!response.ok) throw new Error(scan.error || "Could not check the scan.");
       if (scan.completedScanId >= result.scanId) {
         if (scan.error) throw new Error(scan.error);
+        if (address) sessionStorage.setItem('rescan-machine', address);
         window.location.reload();
         return;
       }
@@ -566,11 +619,16 @@ async function refreshMachines() {
   } finally {
     refreshing = false;
     refresh.disabled = false;
+    rescan.disabled = false;
+    rescan.textContent = "Re-Scan";
     refresh.textContent = "Refresh";
   }
 }
 
-document.getElementById("refresh-button").addEventListener("click", refreshMachines);
+document.getElementById("refresh-button").addEventListener("click", () => refreshMachines());
+document.getElementById("rescan-machine").addEventListener("click", event => {
+  refreshMachines(event.currentTarget.dataset.address);
+});
 
 function machineLabel(machine) {
   const shortName = machine.hostName ? machine.hostName.split(".")[0] : "";
@@ -709,6 +767,7 @@ async function loadMachines() {
       }
       selectionDetails.hidden = false;
       details.open = true;
+      document.getElementById("rescan-machine").dataset.address = node.id();
       document.getElementById("machine-heading").textContent = `Machine: ${machineLabel(node.data())}`;
       softwareDetails.replaceChildren();
       const template = document.getElementById("software-detail-template");
@@ -741,6 +800,11 @@ async function loadMachines() {
       const node = event.target;
       selectMachine(node.hasClass("software") ? node.parent() : node);
     });
+    const rescanned = sessionStorage.getItem('rescan-machine');
+    sessionStorage.removeItem('rescan-machine');
+    if (rescanned && graph.getElementById(rescanned).length) {
+      selectMachine(graph.getElementById(rescanned));
+    }
     new ResizeObserver(() => {
       graph.resize();
       graph.fit(undefined, 40);

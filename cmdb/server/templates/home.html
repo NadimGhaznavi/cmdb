@@ -11,8 +11,13 @@
 <body>
   <header>
     <div class="header-heading">
-      <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="patching-heading" hidden>Patching</span></h1>
-      <nav aria-label="Main navigation"><a id="page-link" href="#backups">Backups</a> <a id="patching-link" href="#patching">Patching</a></nav>
+      <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="applications-heading" hidden>Applications</span><span id="patching-heading" hidden>Patching</span></h1>
+      <nav aria-label="Main navigation">
+        <a id="inventory-link" href="#inventory">Inventory</a>
+        <a id="applications-link" href="#applications">Applications</a>
+        <a id="patching-link" href="#patching">Patching</a>
+        <a id="page-link" href="#backups">Backups</a>
+      </nav>
     </div>
     <p>Configuration Management Database</p>
   </header>
@@ -23,6 +28,7 @@
       <aside id="selection-details" aria-label="Selection details" hidden>
         <details id="machine-details" open>
           <summary id="machine-heading"></summary>
+          <div class="page-actions"><button id="rescan-machine" type="button">Re-Scan</button></div>
           <table aria-label="Machine details">
             <tbody>
               <tr><th scope="row">{{label.ipAddress}}:</th><td id="detail-ipAddress"></td></tr>
@@ -135,6 +141,24 @@
           <button id="scan-backup-files" type="button">Scan Filesystem</button>
         </div>
       </footer>
+    </section>
+  </main>
+  <main id="applications-page" aria-labelledby="applications-heading" hidden>
+    <section class="backup-panel" aria-labelledby="deployed-applications-heading">
+      <h3 id="deployed-applications-heading">Deployed Applications</h3>
+      <p id="applications-status" role="status">Loading applications…</p>
+      <div id="application-hosts"></div>
+      <template id="application-host-template">
+        <details class="backup-host">
+          <summary></summary>
+          <div class="backup-table-scroll" tabindex="0" role="region">
+            <table class="backups-table">
+              <thead><tr><th scope="col">Application</th><th scope="col">Version</th><th scope="col">Deployment Path</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
+      </template>
     </section>
   </main>
   <main id="patching-page" aria-labelledby="patching-heading" hidden>

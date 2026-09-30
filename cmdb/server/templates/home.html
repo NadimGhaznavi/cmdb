@@ -147,21 +147,17 @@
     <section class="backup-panel" aria-labelledby="deployed-applications-heading">
       <h3 id="deployed-applications-heading">Deployed Applications</h3>
       <p id="applications-status" role="status">Loading applications…</p>
-      <div class="page-actions">
-        <button id="toggle-applications" type="button" aria-controls="application-hosts" aria-expanded="false" disabled>Expand All</button>
+      <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Deployed applications">
+        <table class="backups-table applications-table" aria-label="Deployed applications">
+          <thead><tr>
+            <th scope="col" aria-sort="ascending"><button type="button" data-application-sort="host">Host<span aria-hidden="true"> ▲</span></button></th>
+            <th scope="col"><button type="button" data-application-sort="application">Application<span aria-hidden="true"></span></button></th>
+            <th scope="col"><button type="button" data-application-sort="version">Version<span aria-hidden="true"></span></button></th>
+            <th scope="col">Install Directory</th>
+          </tr></thead>
+          <tbody id="application-rows"></tbody>
+        </table>
       </div>
-      <div id="application-hosts"></div>
-      <template id="application-host-template">
-        <details class="backup-host">
-          <summary></summary>
-          <div class="backup-table-scroll" tabindex="0" role="region">
-            <table class="backups-table">
-              <thead><tr><th scope="col">Application</th><th scope="col">Version</th><th scope="col">Deployment Path</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </details>
-      </template>
     </section>
   </main>
   <main id="patching-page" aria-labelledby="patching-heading" hidden>

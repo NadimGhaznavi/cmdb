@@ -38,12 +38,12 @@ connection.
 
 The homepage keeps the machine inventory graph. The top navigation links to
 Inventory, Applications, Patching, and Backups, in that order.
-Applications shows a Deployed Applications table grouped into initially collapsed
-machine sections, matching Live Databases. It reads existing software deployments,
-including Debian and MariaDB, with Application, Version, and Deployment Path
-columns. Expand All opens every machine section and switches to Collapse All;
-Collapse All resets the sections to closed. The button also follows individual
-section changes, and reopening the page starts collapsed.
+Applications shows one Deployed Applications table for existing software deployments,
+including Debian and MariaDB, with Host, Application, Version, and Install Directory
+columns. It starts sorted by Host ascending. Click Host, Application, or Version
+to sort ascending; clicking the active heading reverses the order. Version sorting
+compares numeric parts naturally (for example, 11.9 precedes 11.10). An arrow
+marks the active sort direction, which is retained when reopening the page.
 The path is the recorded deployment path: `/` for the OS convention and
 the data directory for MariaDB. This page is read-only; manual application entry
 is not implemented yet. Browser Back and Forward also switch these views.

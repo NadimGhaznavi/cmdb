@@ -161,6 +161,40 @@ class MachineScannerTests(TestCase):
 
     @patch("cmdb.activity.MachineScanner.DbMgr")
     @patch("cmdb.activity.MachineScanner.Nmap")
+    def test_targeted_scan_preserves_other_host_results(self, scanner, db):
+        worker = MachineScanner()
+        scanner.return_value.scan.return_value = {"nmap": {"scaninfo": {}}, "scan": {}}
+        worker.scan_once()
+        scanner.return_value.scan.return_value = {"nmap": {"scaninfo": {}}, "scan": {
+            "192.168.0.7": {"status": {"state": "up"}}}}
+        with patch("cmdb.activity.MachineScanner.MachineDb") as inventory:
+            inventory.return_value.upsert.return_value = 7
+            worker.scan_once("192.168.0.7")
+        self.assertTrue(worker.host_is_up("192.168.0.7"))
+        self.assertFalse(worker.host_is_up("192.168.0.8"))
+        self.ssh_activity.return_value.run.assert_called_once_with({"192.168.0.7": 7})
+        self.assertEqual(scanner.return_value.scan.call_args_list[1].args, ("192.168.0.7",))
+        scanner.return_value.scan.return_value = {"nmap": {"scaninfo": {}}, "scan": {}}
+        worker.scan_once("192.168.0.8")
+        self.assertTrue(worker.host_is_up("192.168.0.7"))
+        self.assertFalse(worker.host_is_up("192.168.0.8"))
+
+    def test_targeted_requests_share_same_target_and_reject_other_scans(self):
+        worker = MachineScanner()
+        worker.is_alive = Mock(return_value=True)
+        self.assertEqual(worker.request_scan("192.168.0.7"), 1)
+        self.assertEqual(worker.request_scan("192.168.0.7"), 1)
+        with self.assertRaises(ValueError):
+            worker.request_scan("192.168.0.8")
+        worker._running_scan = True
+        worker._active_target = "192.168.0.7"
+        worker._scan_id = 1
+        self.assertEqual(worker.request_scan("192.168.0.7"), 1)
+        with self.assertRaises(ValueError):
+            worker.request_scan()
+
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
     def test_empty_or_failed_scans_do_not_open_database(self, scanner, db):
         for info in ({}, {"error": ["socket unavailable"]}):
             scanner.return_value.scan.return_value = {"nmap": {"scaninfo": info}, "scan": {}}

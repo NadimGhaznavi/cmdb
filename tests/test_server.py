@@ -244,6 +244,32 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), scanner.scan_status.return_value)
 
+    @patch('cmdb.server.CmdbHandler.MachineDb')
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_selected_machine_rescan(self, db, inventory):
+        inventory.return_value.list_machines.return_value = [Mock(ipAddress='192.168.0.7')]
+        scanner = self.server.machine_scanner = Mock()
+        scanner.request_scan.return_value = 8
+        for address, expected in [('192.168.0.7', 202), ('192.168.0.8', 404), ('invalid', 400)]:
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('POST', f'/api/machines/{address}/scan')
+                response = connection.getresponse()
+                self.assertEqual(response.status, expected)
+                response.read()
+            finally:
+                connection.close()
+        scanner.request_scan.assert_called_once_with('192.168.0.7')
+        scanner.request_scan.side_effect = ValueError('Another scan is in progress.')
+        connection = HTTPConnection(*self.server.server_address)
+        try:
+            connection.request('POST', '/api/machines/192.168.0.7/scan')
+            response = connection.getresponse()
+            self.assertEqual(response.status, 409)
+            response.read()
+        finally:
+            connection.close()
+
     def test_scan_endpoints_return_503_without_a_worker(self):
         self.assertEqual(self.get('/api/scan')[0], 503)
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)

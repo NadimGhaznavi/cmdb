@@ -165,12 +165,19 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 if scanner is None:
                     raise RuntimeError("Scanner is unavailable.")
                 scan_id = scanner.request_scan()
+            except ValueError as error:
+                self.respond(409, json.dumps({"error": str(error)}).encode(), "application/json")
+                return
             except RuntimeError:
                 self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
                 return
             self.respond(202, json.dumps({"scanId": scan_id}).encode("utf-8"), "application/json")
             return
-        if urlsplit(self.path).path != "/api/machines/hostname":
+        path = urlsplit(self.path).path
+        if path.startswith('/api/machines/') and path.endswith('/scan'):
+            self.rescan_machine(path.removeprefix('/api/machines/').removesuffix('/scan'))
+            return
+        if path != "/api/machines/hostname":
             self.send_error(404, "Page not found")
             return
         if self.headers.get_content_type() != "application/json":
@@ -210,6 +217,33 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Machine no longer exists."}', "application/json")
             return
         self.respond(200, json.dumps({"machine": machine_record(machine)}).encode("utf-8"), "application/json")
+
+    def rescan_machine(self, address: str) -> None:
+        try:
+            ip_address(address)
+        except ValueError:
+            self.respond(400, b'{"error":"Invalid machine address."}', 'application/json')
+            return
+        try:
+            db = DbMgr()
+            try:
+                known = any(machine.ipAddress == address for machine in MachineDb(db).list_machines())
+            finally:
+                db.close()
+            if not known:
+                self.respond(404, b'{"error":"Machine no longer exists."}', 'application/json')
+                return
+            scanner = getattr(self.server, 'machine_scanner', None)
+            if scanner is None:
+                raise RuntimeError('Scanner is unavailable.')
+            scan_id = scanner.request_scan(address)
+        except ValueError as error:
+            self.respond(409, json.dumps({'error': str(error)}).encode(), 'application/json')
+            return
+        except (pymysql.MySQLError, RuntimeError):
+            self.respond(503, b'{"error":"Could not start the machine scan. Try again."}', 'application/json')
+            return
+        self.respond(202, json.dumps({'scanId': scan_id}).encode(), 'application/json')
 
     def host_uptime(self, identity: str) -> None:
         if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:

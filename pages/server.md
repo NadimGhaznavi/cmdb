@@ -36,8 +36,14 @@ Database errors are logged to the service journal; the HTTP response contains
 only a short status. Each readiness request opens and closes its own database
 connection.
 
-The homepage keeps the machine inventory graph. A Backups link at the top right
-switches the main panel to a Backups page and becomes an Inventory link to return.
+The homepage keeps the machine inventory graph. The top navigation links to
+Inventory, Applications, Patching, and Backups, in that order.
+Applications shows a Deployed Applications table grouped into initially collapsed
+machine sections, matching Live Databases. It reads existing software deployments,
+including Debian and MariaDB, with Application, Version, and Deployment Path
+columns. The path is the recorded deployment path: `/` for the OS convention and
+the data directory for MariaDB. This page is read-only; manual application entry
+is not implemented yet. Browser Back and Forward also switch these views.
 The Live Databases section groups stored databases into collapsible host sections,
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
@@ -62,6 +68,11 @@ records when the page opens. Refresh at the bottom left wakes the existing
 scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
 Requests during an active scan share that scan; scans never overlap.
+
+Re-Scan beneath a selected machine's header runs the same discovery, OS, and SSH
+inventory steps for that host alone, then reloads with the machine selected.
+Requests for a different scan while one is active report that the scanner is busy.
+Other machines' reachability results are preserved by a single-host scan.
 Nodes use bold white 16px labels. Named machines have dark green rounded
 rectangles of size 160 × 80 when empty; unnamed machines have grey circles.
 Machines with deployed software expand into rounded containers with the machine

@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Simplify Applications to one table with Host, Application, Version, and Install
+  Directory, with reversible sorting on the first three column headings.
+
+- Remove the coding guidelines' restriction on assistant Git operations and
+  release scripts, allowing them within the authorized workflow.
+
 ## [0.13.6] - 2026-09-30 @ 18:53
 
 ### Added

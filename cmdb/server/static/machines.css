@@ -100,3 +100,6 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 
 .backups-table input[type="text"] { box-sizing: content-box; width: 20ch; font-family: monospace; font-size: inherit; background: #24272c; color: #eee; border: 1px solid #d98124; padding: .4rem .6rem; }
 .backups-table input[type="text"]:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+
+.applications-table th button { border: 0; background: transparent; color: inherit; font-weight: inherit; padding: 0; white-space: nowrap; }
+.applications-table th button:hover { text-decoration: underline; }

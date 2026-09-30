@@ -12,13 +12,9 @@ the shared theme's existing layouts to custom code or duplicated assets.
 
 The AI coding assistant is the lead developer and handles implementation,
 checks, and documentation within the architecture and standards set by the
-project owner. The project owner is the architect and release manager and
-owns all Git operations and releases.
-
-The assistant must never run Git commands or release scripts. This includes
-read-only Git commands and invoking release scripts indirectly through tests.
-Leave those operations to the project owner. Shell syntax checks that do not
-execute the release script are permitted.
+project owner. The project owner is the architect and release manager.
+The assistant may perform Git operations and run release scripts as part of
+the authorized workflow.
 
 ## Organize by responsibility
 

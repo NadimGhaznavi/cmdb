@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Add an Expand All / Collapse All toggle to Deployed Applications, keeping its
+  label synchronized with individual machine sections and resetting on page load.
+
 ## [0.13.5] - 2026-09-30 @ 18:48
 
 ### Added

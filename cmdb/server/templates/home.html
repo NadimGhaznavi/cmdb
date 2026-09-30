@@ -147,6 +147,9 @@
     <section class="backup-panel" aria-labelledby="deployed-applications-heading">
       <h3 id="deployed-applications-heading">Deployed Applications</h3>
       <p id="applications-status" role="status">Loading applications…</p>
+      <div class="page-actions">
+        <button id="toggle-applications" type="button" aria-controls="application-hosts" aria-expanded="false" disabled>Expand All</button>
+      </div>
       <div id="application-hosts"></div>
       <template id="application-host-template">
         <details class="backup-host">

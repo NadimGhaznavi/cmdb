@@ -41,7 +41,10 @@ Inventory, Applications, Patching, and Backups, in that order.
 Applications shows a Deployed Applications table grouped into initially collapsed
 machine sections, matching Live Databases. It reads existing software deployments,
 including Debian and MariaDB, with Application, Version, and Deployment Path
-columns. The path is the recorded deployment path: `/` for the OS convention and
+columns. Expand All opens every machine section and switches to Collapse All;
+Collapse All resets the sections to closed. The button also follows individual
+section changes, and reopening the page starts collapsed.
+The path is the recorded deployment path: `/` for the OS convention and
 the data directory for MariaDB. This page is read-only; manual application entry
 is not implemented yet. Browser Back and Forward also switch these views.
 The Live Databases section groups stored databases into collapsible host sections,

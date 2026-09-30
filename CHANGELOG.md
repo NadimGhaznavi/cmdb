@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-09-30 @ 18:48
+
 ### Added
 
 - Add Applications navigation between Inventory and Patching, with a Deployed

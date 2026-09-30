@@ -269,11 +269,28 @@ async function watchBackup(row, identity, refreshFiles = false) {
 
 let applicationsRequest = 0;
 
+function updateApplicationsToggle() {
+  const sections = [...document.querySelectorAll('#application-hosts details')];
+  const expanded = sections.length > 0 && sections.every(section => section.open);
+  const button = document.getElementById('toggle-applications');
+  button.disabled = sections.length === 0;
+  button.textContent = expanded ? 'Collapse All' : 'Expand All';
+  button.setAttribute('aria-expanded', String(expanded));
+}
+
+document.getElementById('toggle-applications').addEventListener('click', () => {
+  const sections = [...document.querySelectorAll('#application-hosts details')];
+  const expand = !sections.every(section => section.open);
+  for (const section of sections) section.open = expand;
+  updateApplicationsToggle();
+});
+
 async function loadApplications() {
   const request = ++applicationsRequest;
   const status = document.getElementById('applications-status');
   const body = document.getElementById('application-hosts');
   body.replaceChildren();
+  updateApplicationsToggle();
   status.textContent = 'Loading applications…';
   try {
     const response = await fetch('/api/machines', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
@@ -296,6 +313,7 @@ async function loadApplications() {
       const deployments = groups.get(id).sort((a, b) => applicationLabel(a).localeCompare(applicationLabel(b)));
       const host = hostLabel(id);
       const section = template.content.cloneNode(true);
+      section.querySelector('details').addEventListener('toggle', updateApplicationsToggle);
       section.querySelector('summary').textContent = `${host} - ${deployments.length} Application${deployments.length === 1 ? '' : 's'}`;
       section.querySelector('table').setAttribute('aria-label', `${host} deployed applications`);
       section.querySelector('.backup-table-scroll').setAttribute('aria-label', `${host} deployed applications`);
@@ -310,6 +328,7 @@ async function loadApplications() {
       }
       body.append(section);
     }
+    updateApplicationsToggle();
     status.textContent = groups.size ? '' : 'No deployed applications recorded yet.';
   } catch (error) {
     if (request !== applicationsRequest) return;

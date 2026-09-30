@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CMDB</title>
+  <link rel="icon" type="image/png" href="/pages/images/cmdb.png">
   <link rel="stylesheet" href="/static/machines.css">
   <script defer src="/static/vendor/cytoscape-3.34.3.min.js"></script>
   <script defer src="/static/machines.js"></script>
@@ -11,7 +12,10 @@
 <body>
   <header>
     <div class="header-heading">
-      <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="applications-heading" hidden>Applications</span><span id="patching-heading" hidden>Patching</span></h1>
+      <div class="header-brand">
+        <a class="site-logo" href="#inventory" aria-label="CMDB inventory"><img src="/pages/images/cmdb.png" alt="" width="64" height="64"></a>
+        <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="applications-heading" hidden>Applications</span><span id="patching-heading" hidden>Patching</span></h1>
+      </div>
       <nav aria-label="Main navigation">
         <a id="inventory-link" href="#inventory">Inventory</a>
         <a id="applications-link" href="#applications">Applications</a>
@@ -153,7 +157,7 @@
             <th scope="col" aria-sort="ascending"><button type="button" data-application-sort="host">Host<span aria-hidden="true"> ▲</span></button></th>
             <th scope="col"><button type="button" data-application-sort="application">Application<span aria-hidden="true"></span></button></th>
             <th scope="col"><button type="button" data-application-sort="version">Version<span aria-hidden="true"></span></button></th>
-            <th scope="col">Install Directory</th>
+            <th scope="col"><button type="button" data-application-sort="pathname">Install Directory<span aria-hidden="true"></span></button></th>
           </tr></thead>
           <tbody id="application-rows"></tbody>
         </table>

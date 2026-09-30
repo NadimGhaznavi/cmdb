@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-09-30 @ 19:22
+
 ### Added
 
 - Added a logo.

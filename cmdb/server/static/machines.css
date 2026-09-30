@@ -1,6 +1,9 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 .header-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.header-brand { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; min-width: 0; }
+.site-logo { display: block; flex-shrink: 0; }
+.site-logo img { display: block; width: 64px; height: 64px; }
 .header-heading h1 { white-space: nowrap; font-size: clamp(1.5rem, 8vw, 2em); }
 .header-heading nav { margin-left: auto; display: flex; gap: 1rem; flex-wrap: wrap; }
 .header-heading a { color: #ffb454; }

@@ -7,6 +7,18 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Added a logo.
+
+### Changed
+
+- Use cmdb.png as the application header logo and favicon, and as the
+  documentation site's logo and favicon; include the image in service deployments.
+
+- Make the Applications table's Install Directory heading sort ascending or
+  descending like the other columns.
+
 ## [0.14.0] - 2026-09-30 @ 19:01
 
 ### Changed

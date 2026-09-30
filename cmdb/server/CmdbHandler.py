@@ -131,6 +131,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(404, b'{"error":"Backup not found."}', 'application/json')
             else:
                 self.respond(200, json.dumps(result, default=backup_json).encode(), 'application/json')
+        elif path == "/pages/images/cmdb.png":
+            self.respond(200, (Path(__file__).resolve().parents[2] / "pages/images/cmdb.png").read_bytes(), "image/png")
         elif path in STATIC_FILES:
             filename, content_type = STATIC_FILES[path]
             self.respond(200, (Path(__file__).parent / "static" / filename).read_bytes(), content_type)

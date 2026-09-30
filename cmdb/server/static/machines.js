@@ -269,28 +269,52 @@ async function watchBackup(row, identity, refreshFiles = false) {
 
 let applicationsRequest = 0;
 
-function updateApplicationsToggle() {
-  const sections = [...document.querySelectorAll('#application-hosts details')];
-  const expanded = sections.length > 0 && sections.every(section => section.open);
-  const button = document.getElementById('toggle-applications');
-  button.disabled = sections.length === 0;
-  button.textContent = expanded ? 'Collapse All' : 'Expand All';
-  button.setAttribute('aria-expanded', String(expanded));
+let applicationRows = [];
+let applicationSort = 'host';
+let applicationDescending = false;
+const applicationCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+function renderApplications() {
+  const body = document.getElementById('application-rows');
+  body.replaceChildren();
+  const compare = (left, right, field) => applicationCollator.compare(left[field] ?? '', right[field] ?? '');
+  const rows = [...applicationRows].sort((left, right) => {
+    const order = compare(left, right, applicationSort) || compare(left, right, 'host')
+      || compare(left, right, 'application') || compare(left, right, 'version')
+      || compare(left, right, 'pathname');
+    return applicationDescending ? -order : order;
+  });
+  for (const application of rows) {
+    const row = document.createElement('tr');
+    for (const value of [application.host, application.application, application.version, application.pathname]) {
+      const cell = document.createElement('td');
+      cell.textContent = value ?? '—';
+      row.append(cell);
+    }
+    body.append(row);
+  }
+  for (const button of document.querySelectorAll('[data-application-sort]')) {
+    const selected = button.dataset.applicationSort === applicationSort;
+    if (selected) button.closest('th').setAttribute('aria-sort', applicationDescending ? 'descending' : 'ascending');
+    else button.closest('th').removeAttribute('aria-sort');
+    button.querySelector('span').textContent = selected ? (applicationDescending ? ' ▼' : ' ▲') : '';
+  }
 }
 
-document.getElementById('toggle-applications').addEventListener('click', () => {
-  const sections = [...document.querySelectorAll('#application-hosts details')];
-  const expand = !sections.every(section => section.open);
-  for (const section of sections) section.open = expand;
-  updateApplicationsToggle();
-});
+for (const button of document.querySelectorAll('[data-application-sort]')) {
+  button.addEventListener('click', () => {
+    const field = button.dataset.applicationSort;
+    applicationDescending = field === applicationSort ? !applicationDescending : false;
+    applicationSort = field;
+    renderApplications();
+  });
+}
 
 async function loadApplications() {
   const request = ++applicationsRequest;
   const status = document.getElementById('applications-status');
-  const body = document.getElementById('application-hosts');
-  body.replaceChildren();
-  updateApplicationsToggle();
+  applicationRows = [];
+  renderApplications();
   status.textContent = 'Loading applications…';
   try {
     const response = await fetch('/api/machines', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
@@ -298,38 +322,17 @@ async function loadApplications() {
     const { machines, softwareDeployments } = await response.json();
     if (request !== applicationsRequest) return;
     const hosts = new Map(machines.map(machine => [machine.id, machine]));
-    const groups = new Map();
-    for (const deployment of softwareDeployments) {
-      if (!groups.has(deployment.machine)) groups.set(deployment.machine, []);
-      groups.get(deployment.machine).push(deployment);
-    }
-    const hostLabel = id => hosts.has(id) ? machineLabel(hosts.get(id)) : `Machine ${id}`;
-    const applicationLabel = deployment => {
+    applicationRows = softwareDeployments.map(deployment => {
       const name = deployment.subtype || deployment.type || 'Unknown application';
-      return name[0].toUpperCase() + name.slice(1);
-    };
-    const template = document.getElementById('application-host-template');
-    for (const id of [...groups.keys()].sort((a, b) => hostLabel(a).localeCompare(hostLabel(b)))) {
-      const deployments = groups.get(id).sort((a, b) => applicationLabel(a).localeCompare(applicationLabel(b)));
-      const host = hostLabel(id);
-      const section = template.content.cloneNode(true);
-      section.querySelector('details').addEventListener('toggle', updateApplicationsToggle);
-      section.querySelector('summary').textContent = `${host} - ${deployments.length} Application${deployments.length === 1 ? '' : 's'}`;
-      section.querySelector('table').setAttribute('aria-label', `${host} deployed applications`);
-      section.querySelector('.backup-table-scroll').setAttribute('aria-label', `${host} deployed applications`);
-      for (const deployment of deployments) {
-        const row = document.createElement('tr');
-        for (const value of [applicationLabel(deployment), deployment.version, deployment.pathname]) {
-          const cell = document.createElement('td');
-          cell.textContent = value ?? '—';
-          row.append(cell);
-        }
-        section.querySelector('tbody').append(row);
-      }
-      body.append(section);
-    }
-    updateApplicationsToggle();
-    status.textContent = groups.size ? '' : 'No deployed applications recorded yet.';
+      return {
+        host: hosts.has(deployment.machine) ? machineLabel(hosts.get(deployment.machine)) : `Machine ${deployment.machine}`,
+        application: name[0].toUpperCase() + name.slice(1),
+        version: deployment.version,
+        pathname: deployment.pathname,
+      };
+    });
+    renderApplications();
+    status.textContent = applicationRows.length ? '' : 'No deployed applications recorded yet.';
   } catch (error) {
     if (request !== applicationsRequest) return;
     status.textContent = error.message || 'Applications could not be loaded. Reopen Applications to try again.';

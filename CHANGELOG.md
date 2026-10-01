@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.8] - 2026-10-01 @ 05:19
+
 - Detect installed applications using only their `D`-prefixed constants files
   (such as `DMyCount.py`).
 

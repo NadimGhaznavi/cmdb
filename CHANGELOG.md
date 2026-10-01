@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Log application scan results as one-line status messages with host, application,
+  and detected version, or a brief missing/read-failure outcome.
+- Include the calling module's name in each status message's `source` field
+  and display it before the message in the Status Messages box.
+- Add a shared Status Messages box to all CMDB screens with five visible lines,
+  scrollable history, and live scan updates. Keep history in server memory and
+  clear it on restart.
+
 ## [0.15.0] - 2026-10-01 @ 03:42
 
 ### Added

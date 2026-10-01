@@ -739,7 +739,8 @@ function compareSoftware(left, right) {
 
 async function loadMachines() {
   const theme = getComputedStyle(document.documentElement);
-  const palette = Object.fromEntries(["background", "surface", "text", "border", "accent", "danger"]
+  const palette = Object.fromEntries(["background", "surface", "text", "border", "selection", "danger",
+    "software-surface", "software-unnamed", "software-selection", "software-danger"]
     .map(color => [color, theme.getPropertyValue(`--${color}`).trim()]));
   const status = document.getElementById("graph-status");
   const details = document.getElementById("machine-details");
@@ -771,7 +772,7 @@ async function loadMachines() {
         elements.push({ data: { ...system, id: `deployment-${system.id}`,
           parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
           selectable: false, grabbable: false,
-          position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * 80 } });
+          position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * 110 } });
       });
     });
     const graph = cytoscape({
@@ -781,39 +782,48 @@ async function loadMachines() {
         { selector: "node", style: {
           "background-color": palette.surface, "border-color": palette.border, "border-width": 2,
           "width": 160, "height": 160, "label": "data(label)", "color": palette.text,
-          "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
+          "font-size": 24, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
         { selector: ".machine[?hostName]", style: {
           "shape": "round-rectangle", "width": 160, "height": 80,
         } },
         { selector: "node:selected", style: {
-          "background-color": palette.accent, "border-color": palette.accent, "border-width": 3,
-          "color": palette.background,
+          "background-color": palette.selection, "border-color": palette.selection, "border-width": 3,
+          "color": palette.text,
         } },
         { selector: ".machine[!hostName]", style: {
           "background-color": palette.text, "border-color": palette.border, "color": palette.background,
         } },
         { selector: ".machine[!hostName]:selected", style: {
-          "background-color": palette.accent, "border-color": palette.accent,
+          "background-color": palette.selection, "border-color": palette.selection, "color": palette.text,
         } },
         { selector: ".machine:parent", style: {
           "shape": "round-rectangle", "padding": 35,
-          "text-valign": "top", "text-margin-y": 27, "text-max-width": 240,
+          "text-valign": "top", "text-margin-y": 27, "text-max-width": 300,
         } },
         { selector: ".software", style: {
-          "shape": "round-rectangle", "width": 230, "height": 60,
-          "background-color": palette.text, "border-color": palette.background, "color": palette.background,
-          "text-max-width": 210,
+          "shape": "round-rectangle", "width": 300, "height": 90,
+          "background-color": palette["software-surface"], "border-color": palette.border, "color": palette.text,
+          "text-max-width": 280,
+        } },
+        { selector: ".machine[!hostName] > .software", style: {
+          "background-color": palette["software-unnamed"], "color": palette.background,
         } },
         { selector: ".machine.down", style: {
           "background-color": palette.danger, "border-color": palette.border, "color": palette.text,
         } },
         { selector: ".machine.down > .software", style: {
-          "background-color": palette.danger, "border-color": palette.background, "color": palette.text,
+          "background-color": palette["software-danger"], "border-color": palette.border, "color": palette.text,
         } },
         { selector: ".machine.down:selected", style: {
-          "border-color": palette.accent, "border-width": 3,
+          "border-color": palette.selection, "border-width": 3,
+        } },
+        { selector: ".machine:selected > .software", style: {
+          "background-color": palette["software-selection"], "border-color": palette.selection, "color": palette.text,
+        } },
+        { selector: ".machine.down:selected > .software", style: {
+          "background-color": palette["software-danger"],
         } },
       ],
       layout: { name: "preset", padding: 40 },

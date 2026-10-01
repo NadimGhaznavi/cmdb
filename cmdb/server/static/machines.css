@@ -7,6 +7,11 @@
   --border: #62412b;
   --accent: #ffac63;
   --danger: #9c3f32;
+  --selection: #365f87;
+  --software-surface: #493427;
+  --software-unnamed: #fff3e7;
+  --software-selection: #527ca3;
+  --software-danger: #b45143;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }

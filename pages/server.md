@@ -88,8 +88,11 @@ state when expanded. Last Backup displays `---` until the first successful backu
 Browser Back and Forward also switch
 views. The scan button and refresh timestamp are shown only on Inventory.
 
-The main panel fills the remaining window below the title. It loads database
-records when the page opens. Refresh at the bottom left wakes the existing
+The inventory graph has its own bordered box, filling the remaining window below
+the title. Selecting a machine reveals a separate details box on the left; on
+narrow screens the details box appears above the graph. The graph box includes
+its loading or error message, Refresh button, and last-refresh timestamp. It loads
+database records when the page opens. Refresh at the bottom left wakes the existing
 scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
 Requests during an active scan share that scan; scans never overlap.
@@ -98,10 +101,11 @@ Re-Scan beneath a selected machine's header runs the same discovery, OS, and SSH
 inventory steps for that host alone, then reloads with the machine selected.
 Requests for a different scan while one is active report that the scanner is busy.
 Other machines' reachability results are preserved by a single-host scan.
-The app uses a Mondrian palette on a black background, with red, yellow, blue,
-and warm white accents. Nodes use bold 16px labels with contrasting text.
-Named machines have blue rounded rectangles of size 160 × 80 when empty;
-unnamed machines have warm white circles.
+The app uses MyCount’s warm dark theme: brown backgrounds, cream text, orange
+links and focus outlines, and subtle brown panel and table borders. Nodes use
+bold 16px labels with contrasting text.
+Named machines have dark brown rounded rectangles of size 160 × 80 when empty;
+unnamed machines have cream circles.
 Machines with deployed software expand into rounded containers with the machine
 name above nested software rectangles. Software labels include the subtype,
 codename when present, and version, such as `Debian (trixie) 13.6`.
@@ -115,7 +119,8 @@ listing stored Schema names for that deployment, one per line (or a dash when
 none are recorded). User databases appear first, followed by a horizontal rule
 when any are present, then system databases: `mysql`, `information_schema`,
 `performance_schema`, and `sys` when recorded.
-Selection turns a reachable machine yellow with black text.
+Selection turns a reachable machine orange with dark text. Unreachable machines
+use muted red with cream text and an orange border when selected.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.

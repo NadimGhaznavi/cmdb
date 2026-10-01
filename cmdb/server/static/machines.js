@@ -738,6 +738,9 @@ function compareSoftware(left, right) {
 }
 
 async function loadMachines() {
+  const theme = getComputedStyle(document.documentElement);
+  const palette = Object.fromEntries(["black", "white", "red", "yellow", "blue"]
+    .map(color => [color, theme.getPropertyValue(`--mondrian-${color}`).trim()]));
   const status = document.getElementById("graph-status");
   const details = document.getElementById("machine-details");
   const selectionDetails = document.getElementById("selection-details");
@@ -776,8 +779,8 @@ async function loadMachines() {
       elements,
       style: [
         { selector: "node", style: {
-          "background-color": "#082b17", "border-color": "#4ade80", "border-width": 2,
-          "width": 160, "height": 160, "label": "data(label)", "color": "#fff",
+          "background-color": palette.blue, "border-color": palette.white, "border-width": 2,
+          "width": 160, "height": 160, "label": "data(label)", "color": palette.white,
           "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
@@ -785,13 +788,14 @@ async function loadMachines() {
           "shape": "round-rectangle", "width": 160, "height": 80,
         } },
         { selector: "node:selected", style: {
-          "background-color": "#14532d", "border-color": "#d98124", "border-width": 3,
+          "background-color": palette.yellow, "border-color": palette.yellow, "border-width": 3,
+          "color": palette.black,
         } },
         { selector: ".machine[!hostName]", style: {
-          "background-color": "#3f454b", "border-color": "#9ca3af",
+          "background-color": palette.white, "border-color": palette.white, "color": palette.black,
         } },
         { selector: ".machine[!hostName]:selected", style: {
-          "background-color": "#5b626a", "border-color": "#d98124",
+          "background-color": palette.yellow, "border-color": palette.yellow,
         } },
         { selector: ".machine:parent", style: {
           "shape": "round-rectangle", "padding": 35,
@@ -799,17 +803,17 @@ async function loadMachines() {
         } },
         { selector: ".software", style: {
           "shape": "round-rectangle", "width": 230, "height": 60,
-          "background-color": "#123c29", "border-color": "#4ade80",
+          "background-color": palette.white, "border-color": palette.black, "color": palette.black,
           "text-max-width": 210,
         } },
         { selector: ".machine.down", style: {
-          "background-color": "#522d30", "border-color": "#b66b70",
+          "background-color": palette.red, "border-color": palette.white, "color": palette.white,
         } },
         { selector: ".machine.down > .software", style: {
-          "background-color": "#66383c", "border-color": "#b66b70",
+          "background-color": palette.red, "border-color": palette.black, "color": palette.white,
         } },
         { selector: ".machine.down:selected", style: {
-          "border-color": "#d98124", "border-width": 3,
+          "border-color": palette.yellow, "border-width": 3,
         } },
       ],
       layout: { name: "preset", padding: 40 },

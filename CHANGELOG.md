@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.6] - 2026-10-01 @ 04:52
+
 - Increase inventory graph labels to 24px bold, use blue for machine selection,
   and give application boxes a lighter shade of their machine's background.
 

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-01 @ 04:28
+
 - Log application scan results as one-line status messages with host, application,
   and detected version, or a brief missing/read-failure outcome.
 - Include the calling module's name in each status message's `source` field

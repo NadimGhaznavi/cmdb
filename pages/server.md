@@ -31,12 +31,21 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
+| `/status-messages` | Reads shared in-memory status history as JSON without querying MariaDB. |
 | `/health` | HTTP 200 JSON identifying `cmdb-server`; checks HTTP availability without querying MariaDB. |
 | `/ready` | Queries MariaDB; HTTP 200 when connected, HTTP 503 on a database error. |
 
 Database errors are logged to the service journal; the HTTP response contains
 only a short status. Each readiness request opens and closes its own database
 connection.
+
+Every screen includes a Status Messages box below its main panel, with five
+visible lines and scrollable history. It polls shared server history every two
+seconds and shows inventory and application scan starts, completions, and failures.
+Each history entry contains `source` (the full name of the module calling
+`append()`) and `message`. Messages are rendered as plain text with the source
+in brackets before the message. History stays in memory and clears when the
+server restarts; it is not written to MariaDB or disk.
 
 The homepage keeps the machine inventory graph. The top navigation links to
 Inventory, Applications, Patching, and Backups, in that order.

@@ -147,6 +147,8 @@ Inventory scans check applications on responding hosts after the SSH follow-up.
 Re-Scan Applications checks all inventoried hosts without running network or OS
 discovery. Both run on the existing scanner worker; duplicate requests share
 the active scan and conflicting scan requests report that the scanner is busy.
+The Status Messages box reports each checked host IP and application with its
+recorded version, or `not detected` / `read failed`, on one line.
 
 Missing directories, missing files, or invalid VERSION values make no changes
 to inventory. Host access failures preserve records and allow the remaining

@@ -31,6 +31,7 @@ from cmdb.entity.Machine import Machine
 
 STATIC_FILES = {
     "/static/machines.css": ("machines.css", "text/css; charset=utf-8"),
+    "/static/status_messages.js": ("status_messages.js", "text/javascript; charset=utf-8"),
     "/static/machines.js": ("machines.js", "text/javascript; charset=utf-8"),
     "/static/vendor/cytoscape-3.34.3.min.js": (
         "vendor/cytoscape-3.34.3.min.js", "text/javascript; charset=utf-8"),
@@ -58,7 +59,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlsplit(self.path).path
-        if path == "/health":
+        if path == "/status-messages":
+            self.respond(200, json.dumps(self.server.status_messages.snapshot()).encode(), "application/json")
+        elif path == "/health":
             self.respond(200, b'{"status":"ok","service":"cmdb-server"}', "application/json")
         elif path == "/ready":
             try:

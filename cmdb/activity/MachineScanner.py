@@ -9,6 +9,7 @@ import pymysql
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.activity.MachineSSH import MachineSSH
 from cmdb.activity.ApplicationScanner import ApplicationScanner
+from cmdb.entity.StatusMessages import StatusMessages
 from cmdb.entity.Machine import Machine
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
@@ -18,8 +19,9 @@ from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 
 
 class MachineScanner(Thread):
-    def __init__(self) -> None:
+    def __init__(self, status_messages: StatusMessages | None = None) -> None:
         super().__init__(name="machine-scanner")
+        self.status_messages = status_messages if status_messages is not None else StatusMessages()
         self._stop_requested = Event()
         self._wake = Event()
         self._wake.set()
@@ -96,6 +98,8 @@ class MachineScanner(Thread):
                 self._pending_scan = False
                 self._active_target = target
                 self._active_applications = applications_only
+            description = "Applications" if applications_only else f"Inventory ({target or DCmdb.SCAN_TARGET})"
+            self.status_messages.append(f"{description}: scan started.")
             error = None
             try:
                 if applications_only:
@@ -107,6 +111,8 @@ class MachineScanner(Thread):
             except (nmap.PortScannerError, nmap.PortScannerTimeout, pymysql.MySQLError, OSError):
                 error = "Scan failed. Try again."
             finally:
+                outcome = error or ("Scan stopped." if self._stop_requested.is_set() else "Scan completed.")
+                self.status_messages.append(f"{description}: {outcome}")
                 with self._state_lock:
                     self._completed_scan_id = self._scan_id
                     self._running_scan = False
@@ -163,7 +169,7 @@ class MachineScanner(Thread):
         if not self._stop_requested.is_set():
             MachineSSH(self._stop_requested).run(machine_ids)
         if not self._stop_requested.is_set():
-            ApplicationScanner(self._stop_requested).run(machine_ids)
+            ApplicationScanner(self._stop_requested, self.status_messages).run(machine_ids)
         if scan_error is not None:
             raise scan_error
 
@@ -175,7 +181,7 @@ class MachineScanner(Thread):
         finally:
             db.close()
         if machines and not self._stop_requested.is_set():
-            ApplicationScanner(self._stop_requested).run(machines)
+            ApplicationScanner(self._stop_requested, self.status_messages).run(machines)
 
     def _scan_operating_systems(self, machine_ids: dict[str, int]) -> None:
         # Commit discovery first, without holding a database connection during Nmap.

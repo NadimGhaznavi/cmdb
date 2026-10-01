@@ -8,12 +8,43 @@ import nmap
 import pymysql
 
 from cmdb.entity.Machine import Machine
+from cmdb.entity.StatusMessages import StatusMessages
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.activity.MachineScanner import MachineScanner
 
 
 class MachineScannerTests(TestCase):
+    def test_worker_reports_scan_outcome_to_shared_history(self):
+        for applications_only in (False, True):
+            for failure in (None, OSError('private failure')):
+                with self.subTest(applications_only=applications_only, failure=failure):
+                    history = StatusMessages()
+                    worker = MachineScanner(history)
+                    worker._requested_applications = applications_only
+                    waits = 0
+
+                    def wait(interval):
+                        nonlocal waits
+                        waits += 1
+                        if waits == 2:
+                            worker._stop_requested.set()
+
+                    worker._wake.wait = Mock(side_effect=wait)
+                    worker.scan_once = Mock(side_effect=failure)
+                    worker.scan_applications = Mock(side_effect=failure)
+                    worker.run()
+                    description = ('Applications' if applications_only
+                                   else f'Inventory ({DCmdb.SCAN_TARGET})')
+                    outcome = 'Scan failed. Try again.' if failure else 'Scan completed.'
+                    self.assertEqual(history.snapshot(), [
+                        {'source': 'cmdb.activity.MachineScanner',
+                         'message': f'{description}: scan started.'},
+                        {'source': 'cmdb.activity.MachineScanner',
+                         'message': f'{description}: {outcome}'}])
+                    selected = worker.scan_applications if applications_only else worker.scan_once
+                    selected.assert_called_once_with()
+
     def setUp(self):
         applications = patch("cmdb.activity.MachineScanner.ApplicationScanner")
         self.applications = applications.start()
@@ -49,6 +80,7 @@ class MachineScannerTests(TestCase):
         self.assertEqual(db.return_value.close.call_count, 2)
         self.ssh_activity.return_value.run.assert_called_once_with({"192.168.0.7": 42})
         self.applications.return_value.run.assert_called_once_with({"192.168.0.7": 42})
+        self.assertIsInstance(self.applications.call_args.args[1], StatusMessages)
 
     @patch("cmdb.activity.MachineScanner.SoftwareDeploymentDb")
     @patch("cmdb.activity.MachineScanner.MachineDb")
@@ -202,7 +234,9 @@ class MachineScannerTests(TestCase):
     @patch("cmdb.activity.MachineScanner.Nmap")
     def test_application_scan_uses_inventoried_hosts_without_nmap(self, nmap, db, inventory):
         inventory.return_value.list_machines.return_value = [Machine('192.0.2.7', id=7)]
-        MachineScanner().scan_applications()
+        worker = MachineScanner()
+        worker.scan_applications()
+        self.applications.assert_called_once_with(worker._stop_requested, worker.status_messages)
         self.applications.return_value.run.assert_called_once_with({'192.0.2.7': 7})
         db.return_value.close.assert_called_once()
         nmap.assert_not_called()

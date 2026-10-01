@@ -31,7 +31,16 @@
       <aside id="selection-details" aria-label="Selection details" hidden>
         <details id="machine-details" open>
           <summary id="machine-heading"></summary>
-          <div class="page-actions"><button id="rescan-machine" type="button">Re-Scan</button></div>
+          <div class="page-actions machine-actions">
+            <button id="rescan-machine" type="button">Re-Scan</button>
+            <select id="machine-environment" aria-label="Machine environment">
+              <option value="Unclassified">Unclassified</option>
+              <option value="Prod">Prod</option>
+              <option value="QA">QA</option>
+              <option value="DEV">DEV</option>
+            </select>
+            <button id="update-machine" type="button">Update</button>
+          </div>
           <table aria-label="Machine details">
             <tbody>
               <tr><th scope="row">{{label.ipAddress}}:</th><td id="detail-ipAddress"></td></tr>

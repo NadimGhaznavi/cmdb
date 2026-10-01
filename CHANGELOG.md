@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add a machine environment dropdown (Unclassified, Prod, QA, DEV) and an
+  Update button beside Re-Scan in selected inventory machine details. These
+  controls are presentation only; saving the environment is not implemented yet.
+
+- Report `Scan complete` when scanning finishes, keeping individual application
+  read failures in status history without failing the overall scan.
+
 ## [0.15.8] - 2026-10-01 @ 05:19
 
 - Detect installed applications using only their `D`-prefixed constants files

@@ -54,7 +54,6 @@ class ApplicationScanner:
             hostnames = {machine.id: machine.hostName for machine in MachineDb(db).list_machines()}
         finally:
             db.close()
-        failed = False
         for address, machine in machines.items():
             hostname = (hostnames.get(machine) or '').split('.')[0].lower()
             host = hostname or address
@@ -75,7 +74,6 @@ class ApplicationScanner:
                                            timeout=DCmdb.SSH_COMMAND_TIMEOUT_SECONDS,
                                            connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
                 except (OSError, subprocess.SubprocessError):
-                    failed = True
                     self.status_messages.append(f'{host}: {name} — read failed.')
                     continue
                 version = application_version(result.stdout)
@@ -92,5 +90,3 @@ class ApplicationScanner:
                 finally:
                     db.close()
                 self.status_messages.append(f'{host}: {name} {version}')
-        if failed:
-            raise OSError('Application discovery could not read one or more hosts.')

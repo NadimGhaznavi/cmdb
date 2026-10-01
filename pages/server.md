@@ -98,8 +98,10 @@ Re-Scan beneath a selected machine's header runs the same discovery, OS, and SSH
 inventory steps for that host alone, then reloads with the machine selected.
 Requests for a different scan while one is active report that the scanner is busy.
 Other machines' reachability results are preserved by a single-host scan.
-Nodes use bold white 16px labels. Named machines have dark green rounded
-rectangles of size 160 × 80 when empty; unnamed machines have grey circles.
+The app uses a Mondrian palette on a black background, with red, yellow, blue,
+and warm white accents. Nodes use bold 16px labels with contrasting text.
+Named machines have blue rounded rectangles of size 160 × 80 when empty;
+unnamed machines have warm white circles.
 Machines with deployed software expand into rounded containers with the machine
 name above nested software rectangles. Software labels include the subtype,
 codename when present, and version, such as `Debian (trixie) 13.6`.
@@ -113,7 +115,7 @@ listing stored Schema names for that deployment, one per line (or a dash when
 none are recorded). User databases appear first, followed by a horizontal rule
 when any are present, then system databases: `mysql`, `information_schema`,
 `performance_schema`, and `sys` when recorded.
-Selection lightens the containing machine’s color.
+Selection turns a reachable machine yellow with black text.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.
@@ -223,8 +225,8 @@ so collection does not require a local SSH server or Nmap-reported MAC.
 The Nmap pass preserves existing hostnames, including manual edits. Existing `site`
 values and machines absent from a scan are retained.
 
-Inventory shows machines absent from the latest successful discovery in muted
-red, including their software boxes. Selected machines keep the orange border.
+Inventory shows machines absent from the latest successful discovery in
+red, including their software boxes. Selected machines keep the yellow border.
 Reachability is held in memory until restart; failed discovery scans preserve
 the previous result. Hosts outside the scanned subnet and hosts awaiting the
 first successful scan keep their usual colors.

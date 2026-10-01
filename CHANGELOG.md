@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Changed the app's default background color to black.
+- Applied a Mondrian color theme with red, yellow, blue, and warm white accents
+  across navigation, controls, panels, and inventory graph states.
+
 ## [0.15.1] - 2026-10-01 @ 04:28
 
 - Log application scan results as one-line status messages with host, application,

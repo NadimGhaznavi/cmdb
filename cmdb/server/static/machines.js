@@ -739,8 +739,8 @@ function compareSoftware(left, right) {
 
 async function loadMachines() {
   const theme = getComputedStyle(document.documentElement);
-  const palette = Object.fromEntries(["black", "white", "red", "yellow", "blue"]
-    .map(color => [color, theme.getPropertyValue(`--mondrian-${color}`).trim()]));
+  const palette = Object.fromEntries(["background", "surface", "text", "border", "accent", "danger"]
+    .map(color => [color, theme.getPropertyValue(`--${color}`).trim()]));
   const status = document.getElementById("graph-status");
   const details = document.getElementById("machine-details");
   const selectionDetails = document.getElementById("selection-details");
@@ -779,8 +779,8 @@ async function loadMachines() {
       elements,
       style: [
         { selector: "node", style: {
-          "background-color": palette.blue, "border-color": palette.white, "border-width": 2,
-          "width": 160, "height": 160, "label": "data(label)", "color": palette.white,
+          "background-color": palette.surface, "border-color": palette.border, "border-width": 2,
+          "width": 160, "height": 160, "label": "data(label)", "color": palette.text,
           "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
           "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
         } },
@@ -788,14 +788,14 @@ async function loadMachines() {
           "shape": "round-rectangle", "width": 160, "height": 80,
         } },
         { selector: "node:selected", style: {
-          "background-color": palette.yellow, "border-color": palette.yellow, "border-width": 3,
-          "color": palette.black,
+          "background-color": palette.accent, "border-color": palette.accent, "border-width": 3,
+          "color": palette.background,
         } },
         { selector: ".machine[!hostName]", style: {
-          "background-color": palette.white, "border-color": palette.white, "color": palette.black,
+          "background-color": palette.text, "border-color": palette.border, "color": palette.background,
         } },
         { selector: ".machine[!hostName]:selected", style: {
-          "background-color": palette.yellow, "border-color": palette.yellow,
+          "background-color": palette.accent, "border-color": palette.accent,
         } },
         { selector: ".machine:parent", style: {
           "shape": "round-rectangle", "padding": 35,
@@ -803,17 +803,17 @@ async function loadMachines() {
         } },
         { selector: ".software", style: {
           "shape": "round-rectangle", "width": 230, "height": 60,
-          "background-color": palette.white, "border-color": palette.black, "color": palette.black,
+          "background-color": palette.text, "border-color": palette.background, "color": palette.background,
           "text-max-width": 210,
         } },
         { selector: ".machine.down", style: {
-          "background-color": palette.red, "border-color": palette.white, "color": palette.white,
+          "background-color": palette.danger, "border-color": palette.border, "color": palette.text,
         } },
         { selector: ".machine.down > .software", style: {
-          "background-color": palette.red, "border-color": palette.black, "color": palette.white,
+          "background-color": palette.danger, "border-color": palette.background, "color": palette.text,
         } },
         { selector: ".machine.down:selected", style: {
-          "border-color": palette.yellow, "border-width": 3,
+          "border-color": palette.accent, "border-width": 3,
         } },
       ],
       layout: { name: "preset", padding: 40 },

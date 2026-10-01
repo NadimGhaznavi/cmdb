@@ -7,6 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.5] - 2026-10-01 @ 04:44
+
+- Give the inventory graph its own box and show selected machine details in a
+  separate box on the left, stacked above the graph on narrow screens.
+
+- Apply MyCount’s warm dark application theme to CMDB panels, tables, controls,
+  navigation, status messages, and inventory graph states.
+
 ## [0.15.3] - 2026-10-01 @ 04:35
 
 - Changed the app's default background color to black.

@@ -42,6 +42,8 @@ connection.
 Every screen includes a Status Messages table below its main panel, with a header,
 five visible rows, and scrollable history. It polls shared server history every two
 seconds and shows inventory and application scan starts, completions, and failures.
+Application scan results identify hosts by their unqualified, lowercase hostname
+when available, or by IP address otherwise.
 Each history entry contains `timestamp` (the recording time in UTC), `source`
 (the full name of the module calling `append()`), and `message`. The table displays
 Timestamp, Source, and Message columns as plain text. Timestamps use the browser's

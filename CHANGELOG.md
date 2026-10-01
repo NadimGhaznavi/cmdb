@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Use unqualified, lowercase hostnames in application scan status messages when
+  available, falling back to the IP address for unnamed hosts.
+
 - Display Status Messages in a table with Timestamp, Source, and Message columns,
   recording each entry's time and showing it as `YYYY-MM-DD HH:MM:SS` in local time.
 

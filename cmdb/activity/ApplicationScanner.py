@@ -10,6 +10,7 @@ from threading import Event
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.entity.StatusMessages import StatusMessages
 from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SSH import SSH
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
@@ -50,10 +51,13 @@ class ApplicationScanner:
         db = DbMgr()
         try:
             applications = SoftwareSystemDb(db).list_applications()
+            hostnames = {machine.id: machine.hostName for machine in MachineDb(db).list_machines()}
         finally:
             db.close()
         failed = False
         for address, machine in machines.items():
+            hostname = (hostnames.get(machine) or '').split('.')[0].lower()
+            host = hostname or address
             for application in applications:
                 if self._stop_requested.is_set():
                     return
@@ -71,13 +75,13 @@ class ApplicationScanner:
                                            connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
                 except (OSError, subprocess.SubprocessError):
                     failed = True
-                    self.status_messages.append(f'{address}: {name} — read failed.')
+                    self.status_messages.append(f'{host}: {name} — read failed.')
                     continue
                 version = application_version(result.stdout)
                 if self._stop_requested.is_set():
                     return
                 if version is None:
-                    self.status_messages.append(f'{address}: {name} — not detected.')
+                    self.status_messages.append(f'{host}: {name} — not detected.')
                     continue
                 db = DbMgr()
                 try:
@@ -86,6 +90,6 @@ class ApplicationScanner:
                             machine, application['id'], pathname, version)
                 finally:
                     db.close()
-                self.status_messages.append(f'{address}: {name} {version}')
+                self.status_messages.append(f'{host}: {name} {version}')
         if failed:
             raise OSError('Application discovery could not read one or more hosts.')

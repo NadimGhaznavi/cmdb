@@ -68,7 +68,9 @@ class ApplicationScannerTests(TestCase):
         def run(address, command, **kwargs):
             self.DbMgr.return_value.close.assert_called_once()
             self.assertIn('[ -d /opt/prod/mycount ]', command)
-            self.assertIn('/opt/prod/mycount/mycount/constants/MyCount.py', command)
+            self.assertIn('/opt/prod/mycount/mycount/constants/DMyCount.py', command)
+            self.assertNotIn('/opt/prod/mycount/mycount/constants/MyCount.py', command)
+            self.assertNotIn('/opt/dev', command)
             self.assertEqual(address, '192.0.2.7')
             return Mock(stdout='VERSION = "1.2.3"')
         self.worker._ssh.run.side_effect = run
@@ -97,7 +99,7 @@ class ApplicationScannerTests(TestCase):
         self.worker._ssh.run.side_effect = run
         with TemporaryDirectory() as root, patch('cmdb.activity.ApplicationScanner.DCmdb.BASE_INSTALL_DIR', root):
             self.worker.run({'192.0.2.7': 7})
-            constants = Path(root) / 'mycount' / 'mycount' / 'constants' / 'MyCount.py'
+            constants = Path(root) / 'mycount' / 'mycount' / 'constants' / 'DMyCount.py'
             constants.parent.mkdir(parents=True)
             self.worker.run({'192.0.2.7': 7})
             constants.write_text('OTHER = "1.2.3"')
@@ -107,6 +109,26 @@ class ApplicationScannerTests(TestCase):
             self.worker.run({'192.0.2.7': 7})
             self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
                 7, 17, str(Path(root) / 'mycount'), '1.2.3')
+
+    def test_only_prefixed_constants_are_used(self):
+        def run(address, command, **kwargs):
+            return subprocess.run(['/bin/sh', '-c', command], capture_output=True,
+                                  text=True, check=True, timeout=5)
+        self.worker._ssh.run.side_effect = run
+        with TemporaryDirectory() as root, patch('cmdb.activity.ApplicationScanner.DCmdb.BASE_INSTALL_DIR', root):
+            constants = Path(root) / 'mycount' / 'mycount' / 'constants' / 'DMyCount.py'
+            constants.parent.mkdir(parents=True)
+            constants.with_name('MyCount.py').write_text('VERSION = "1.2.3"')
+            self.worker.run({'192.0.2.7': 7})
+            self.SoftwareDeploymentDb.assert_not_called()
+            constants.write_text('class DMyCount:\n    VERSION: Final[str] = "0.13.2"')
+            self.worker.run({'192.0.2.7': 7})
+            records = self.SoftwareDeploymentDb.return_value.record_application
+            records.assert_called_once_with(7, 17, str(Path(root) / 'mycount'), '0.13.2')
+            records.reset_mock()
+            constants.write_text('VERSION = get_version()')
+            self.worker.run({'192.0.2.7': 7})
+            records.assert_not_called()
 
     def test_host_failure_continues_other_hosts_and_reports_partial_failure(self):
         self.worker._ssh.run.side_effect = [subprocess.TimeoutExpired('ssh', 30),

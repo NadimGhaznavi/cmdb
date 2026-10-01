@@ -111,7 +111,8 @@ class MachineScanner(Thread):
             except (nmap.PortScannerError, nmap.PortScannerTimeout, pymysql.MySQLError, OSError):
                 error = "Scan failed. Try again."
             finally:
-                outcome = error or ("Scan stopped." if self._stop_requested.is_set() else "Scan completed.")
+                completed = "Scan completed." if applications_only else "Inventory scan complete"
+                outcome = error or ("Scan stopped." if self._stop_requested.is_set() else completed)
                 self.status_messages.append(f"{description}: {outcome}")
                 with self._state_lock:
                     self._completed_scan_id = self._scan_id

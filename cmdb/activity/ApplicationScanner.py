@@ -66,7 +66,8 @@ class ApplicationScanner:
                 if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name) is None:
                     continue
                 pathname = str(PurePosixPath(DCmdb.BASE_INSTALL_DIR) / name.lower())
-                constants = str(PurePosixPath(pathname) / name.lower() / 'constants' / (name + '.py'))
+                constants_dir = PurePosixPath(pathname) / name.lower() / 'constants'
+                constants = str(constants_dir / ('D' + name + '.py'))
                 command = (f'if [ -d {shlex.quote(pathname)} ] && [ -f {shlex.quote(constants)} ]; '
                            f'then cat -- {shlex.quote(constants)}; fi')
                 try:

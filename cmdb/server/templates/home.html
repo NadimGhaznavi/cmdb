@@ -27,8 +27,6 @@
     <p>Configuration Management Database</p>
   </header>
   <main id="inventory-page" aria-label="Machines">
-    <p id="graph-status" role="status">Loading machines…</p>
-    <noscript>Enable JavaScript to view machines.</noscript>
     <div class="machine-workspace">
       <aside id="selection-details" aria-label="Selection details" hidden>
         <details id="machine-details" open>
@@ -61,14 +59,18 @@
           </details>
         </template>
       </aside>
-      <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
+      <section class="inventory-panel" aria-label="Inventory graph">
+        <p id="graph-status" role="status">Loading machines…</p>
+        <noscript>Enable JavaScript to view machines.</noscript>
+        <div class="graph-area"><div id="machine-graph" aria-label="Machine graph"></div></div>
+        <footer id="inventory-footer" class="page-footer">
+          <div class="page-actions">
+            <button id="refresh-button" type="button">Refresh</button>
+          </div>
+          <p>Last refresh: <time id="last-refresh" datetime="{{last_refresh}}">{{last_refresh}}</time></p>
+        </footer>
+      </section>
     </div>
-    <footer id="inventory-footer" class="page-footer">
-      <div class="page-actions">
-        <button id="refresh-button" type="button">Refresh</button>
-      </div>
-      <p>Last refresh: <time id="last-refresh" datetime="{{last_refresh}}">{{last_refresh}}</time></p>
-    </footer>
   </main>
   <main id="backups-page" aria-labelledby="backups-heading" hidden>
     <section class="backup-panel" aria-labelledby="database-heading">

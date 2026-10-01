@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.5] - 2026-10-01 @ 04:44
+
 - Give the inventory graph its own box and show selected machine details in a
   separate box on the left, stacked above the graph on narrow screens.
 

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-01 @ 03:42
+
 ### Added
 
 - Discover manually added applications during inventory scans using

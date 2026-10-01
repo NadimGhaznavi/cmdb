@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Detect installed applications using only their `D`-prefixed constants files
+  (such as `DMyCount.py`).
+
 - Report `Inventory scan complete` when an inventory scan finishes successfully.
 
 ## [0.15.7] - 2026-10-01 @ 05:07

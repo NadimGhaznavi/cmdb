@@ -12,6 +12,8 @@ connection and transaction layer, adapted to the `cmdb` package.
 | --- | --- |
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
+| `POST /api/applications` | Creates a named SoftwareSystem without a host or deployment; returns HTTP 201 with id and name. |
+| `POST /api/applications/scan` | Queues application discovery on inventoried hosts; returns HTTP 202 with scanId, or HTTP 409 when another kind of scan is active. |
 | `GET /api/backups` | Lists MariaDB user databases, model IDs, latest attempts, and last successful completion times. |
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
@@ -47,8 +49,17 @@ to sort ascending; clicking the active heading reverses the order. Version sorti
 compares numeric parts naturally (for example, 11.9 precedes 11.10). An arrow
 marks the active sort direction, which is retained when reopening the page.
 The path is the recorded deployment path: `/` for the OS convention and
-the data directory for MariaDB. This page is read-only; manual application entry
-is not implemented yet. Browser Back and Forward also switch these views.
+the data directory for MariaDB. Below the table, Add Application accepts only an
+Application Name and saves a SoftwareSystem definition. Names are trimmed and
+must contain 1–255 characters without control characters. The form reports success
+or failure. It creates no host, component, or deployment, so new definitions do
+not appear in Deployed Applications until deployed. Browser Back and Forward also switch these views.
+Re-Scan Applications checks named application definitions on all inventoried hosts,
+without running Nmap. It uses the same worker and `/api/scan` progress reporting
+as inventory scans, displays progress or failure, and reloads the page after success.
+Inventory scans also include application discovery after the SSH follow-up.
+See [application discovery]({{ site.baseurl }}{% link pages/software-deployment.md %}#application-discovery)
+for the installation convention.
 The Live Databases section groups stored databases into collapsible host sections,
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname

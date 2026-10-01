@@ -7,6 +7,19 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Discover manually added applications during inventory scans using
+  `/opt/prod/<lowercase-name>/<lowercase-name>/constants/<Name>.py` and a literal
+  `VERSION`; show detected deployments in Inventory and Applications.
+- Add Re-Scan Applications to check application installations on inventoried
+  hosts through the existing scanner worker.
+
+- Add `DCmdb.BASE_INSTALL_DIR` with the value `/opt/prod`.
+
+- Add an Add Application panel beneath Deployed Applications, saving a named
+  SoftwareSystem without a host or deployment.
+
 ## [0.14.2] - 2026-09-30 @ 19:27
 
 ### Changed

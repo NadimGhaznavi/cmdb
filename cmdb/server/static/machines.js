@@ -267,6 +267,38 @@ async function watchBackup(row, identity, refreshFiles = false) {
   }
 }
 
+document.getElementById('add-application-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = document.getElementById('add-application');
+  if (button.disabled) return;
+  const input = document.getElementById('application-name');
+  const name = input.value.trim();
+  const status = document.getElementById('add-application-status');
+  if (!name) {
+    status.textContent = 'Enter an application name.';
+    input.focus();
+    return;
+  }
+  button.disabled = true;
+  input.disabled = true;
+  status.textContent = 'Adding application…';
+  try {
+    const response = await fetch('/api/applications', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Application could not be added.');
+    status.textContent = `Application “${result.name}” added.`;
+    input.value = '';
+  } catch (error) {
+    status.textContent = error.message || 'Application could not be added.';
+  } finally {
+    button.disabled = false;
+    input.disabled = false;
+  }
+});
+
 let applicationsRequest = 0;
 
 let applicationRows = [];
@@ -323,7 +355,7 @@ async function loadApplications() {
     if (request !== applicationsRequest) return;
     const hosts = new Map(machines.map(machine => [machine.id, machine]));
     applicationRows = softwareDeployments.map(deployment => {
-      const name = deployment.subtype || deployment.type || 'Unknown application';
+      const name = deployment.name || deployment.subtype || deployment.type || 'Unknown application';
       return {
         host: hosts.has(deployment.machine) ? machineLabel(hosts.get(deployment.machine)) : `Machine ${deployment.machine}`,
         application: name[0].toUpperCase() + name.slice(1),
@@ -608,19 +640,23 @@ async function loadPatchReport() {
 window.addEventListener("hashchange", showPage);
 showPage();
 
-async function refreshMachines(address = null) {
+async function refreshMachines(address = null, applicationsOnly = false) {
   if (refreshing) return;
   refreshing = true;
   const refresh = document.getElementById("refresh-button");
   const rescan = document.getElementById("rescan-machine");
-  const status = document.getElementById("graph-status");
+  const applications = document.getElementById("rescan-applications");
+  const status = document.getElementById(applicationsOnly ? "application-scan-status" : "graph-status");
   refresh.disabled = true;
   rescan.disabled = true;
-  const button = address ? rescan : refresh;
+  applications.disabled = true;
+  const button = applicationsOnly ? applications : address ? rescan : refresh;
   button.textContent = "Scanning…";
-  status.textContent = address ? `Scanning ${address}…` : "Scanning the LAN…";
+  status.textContent = applicationsOnly ? "Scanning applications…"
+    : address ? `Scanning ${address}…` : "Scanning the LAN…";
   try {
-    const endpoint = address ? `/api/machines/${address}/scan` : "/api/scan";
+    const endpoint = applicationsOnly ? "/api/applications/scan"
+      : address ? `/api/machines/${address}/scan` : "/api/scan";
     const response = await fetch(endpoint, { method: "POST", signal: AbortSignal.timeout(15000) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not start a scan.");
@@ -642,12 +678,15 @@ async function refreshMachines(address = null) {
     refreshing = false;
     refresh.disabled = false;
     rescan.disabled = false;
+    applications.disabled = false;
+    applications.textContent = "Re-Scan Applications";
     rescan.textContent = "Re-Scan";
     refresh.textContent = "Refresh";
   }
 }
 
 document.getElementById("refresh-button").addEventListener("click", () => refreshMachines());
+document.getElementById("rescan-applications").addEventListener("click", () => refreshMachines(null, true));
 document.getElementById("rescan-machine").addEventListener("click", event => {
   refreshMachines(event.currentTarget.dataset.address);
 });
@@ -667,7 +706,7 @@ function localTimestamp(value) {
 }
 
 function softwareLabel(system) {
-  const name = system.subtype || system.type || "Software";
+  const name = system.name || system.subtype || system.type || "Software";
   const title = name.charAt(0).toUpperCase() + name.slice(1);
   const version = system.subtype === "MariaDB"
     ? system.version?.match(/^(?:5\.5\.5-)?(\d+\.\d+\.\d+)/)?.[1] || system.version
@@ -796,7 +835,7 @@ async function loadMachines() {
       const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
       for (const system of systems) {
         const section = template.content.cloneNode(true);
-        const type = system.type || "Unknown";
+        const type = system.name || system.type || "Unknown";
         const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
         section.querySelector("summary").textContent = `Software System: ${title}`;
         for (const cell of section.querySelectorAll("[data-field]")) {

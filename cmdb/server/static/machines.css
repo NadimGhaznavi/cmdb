@@ -106,3 +106,8 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 
 .applications-table th button { border: 0; background: transparent; color: inherit; font-weight: inherit; padding: 0; white-space: nowrap; }
 .applications-table th button:hover { text-decoration: underline; }
+
+.application-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 1rem; }
+.application-form-field { display: flex; flex-direction: column; gap: .5rem; flex: 1 1 16rem; min-width: 0; }
+.application-form-field input { width: 100%; min-width: 0; background: #24272c; color: #eee; border: 1px solid #d98124; padding: .5rem .6rem; font: inherit; }
+.application-form-field input:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }

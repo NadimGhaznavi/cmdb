@@ -163,6 +163,21 @@
         </table>
       </div>
     </section>
+    <section class="backup-panel" aria-labelledby="add-application-heading">
+      <h3 id="add-application-heading">Add Application</h3>
+      <form id="add-application-form" class="application-form">
+        <div class="application-form-field">
+          <label for="application-name">Application Name</label>
+          <input id="application-name" name="name" type="text" maxlength="255" required>
+        </div>
+        <div class="page-actions"><button id="add-application" type="submit">Add Application</button></div>
+      </form>
+      <p id="add-application-status" role="status"></p>
+    </section>
+    <footer class="page-footer">
+      <div class="page-actions"><button id="rescan-applications" type="button">Re-Scan Applications</button></div>
+      <p id="application-scan-status" role="status"></p>
+    </footer>
   </main>
   <main id="patching-page" aria-labelledby="patching-heading" hidden>
     <section class="backup-panel" aria-labelledby="debian-hosts-heading">

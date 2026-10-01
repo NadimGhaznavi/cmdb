@@ -169,7 +169,7 @@ class MachineScanner(Thread):
         if not self._stop_requested.is_set():
             MachineSSH(self._stop_requested).run(machine_ids)
         if not self._stop_requested.is_set():
-            ApplicationScanner(self._stop_requested).run(machine_ids)
+            ApplicationScanner(self._stop_requested, self.status_messages).run(machine_ids)
         if scan_error is not None:
             raise scan_error
 
@@ -181,7 +181,7 @@ class MachineScanner(Thread):
         finally:
             db.close()
         if machines and not self._stop_requested.is_set():
-            ApplicationScanner(self._stop_requested).run(machines)
+            ApplicationScanner(self._stop_requested, self.status_messages).run(machines)
 
     def _scan_operating_systems(self, machine_ids: dict[str, int]) -> None:
         # Commit discovery first, without holding a database connection during Nmap.

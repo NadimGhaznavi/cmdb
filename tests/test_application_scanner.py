@@ -8,6 +8,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from cmdb.activity.ApplicationScanner import ApplicationScanner, application_version
+from cmdb.entity.StatusMessages import StatusMessages
 
 
 class ApplicationVersionTests(TestCase):
@@ -27,7 +28,8 @@ class ApplicationVersionTests(TestCase):
 class ApplicationScannerTests(TestCase):
     def setUp(self):
         self.stop = Event()
-        self.worker = ApplicationScanner(self.stop)
+        self.history = StatusMessages()
+        self.worker = ApplicationScanner(self.stop, self.history)
         self.worker._ssh = Mock()
         self.worker._ssh.run.return_value.stdout = 'class MyCount:\n    VERSION = "1.2.3"'
         for name in ('DbMgr', 'SoftwareSystemDb', 'SoftwareDeploymentDb'):
@@ -49,12 +51,16 @@ class ApplicationScannerTests(TestCase):
             7, 17, '/opt/prod/mycount', '1.2.3')
         self.DbMgr.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
         self.assertEqual(self.DbMgr.return_value.close.call_count, 2)
+        self.assertEqual(self.history.snapshot(), [
+            {'source': 'cmdb.activity.ApplicationScanner', 'message': '192.0.2.7: MyCount 1.2.3'}])
 
     def test_missing_directory_file_or_version_preserves_inventory(self):
         for source in ('', 'OTHER = "1.2.3"', 'VERSION = ""'):
             self.worker._ssh.run.return_value.stdout = source
             self.worker.run({'192.0.2.7': 7})
         self.SoftwareDeploymentDb.assert_not_called()
+        self.assertEqual([entry['message'] for entry in self.history.snapshot()],
+                         ['192.0.2.7: MyCount — not detected.'] * 3)
 
     def test_real_directory_and_constants_file_are_required(self):
         def run(address, command, **kwargs):
@@ -81,6 +87,8 @@ class ApplicationScannerTests(TestCase):
             self.worker.run({'192.0.2.7': 7, '192.0.2.8': 8})
         self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
             8, 17, '/opt/prod/mycount', '1.2.3')
+        self.assertEqual([entry['message'] for entry in self.history.snapshot()], [
+            '192.0.2.7: MyCount — read failed.', '192.0.2.8: MyCount 1.2.3'])
 
     def test_unsafe_names_and_stopped_scans_run_no_commands(self):
         self.SoftwareSystemDb.return_value.list_applications.return_value = [

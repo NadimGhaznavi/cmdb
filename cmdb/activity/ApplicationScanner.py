@@ -8,6 +8,7 @@ import subprocess
 from threading import Event
 
 from cmdb.constants.DCmdb import DCmdb
+from cmdb.entity.StatusMessages import StatusMessages
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.SSH import SSH
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -40,8 +41,9 @@ def application_version(source: str) -> str | None:
 
 
 class ApplicationScanner:
-    def __init__(self, stop_requested: Event) -> None:
+    def __init__(self, stop_requested: Event, status_messages: StatusMessages | None = None) -> None:
         self._stop_requested = stop_requested
+        self.status_messages = status_messages if status_messages is not None else StatusMessages()
         self._ssh = SSH()
 
     def run(self, machines: dict[str, int]) -> None:
@@ -69,9 +71,13 @@ class ApplicationScanner:
                                            connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
                 except (OSError, subprocess.SubprocessError):
                     failed = True
+                    self.status_messages.append(f'{address}: {name} — read failed.')
                     continue
                 version = application_version(result.stdout)
-                if version is None or self._stop_requested.is_set():
+                if self._stop_requested.is_set():
+                    return
+                if version is None:
+                    self.status_messages.append(f'{address}: {name} — not detected.')
                     continue
                 db = DbMgr()
                 try:
@@ -80,5 +86,6 @@ class ApplicationScanner:
                             machine, application['id'], pathname, version)
                 finally:
                     db.close()
+                self.status_messages.append(f'{address}: {name} {version}')
         if failed:
             raise OSError('Application discovery could not read one or more hosts.')

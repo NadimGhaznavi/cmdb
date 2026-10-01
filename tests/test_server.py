@@ -1,7 +1,7 @@
 """HTTP contracts and deployment entry point checks."""
 
 from http.client import HTTPConnection
-from http.server import ThreadingHTTPServer
+from cmdb.server.CmdbHTTPServer import CmdbHTTPServer
 from datetime import datetime
 import json
 from pathlib import Path
@@ -19,6 +19,44 @@ from cmdb.server.CmdbHandler import CmdbHandler
 
 
 class ServerTests(unittest.TestCase):
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_status_history_is_shared_without_database_and_resets_on_restart(self, factory):
+        messages = [f'Scanning 192.0.2.{number}' for number in range(8)]
+        for message in messages:
+            self.server.status_messages.append(message)
+        self.server.status_messages.append('<script>alert(1)</script>\nNext line')
+        expected = messages + ['<script>alert(1)</script> Next line']
+        for _ in range(2):
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('GET', '/status-messages')
+                response = connection.getresponse()
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.getheader('Cache-Control'), 'no-store')
+                self.assertEqual(json.loads(response.read()), expected)
+            finally:
+                connection.close()
+        factory.assert_not_called()
+        with CmdbHTTPServer(('127.0.0.1', 0), CmdbHandler) as restarted:
+            self.assertEqual(restarted.status_messages.snapshot(), [])
+
+    def test_status_box_and_polling_assets_are_served(self):
+        status, body = self.get('/')
+        self.assertEqual(status, 200)
+        self.assertIn(b'>Status Messages</h2>', body)
+        self.assertIn(b'role="log"', body)
+        self.assertIn(b'tabindex="0"', body)
+        self.assertIn(b'/static/status_messages.js', body)
+        self.assertGreater(body.index(b'id="status-messages-title"'), body.rindex(b'</main>'))
+        status, script = self.get('/static/status_messages.js')
+        self.assertEqual(status, 200)
+        self.assertIn(b'line.textContent = message', script)
+        self.assertIn(b"fetch('/status-messages'", script)
+        status, styles = self.get('/static/machines.css')
+        self.assertEqual(status, 200)
+        self.assertIn(b'height: calc(7.5em + 2px)', styles)
+        self.assertIn(b'overflow-y: auto', styles)
+
     def test_application_scan_queues_worker_and_reports_busy_or_unavailable(self):
         scanner = self.server.machine_scanner = Mock()
         scanner.request_scan.side_effect = [9, ValueError('Another scan is in progress.'),
@@ -38,7 +76,7 @@ class ServerTests(unittest.TestCase):
                             for call in scanner.request_scan.call_args_list))
 
     def setUp(self):
-        self.server = ThreadingHTTPServer(('127.0.0.1', 0), CmdbHandler)
+        self.server = CmdbHTTPServer(('127.0.0.1', 0), CmdbHandler)
         self.thread = Thread(target=self.server.serve_forever)
         self.thread.start()
         self.addCleanup(self.stop)

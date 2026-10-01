@@ -1,7 +1,7 @@
 """Run the CMDB HTTP server."""
 
 import argparse
-from http.server import ThreadingHTTPServer
+from cmdb.server.CmdbHTTPServer import CmdbHTTPServer
 import os
 import signal
 
@@ -27,9 +27,9 @@ def main() -> None:
 
     previous = signal.signal(signal.SIGTERM, stop)
     try:
-        with ThreadingHTTPServer((args.host, args.port), CmdbHandler) as server:
+        with CmdbHTTPServer((args.host, args.port), CmdbHandler) as server:
             print(f"CMDB: http://{args.host}:{server.server_port}/", flush=True)
-            scanner = MachineScanner()
+            scanner = MachineScanner(server.status_messages)
             server.backup_manager = BackupManager()
             server.machine_scanner = scanner
             scanner.start()

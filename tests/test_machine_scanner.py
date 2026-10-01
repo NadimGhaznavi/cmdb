@@ -8,12 +8,40 @@ import nmap
 import pymysql
 
 from cmdb.entity.Machine import Machine
+from cmdb.entity.StatusMessages import StatusMessages
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.activity.MachineScanner import MachineScanner
 
 
 class MachineScannerTests(TestCase):
+    def test_worker_reports_scan_outcome_to_shared_history(self):
+        for applications_only in (False, True):
+            for failure in (None, OSError('private failure')):
+                with self.subTest(applications_only=applications_only, failure=failure):
+                    history = StatusMessages()
+                    worker = MachineScanner(history)
+                    worker._requested_applications = applications_only
+                    waits = 0
+
+                    def wait(interval):
+                        nonlocal waits
+                        waits += 1
+                        if waits == 2:
+                            worker._stop_requested.set()
+
+                    worker._wake.wait = Mock(side_effect=wait)
+                    worker.scan_once = Mock(side_effect=failure)
+                    worker.scan_applications = Mock(side_effect=failure)
+                    worker.run()
+                    description = ('Applications' if applications_only
+                                   else f'Inventory ({DCmdb.SCAN_TARGET})')
+                    outcome = 'Scan failed. Try again.' if failure else 'Scan completed.'
+                    self.assertEqual(history.snapshot(), [
+                        f'{description}: scan started.', f'{description}: {outcome}'])
+                    selected = worker.scan_applications if applications_only else worker.scan_once
+                    selected.assert_called_once_with()
+
     def setUp(self):
         applications = patch("cmdb.activity.MachineScanner.ApplicationScanner")
         self.applications = applications.start()

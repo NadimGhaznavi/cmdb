@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add a shared Status Messages box to all CMDB screens with five visible lines,
+  scrollable history, and live scan updates. Keep history in server memory and
+  clear it on restart.
+
 ## [0.15.0] - 2026-10-01 @ 03:42
 
 ### Added

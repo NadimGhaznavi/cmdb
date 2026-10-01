@@ -111,3 +111,9 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 .application-form-field { display: flex; flex-direction: column; gap: .5rem; flex: 1 1 16rem; min-width: 0; }
 .application-form-field input { width: 100%; min-width: 0; background: #24272c; color: #eee; border: 1px solid #d98124; padding: .5rem .6rem; font: inherit; }
 .application-form-field input:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
+
+.status-messages { border: 1px solid #d98124; padding: 1rem 1.5rem; }
+.status-messages h2 { font-size: 1rem; margin: 0 0 .75rem; }
+#status-messages { height: calc(7.5em + 2px); line-height: 1.5; overflow-y: auto; overflow-x: hidden; border: 1px solid #35383d; border-radius: .3rem; background: #24272c; }
+#status-messages > div { height: 1.5em; padding: 0 .6rem; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+#status-messages:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }

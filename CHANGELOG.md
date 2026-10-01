@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Include the calling module's name in each status message's `source` field
+  and display it before the message in the Status Messages box.
 - Add a shared Status Messages box to all CMDB screens with five visible lines,
   scrollable history, and live scan updates. Keep history in server memory and
   clear it on restart.

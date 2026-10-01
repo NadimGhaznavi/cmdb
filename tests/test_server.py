@@ -25,7 +25,8 @@ class ServerTests(unittest.TestCase):
         for message in messages:
             self.server.status_messages.append(message)
         self.server.status_messages.append('<script>alert(1)</script>\nNext line')
-        expected = messages + ['<script>alert(1)</script> Next line']
+        expected = [{'source': __name__, 'message': message}
+                    for message in messages + ['<script>alert(1)</script> Next line']]
         for _ in range(2):
             connection = HTTPConnection(*self.server.server_address)
             try:
@@ -50,7 +51,7 @@ class ServerTests(unittest.TestCase):
         self.assertGreater(body.index(b'id="status-messages-title"'), body.rindex(b'</main>'))
         status, script = self.get('/static/status_messages.js')
         self.assertEqual(status, 200)
-        self.assertIn(b'line.textContent = message', script)
+        self.assertIn(b'line.textContent = `[${message.source}] ${message.message}`', script)
         self.assertIn(b"fetch('/status-messages'", script)
         status, styles = self.get('/static/machines.css')
         self.assertEqual(status, 200)

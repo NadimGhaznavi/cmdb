@@ -8,14 +8,15 @@
       const messages = await response.json();
       const following = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
       // A shorter or changed prefix means the server has restarted.
-      if (messages.length < displayed.length || displayed.some((text, i) => text !== messages[i])) {
+      if (messages.length < displayed.length || displayed.some((message, i) =>
+        message.source !== messages[i].source || message.message !== messages[i].message)) {
         box.replaceChildren();
         displayed = [];
       }
       for (const message of messages.slice(displayed.length)) {
         const line = document.createElement('div');
-        line.textContent = message;
-        line.title = message;
+        line.textContent = `[${message.source}] ${message.message}`;
+        line.title = line.textContent;
         box.append(line);
       }
       displayed = messages;

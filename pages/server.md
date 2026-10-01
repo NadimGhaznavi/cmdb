@@ -42,7 +42,9 @@ connection.
 Every screen includes a Status Messages box below its main panel, with five
 visible lines and scrollable history. It polls shared server history every two
 seconds and shows inventory and application scan starts, completions, and failures.
-Messages are rendered as plain text. History stays in memory and clears when the
+Each history entry contains `source` (the full name of the module calling
+`append()`) and `message`. Messages are rendered as plain text with the source
+in brackets before the message. History stays in memory and clears when the
 server restarts; it is not written to MariaDB or disk.
 
 The homepage keeps the machine inventory graph. The top navigation links to

@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Use unqualified, lowercase hostnames in application scan status messages when
+  available, falling back to the IP address for unnamed hosts.
+
+- Display Status Messages in a table with Timestamp, Source, and Message columns,
+  recording each entry's time and showing it as `YYYY-MM-DD HH:MM:SS` in local time.
+
 ## [0.15.6] - 2026-10-01 @ 04:52
 
 - Increase inventory graph labels to 24px bold, use blue for machine selection,

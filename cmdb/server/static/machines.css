@@ -134,8 +134,11 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 
 .status-messages { border: 1px solid var(--border); border-radius: .4rem; padding: 1rem 1.5rem; }
 .status-messages h2 { font-size: 1rem; margin: 0 0 .75rem; }
-#status-messages { height: calc(7.5em + 2px); line-height: 1.5; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); background: var(--background); }
-#status-messages > div { height: 1.5em; padding: 0 .6rem; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+#status-messages { height: calc(9em + 2px); line-height: 1.5; overflow: auto; border: 1px solid var(--border); background: var(--background); }
+.status-messages-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.status-messages-table th, .status-messages-table td { text-align: left; padding: 0 .6rem; white-space: nowrap; }
+.status-messages-table th { position: sticky; top: 0; background: var(--surface); }
+.status-messages-table th:nth-child(-n+2) { width: 1%; }
 #status-messages:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 a { color: var(--accent); text-underline-offset: .2em; }

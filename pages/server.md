@@ -39,12 +39,15 @@ Database errors are logged to the service journal; the HTTP response contains
 only a short status. Each readiness request opens and closes its own database
 connection.
 
-Every screen includes a Status Messages box below its main panel, with five
-visible lines and scrollable history. It polls shared server history every two
+Every screen includes a Status Messages table below its main panel, with a header,
+five visible rows, and scrollable history. It polls shared server history every two
 seconds and shows inventory and application scan starts, completions, and failures.
-Each history entry contains `source` (the full name of the module calling
-`append()`) and `message`. Messages are rendered as plain text with the source
-in brackets before the message. History stays in memory and clears when the
+Application scan results identify hosts by their unqualified, lowercase hostname
+when available, or by IP address otherwise.
+Each history entry contains `timestamp` (the recording time in UTC), `source`
+(the full name of the module calling `append()`), and `message`. The table displays
+Timestamp, Source, and Message columns as plain text. Timestamps use the browser's
+local time in `YYYY-MM-DD HH:MM:SS` format. History stays in memory and clears when the
 server restarts; it is not written to MariaDB or disk.
 
 The homepage keeps the machine inventory graph. The top navigation links to

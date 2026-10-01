@@ -210,7 +210,12 @@
   </main>
 <section class="status-messages" aria-labelledby="status-messages-title">
   <h2 id="status-messages-title">Status Messages</h2>
-  <div id="status-messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Status Messages" tabindex="0"></div>
+  <div id="status-messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Status Messages" tabindex="0">
+    <table class="status-messages-table" aria-label="Status Messages">
+      <thead><tr><th scope="col">Timestamp</th><th scope="col">Source</th><th scope="col">Message</th></tr></thead>
+      <tbody id="status-message-rows"></tbody>
+    </table>
+  </div>
 </section>
 </body>
 </html>

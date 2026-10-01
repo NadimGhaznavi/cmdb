@@ -37,7 +37,8 @@ class MachineScannerTests(TestCase):
                     description = ('Applications' if applications_only
                                    else f'Inventory ({DCmdb.SCAN_TARGET})')
                     outcome = 'Scan failed. Try again.' if failure else 'Scan completed.'
-                    self.assertEqual(history.snapshot(), [
+                    self.assertEqual([{'source': entry['source'], 'message': entry['message']}
+                                      for entry in history.snapshot()], [
                         {'source': 'cmdb.activity.MachineScanner',
                          'message': f'{description}: scan started.'},
                         {'source': 'cmdb.activity.MachineScanner',

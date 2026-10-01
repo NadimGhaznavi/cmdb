@@ -1,5 +1,12 @@
 (() => {
   const box = document.getElementById('status-messages');
+  const rows = document.getElementById('status-message-rows');
+  const pad = value => String(value).padStart(2, '0');
+  function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+      `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
   let displayed = [];
   async function refreshStatusMessages() {
     try {
@@ -9,15 +16,19 @@
       const following = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
       // A shorter or changed prefix means the server has restarted.
       if (messages.length < displayed.length || displayed.some((message, i) =>
+        message.timestamp !== messages[i].timestamp ||
         message.source !== messages[i].source || message.message !== messages[i].message)) {
-        box.replaceChildren();
+        rows.replaceChildren();
         displayed = [];
       }
       for (const message of messages.slice(displayed.length)) {
-        const line = document.createElement('div');
-        line.textContent = `[${message.source}] ${message.message}`;
-        line.title = line.textContent;
-        box.append(line);
+        const row = document.createElement('tr');
+        for (const value of [formatTimestamp(message.timestamp), message.source, message.message]) {
+          const cell = document.createElement('td');
+          cell.textContent = value;
+          row.append(cell);
+        }
+        rows.append(row);
       }
       displayed = messages;
       if (following) box.scrollTop = box.scrollHeight;

@@ -8,6 +8,7 @@ import pymysql
 
 from cmdb.constants.DCmdb import DCmdb
 from cmdb.activity.MachineSSH import MachineSSH
+from cmdb.activity.ApplicationScanner import ApplicationScanner
 from cmdb.entity.Machine import Machine
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
@@ -32,6 +33,9 @@ class MachineScanner(Thread):
         self._host_results = {}
         self._requested_target = None
         self._active_target = None
+        self._requested_applications = False
+        self._active_applications = False
+        self._pending_scan = False
 
     def host_is_up(self, address: str) -> bool | None:
         """Return the last discovery result, or unknown outside its scope."""
@@ -46,18 +50,21 @@ class MachineScanner(Thread):
                 return False
             return None
 
-    def request_scan(self, target: str | None = None) -> int:
+    def request_scan(self, target: str | None = None, *, applications_only: bool = False) -> int:
         """Wake the worker, or share the scan already in progress."""
         with self._state_lock:
             if self._stop_requested.is_set() or not self.is_alive():
                 raise RuntimeError("Scanner is unavailable.")
             if self._running_scan:
-                if target != self._active_target:
+                if target != self._active_target or applications_only != self._active_applications:
                     raise ValueError("Another scan is in progress. Try again when it finishes.")
                 return self._scan_id
-            if self._requested_target is not None and target != self._requested_target:
+            if self._pending_scan and (target != self._requested_target
+                                       or applications_only != self._requested_applications):
                 raise ValueError("Another scan is pending. Try again when it finishes.")
             self._requested_target = target
+            self._requested_applications = applications_only
+            self._pending_scan = True
             self._wake.set()
             return self._scan_id + 1
 
@@ -83,11 +90,17 @@ class MachineScanner(Thread):
                 self._scan_id += 1
                 self._running_scan = True
                 target = self._requested_target
+                applications_only = self._requested_applications
                 self._requested_target = None
+                self._requested_applications = False
+                self._pending_scan = False
                 self._active_target = target
+                self._active_applications = applications_only
             error = None
             try:
-                if target is None:
+                if applications_only:
+                    self.scan_applications()
+                elif target is None:
                     self.scan_once()
                 else:
                     self.scan_once(target)
@@ -149,8 +162,20 @@ class MachineScanner(Thread):
             scan_error = error
         if not self._stop_requested.is_set():
             MachineSSH(self._stop_requested).run(machine_ids)
+        if not self._stop_requested.is_set():
+            ApplicationScanner(self._stop_requested).run(machine_ids)
         if scan_error is not None:
             raise scan_error
+
+    def scan_applications(self) -> None:
+        """Scan applications on inventoried hosts without running Nmap."""
+        db = DbMgr()
+        try:
+            machines = {machine.ipAddress: machine.id for machine in MachineDb(db).list_machines()}
+        finally:
+            db.close()
+        if machines and not self._stop_requested.is_set():
+            ApplicationScanner(self._stop_requested).run(machines)
 
     def _scan_operating_systems(self, machine_ids: dict[str, int]) -> None:
         # Commit discovery first, without holding a database connection during Nmap.

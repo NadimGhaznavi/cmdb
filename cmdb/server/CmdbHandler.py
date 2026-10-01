@@ -165,12 +165,14 @@ class CmdbHandler(BaseHTTPRequestHandler):
         if urlsplit(self.path).path == '/api/backups':
             self.request_backup()
             return
-        if urlsplit(self.path).path == "/api/scan":
+        if urlsplit(self.path).path in ("/api/scan", "/api/applications/scan"):
             scanner = getattr(self.server, "machine_scanner", None)
             try:
                 if scanner is None:
                     raise RuntimeError("Scanner is unavailable.")
-                scan_id = scanner.request_scan()
+                scan_id = (scanner.request_scan(applications_only=True)
+                           if urlsplit(self.path).path == '/api/applications/scan'
+                           else scanner.request_scan())
             except ValueError as error:
                 self.respond(409, json.dumps({"error": str(error)}).encode(), "application/json")
                 return

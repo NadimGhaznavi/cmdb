@@ -120,6 +120,40 @@ JOIN SoftwareSystem AS ss ON ss.id = me.namespace
 WHERE ss.type IN ('OS', 'linux');
 ```
 
+## Application discovery
+
+Named SoftwareSystems created through Add Application are discovery targets.
+For `MyCount`, the scanner checks `/opt/prod/mycount`, using
+`DCmdb.BASE_INSTALL_DIR` and the lowercase application name. If that directory
+exists, it reads `/opt/prod/mycount/mycount/constants/MyCount.py` through the
+inventory agent's SSH interface, or directly for the local host.
+
+A nonempty literal string assigned to `VERSION` at module or class scope
+confirms an installation. Annotated assignments such as
+`VERSION: Final[str] = "1.2.3"` are supported. The constants file is parsed,
+never imported or executed; computed versions are not evaluated.
+Names must match `[A-Za-z_][A-Za-z0-9_]*` for this discovery convention.
+Definitions with other names can still be saved but are skipped by discovery.
+
+The discovered version belongs to SoftwareSystem; its Component is linked to
+a DeployedComponent on the host with `pathname="/opt/prod/mycount"`.
+Repeated observations reuse the deployment. Definitions and components for
+the same application release can be shared across hosts, while hosts with
+different versions retain distinct release references. The manually created
+unversioned definition is populated on the first successful discovery.
+Application names supply labels in Inventory and the Applications table.
+
+Inventory scans check applications on responding hosts after the SSH follow-up.
+Re-Scan Applications checks all inventoried hosts without running network or OS
+discovery. Both run on the existing scanner worker; duplicate requests share
+the active scan and conflicting scan requests report that the scanner is busy.
+
+Missing directories, missing files, or invalid VERSION values make no changes
+to inventory. Host access failures preserve records and allow the remaining
+hosts to be checked, then report scan failure. Existing deployments and unused
+definitions are retained; removal and version-history management are outside
+this discovery increment.
+
 
 ## MariaDB discovery
 

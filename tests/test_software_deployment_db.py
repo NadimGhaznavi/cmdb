@@ -24,6 +24,7 @@ from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.NamespaceDb import NamespaceDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
+from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 from cmdb.interface.HostOperatingSystem import operating_system
 
 
@@ -60,6 +61,23 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             "JOIN Component c ON c.id = dc.component "
             "JOIN ModelElement me ON me.id = c.id "
             "JOIN SoftwareSystem ss ON ss.id = me.namespace ORDER BY dc.machine")
+
+    def test_named_application_discovery_reuses_deployment_and_keeps_host_versions_distinct(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            application = definitions.create_application('MyCount')
+            first = self.machines.upsert(Machine('192.0.2.7'))
+            second = self.machines.upsert(Machine('192.0.2.8'))
+            self.software.record_application(first, application, '/opt/prod/mycount', '1.0')
+            self.software.record_application(first, application, '/opt/prod/mycount', '1.0')
+            self.software.record_application(second, application, '/opt/prod/mycount', '2.0')
+        deployments = self.software.list_deployments()
+        self.assertEqual(len(deployments), 2)
+        self.assertEqual([row['version'] for row in deployments], ['1.0', '2.0'])
+        self.assertEqual([row['name'] for row in deployments], ['MyCount', 'MyCount'])
+        self.assertEqual(definitions.list_applications(), [{'id': application, 'name': 'MyCount'}])
+        self.assertEqual(deployments[0]['softwareSystem'], application)
+        self.assertEqual(len(self.machines.list_machines()[0].deployedComponent), 1)
 
     def test_patch_schedule_saves_cron_policy_and_dispatches_queue(self):
         from cmdb.activity.PatchScheduler import PatchScheduler

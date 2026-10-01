@@ -13,3 +13,10 @@ class SoftwareSystemDb:
         identity = NamespaceDb(self._db).create_package(name=name)
         self._db.execute('INSERT INTO SoftwareSystem (id) VALUES (%s)', (identity,))
         return identity
+
+    def list_applications(self) -> list[dict]:
+        """Named definitions created by Add Application are discovery targets."""
+        return self._db.query(
+            'SELECT MIN(ss.id) AS id, me.name FROM SoftwareSystem ss '
+            'JOIN ModelElement me ON me.id = ss.id '
+            'WHERE me.name IS NOT NULL AND ss.type IS NULL GROUP BY me.name ORDER BY id')

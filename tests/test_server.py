@@ -19,6 +19,24 @@ from cmdb.server.CmdbHandler import CmdbHandler
 
 
 class ServerTests(unittest.TestCase):
+    def test_application_scan_queues_worker_and_reports_busy_or_unavailable(self):
+        scanner = self.server.machine_scanner = Mock()
+        scanner.request_scan.side_effect = [9, ValueError('Another scan is in progress.'),
+                                           RuntimeError('Scanner is unavailable.')]
+        for expected in (202, 409, 503):
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('POST', '/api/applications/scan')
+                response = connection.getresponse()
+                self.assertEqual(response.status, expected)
+                body = json.loads(response.read())
+                if expected == 202:
+                    self.assertEqual(body, {'scanId': 9})
+            finally:
+                connection.close()
+        self.assertTrue(all(call.kwargs == {'applications_only': True}
+                            for call in scanner.request_scan.call_args_list))
+
     def setUp(self):
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), CmdbHandler)
         self.thread = Thread(target=self.server.serve_forever)

@@ -30,6 +30,60 @@ class ServerTests(unittest.TestCase):
         self.thread.join()
         self.server.server_close()
 
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_add_application_saves_name_without_deployment(self, factory):
+        factory.return_value.insert.return_value = 42
+        connection = HTTPConnection(*self.server.server_address)
+        try:
+            connection.request('POST', '/api/applications', json.dumps({'name': '  MyCount  '}),
+                               {'Content-Type': 'application/json'})
+            response = connection.getresponse()
+            self.assertEqual(response.status, 201)
+            self.assertEqual(json.loads(response.read()), {'id': 42, 'name': 'MyCount'})
+        finally:
+            connection.close()
+        db = factory.return_value
+        db.insert.assert_called_once_with('INSERT INTO ModelElement (namespace, name) VALUES (%s, %s)',
+                                          (None, 'MyCount'))
+        self.assertEqual([call.args[0] for call in db.execute.call_args_list], [
+            'INSERT INTO Namespace (id) VALUES (%s)', 'INSERT INTO Package (id) VALUES (%s)',
+            'INSERT INTO SoftwareSystem (id) VALUES (%s)'])
+        db.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
+        db.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_add_application_rejects_invalid_names_before_database_access(self, factory):
+        for values in ({}, [], {'name': None}, {'name': 7}, {'name': '   '},
+                       {'name': 'x' * 256}, {'name': 'a\nb'}, {'name': 'App', 'machine': 7}):
+            with self.subTest(values=values):
+                connection = HTTPConnection(*self.server.server_address)
+                try:
+                    connection.request('POST', '/api/applications', json.dumps(values),
+                                       {'Content-Type': 'application/json'})
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 400)
+                    response.read()
+                finally:
+                    connection.close()
+        factory.assert_not_called()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_add_application_failure_exits_transaction_and_closes(self, factory):
+        factory.return_value.execute.side_effect = pymysql.OperationalError('private failure')
+        connection = HTTPConnection(*self.server.server_address)
+        try:
+            with self.assertLogs(level='ERROR'):
+                connection.request('POST', '/api/applications', json.dumps({'name': 'MyCount'}),
+                                   {'Content-Type': 'application/json'})
+                response = connection.getresponse()
+                self.assertEqual(response.status, 503)
+                self.assertNotIn(b'private failure', response.read())
+        finally:
+            connection.close()
+        self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[0],
+                      pymysql.OperationalError)
+        factory.return_value.close.assert_called_once()
+
     @patch('cmdb.server.CmdbHandler.PatchDb')
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_patching_hosts_and_queue(self, db, records):

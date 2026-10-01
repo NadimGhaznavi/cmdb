@@ -267,6 +267,38 @@ async function watchBackup(row, identity, refreshFiles = false) {
   }
 }
 
+document.getElementById('add-application-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = document.getElementById('add-application');
+  if (button.disabled) return;
+  const input = document.getElementById('application-name');
+  const name = input.value.trim();
+  const status = document.getElementById('add-application-status');
+  if (!name) {
+    status.textContent = 'Enter an application name.';
+    input.focus();
+    return;
+  }
+  button.disabled = true;
+  input.disabled = true;
+  status.textContent = 'Adding application…';
+  try {
+    const response = await fetch('/api/applications', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Application could not be added.');
+    status.textContent = `Application “${result.name}” added.`;
+    input.value = '';
+  } catch (error) {
+    status.textContent = error.message || 'Application could not be added.';
+  } finally {
+    button.disabled = false;
+    input.disabled = false;
+  }
+});
+
 let applicationsRequest = 0;
 
 let applicationRows = [];

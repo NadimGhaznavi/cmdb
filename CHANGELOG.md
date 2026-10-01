@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Add `DCmdb.BASE_INSTALL_DIR` with the value `/opt/prod`.
+
+- Add an Add Application panel beneath Deployed Applications, saving a named
+  SoftwareSystem without a host or deployment.
+
 ## [0.14.2] - 2026-09-30 @ 19:27
 
 ### Changed

@@ -25,6 +25,7 @@ from cmdb.activity.PatchScheduler import PatchScheduler
 from cmdb.activity.DatabaseManager import DatabaseManager
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
+from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 from cmdb.entity.Machine import Machine
 
 
@@ -146,6 +147,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == "/api/applications":
+            self.add_application()
+            return
         if urlsplit(self.path).path == '/api/patch-schedules':
             self.update_patch_schedule()
             return
@@ -246,6 +250,40 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(503, b'{"error":"Could not start the machine scan. Try again."}', 'application/json')
             return
         self.respond(202, json.dumps({'scanId': scan_id}).encode(), 'application/json')
+
+    def add_application(self) -> None:
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError
+            values = json.loads(self.rfile.read(length))
+            if (not isinstance(values, dict) or values.keys() != {'name'}
+                    or not isinstance(values['name'], str)):
+                raise ValueError
+            name = values['name'].strip()
+            if not 1 <= len(name) <= 255 or any(ord(char) < 32 or ord(char) == 127 for char in name):
+                raise ValueError
+        except (ValueError, UnicodeError):
+            self.respond(400, b'{"error":"Provide an application name of 1 to 255 characters."}', 'application/json')
+            return
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
+            return
+        try:
+            db = DbMgr()
+            try:
+                with db.transaction():
+                    identity = SoftwareSystemDb(db).create_application(name)
+            finally:
+                db.close()
+        except pymysql.MySQLError:
+            logging.exception('Could not add application')
+            self.respond(503, b'{"error":"Application could not be saved. Try again."}', 'application/json')
+            return
+        self.respond(201, json.dumps({'id': identity, 'name': name}).encode(), 'application/json')
 
     def host_uptime(self, identity: str) -> None:
         if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:

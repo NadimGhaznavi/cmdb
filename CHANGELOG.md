@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.7] - 2026-10-01 @ 05:07
+
 - Use unqualified, lowercase hostnames in application scan status messages when
   available, falling back to the IP address for unnamed hosts.
 

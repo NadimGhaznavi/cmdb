@@ -4,6 +4,7 @@ from typing import Final
 
 
 class DCmdb:
+    BASE_INSTALL_DIR: Final[str] = "/opt/prod"
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
     SERVICE_USER: Final[str] = "cmdb"
     AGENT_USER: Final[str] = "cmdbagent"

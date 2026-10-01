@@ -15,6 +15,9 @@ from cmdb.activity.MachineScanner import MachineScanner
 
 class MachineScannerTests(TestCase):
     def setUp(self):
+        applications = patch("cmdb.activity.MachineScanner.ApplicationScanner")
+        self.applications = applications.start()
+        self.addCleanup(applications.stop)
         activity = patch("cmdb.activity.MachineScanner.MachineSSH")
         self.ssh_activity = activity.start()
         self.addCleanup(activity.stop)
@@ -45,6 +48,7 @@ class MachineScannerTests(TestCase):
             42, SoftwareSystem(type="OS", subtype="Linux", supplier="Linux", version="6.X"))
         self.assertEqual(db.return_value.close.call_count, 2)
         self.ssh_activity.return_value.run.assert_called_once_with({"192.168.0.7": 42})
+        self.applications.return_value.run.assert_called_once_with({"192.168.0.7": 42})
 
     @patch("cmdb.activity.MachineScanner.SoftwareDeploymentDb")
     @patch("cmdb.activity.MachineScanner.MachineDb")
@@ -192,6 +196,42 @@ class MachineScannerTests(TestCase):
         self.assertEqual(worker.request_scan("192.168.0.7"), 1)
         with self.assertRaises(ValueError):
             worker.request_scan()
+
+    @patch("cmdb.activity.MachineScanner.MachineDb")
+    @patch("cmdb.activity.MachineScanner.DbMgr")
+    @patch("cmdb.activity.MachineScanner.Nmap")
+    def test_application_scan_uses_inventoried_hosts_without_nmap(self, nmap, db, inventory):
+        inventory.return_value.list_machines.return_value = [Machine('192.0.2.7', id=7)]
+        MachineScanner().scan_applications()
+        self.applications.return_value.run.assert_called_once_with({'192.0.2.7': 7})
+        db.return_value.close.assert_called_once()
+        nmap.assert_not_called()
+
+    def test_application_requests_share_and_reject_inventory_scan(self):
+        worker = MachineScanner()
+        worker.is_alive = Mock(return_value=True)
+        self.assertEqual(worker.request_scan(applications_only=True), 1)
+        self.assertEqual(worker.request_scan(applications_only=True), 1)
+        with self.assertRaises(ValueError):
+            worker.request_scan()
+        worker._running_scan = True
+        worker._active_applications = True
+        worker._scan_id = 1
+        self.assertEqual(worker.request_scan(applications_only=True), 1)
+        with self.assertRaises(ValueError):
+            worker.request_scan('192.0.2.7')
+
+    @patch('builtins.print')
+    def test_worker_dispatches_application_scan(self, output):
+        worker = MachineScanner()
+        worker.is_alive = Mock(return_value=True)
+        worker.request_scan(applications_only=True)
+        worker.scan_once = Mock()
+        worker.scan_applications = Mock(side_effect=worker._stop_requested.set)
+        worker.run()
+        worker.scan_applications.assert_called_once()
+        worker.scan_once.assert_not_called()
+        self.assertEqual(worker.scan_status()['completedScanId'], 1)
 
     @patch("cmdb.activity.MachineScanner.DbMgr")
     @patch("cmdb.activity.MachineScanner.Nmap")

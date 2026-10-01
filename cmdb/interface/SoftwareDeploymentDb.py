@@ -16,10 +16,11 @@ class SoftwareDeploymentDb:
         """Project deployed software for the graph without changing the entity model."""
         deployments = self._db.query(
             "SELECT dc.id, dc.machine, dc.component, dc.pathname, ss.id AS softwareSystem, "
-            "ss.type, ss.subtype, ss.supplier, ss.version, tv.value AS codename "
+            "sme.name, ss.type, ss.subtype, ss.supplier, ss.version, tv.value AS codename "
             "FROM DeployedComponent dc JOIN Component c ON c.id = dc.component "
             "JOIN ModelElement me ON me.id = c.id "
             "JOIN SoftwareSystem ss ON ss.id = me.namespace "
+            "JOIN ModelElement sme ON sme.id = ss.id "
             "LEFT JOIN TaggedValue tv ON tv.modelElement = ss.id AND tv.tag = 'VERSION_CODENAME' "
             "ORDER BY dc.machine, dc.id"
         )
@@ -35,6 +36,44 @@ class SoftwareDeploymentDb:
         for deployment in deployments:
             deployment["databases"] = databases.get(deployment["id"], [])
         return deployments
+
+    def record_application(self, machine: int, application: int, pathname: str, version: str) -> None:
+        """Record a named application's current installation in the caller transaction."""
+        name = self._db.query('SELECT name FROM ModelElement WHERE id = %s', (application,))[0]['name']
+        releases = self._db.query(
+            'SELECT ss.id, ss.version FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
+            'WHERE me.name = %s AND ss.type IS NULL AND (ss.version = %s OR ss.version IS NULL) '
+            'ORDER BY ss.version IS NULL, ss.id LIMIT 1', (name, version))
+        if releases:
+            release = releases[0]['id']
+            if releases[0]['version'] is None:
+                self._db.execute('UPDATE SoftwareSystem SET version = %s WHERE id = %s', (version, release))
+        else:
+            release = self._namespaces.create_package(name=name)
+            self._db.execute('INSERT INTO SoftwareSystem (id, version) VALUES (%s, %s)', (release, version))
+        rows = self._db.query(
+            'SELECT c.id FROM Component c JOIN ModelElement me ON me.id = c.id '
+            'WHERE me.namespace = %s ORDER BY c.id LIMIT 1', (release,))
+        if rows:
+            component = rows[0]['id']
+        else:
+            component = self._namespaces.create(namespace=release)
+            self._db.execute('INSERT INTO Component (id) VALUES (%s)', (component,))
+        rows = self._db.query(
+            'SELECT dc.id FROM DeployedComponent dc '
+            'JOIN Component c ON c.id = dc.component JOIN ModelElement me ON me.id = c.id '
+            'JOIN SoftwareSystem ss ON ss.id = me.namespace '
+            'JOIN ModelElement sme ON sme.id = ss.id '
+            'WHERE dc.machine = %s AND dc.pathname = %s AND sme.name = %s AND ss.type IS NULL '
+            'ORDER BY dc.id LIMIT 1', (machine, pathname, name))
+        if rows:
+            self._db.execute('UPDATE DeployedComponent SET component = %s WHERE id = %s',
+                             (component, rows[0]['id']))
+        else:
+            identity = self._namespaces.create_package(namespace=machine)
+            self._db.execute(
+                'INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)',
+                (identity, pathname, machine, component))
 
     def debian_hosts(self) -> list[dict]:
         """List machines whose deployed operating system is identified as Debian."""

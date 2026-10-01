@@ -51,8 +51,10 @@ class ApplicationScannerTests(TestCase):
             7, 17, '/opt/prod/mycount', '1.2.3')
         self.DbMgr.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
         self.assertEqual(self.DbMgr.return_value.close.call_count, 2)
-        self.assertEqual(self.history.snapshot(), [
-            {'source': 'cmdb.activity.ApplicationScanner', 'message': '192.0.2.7: MyCount 1.2.3'}])
+        entries = self.history.snapshot()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['source'], 'cmdb.activity.ApplicationScanner')
+        self.assertEqual(entries[0]['message'], '192.0.2.7: MyCount 1.2.3')
 
     def test_missing_directory_file_or_version_preserves_inventory(self):
         for source in ('', 'OTHER = "1.2.3"', 'VERSION = ""'):

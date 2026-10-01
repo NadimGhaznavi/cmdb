@@ -25,8 +25,12 @@ class ServerTests(unittest.TestCase):
         for message in messages:
             self.server.status_messages.append(message)
         self.server.status_messages.append('<script>alert(1)</script>\nNext line')
-        expected = [{'source': __name__, 'message': message}
-                    for message in messages + ['<script>alert(1)</script> Next line']]
+        expected = self.server.status_messages.snapshot()
+        self.assertEqual([entry['message'] for entry in expected],
+                         messages + ['<script>alert(1)</script> Next line'])
+        for entry in expected:
+            self.assertEqual(entry['source'], __name__)
+            self.assertIsNotNone(datetime.fromisoformat(entry['timestamp']).tzinfo)
         for _ in range(2):
             connection = HTTPConnection(*self.server.server_address)
             try:
@@ -47,16 +51,18 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'>Status Messages</h2>', body)
         self.assertIn(b'role="log"', body)
         self.assertIn(b'tabindex="0"', body)
+        self.assertIn(b'<th scope="col">Timestamp</th><th scope="col">Source</th><th scope="col">Message</th>', body)
+        self.assertIn(b'<tbody id="status-message-rows"></tbody>', body)
         self.assertIn(b'/static/status_messages.js', body)
         self.assertGreater(body.index(b'id="status-messages-title"'), body.rindex(b'</main>'))
         status, script = self.get('/static/status_messages.js')
         self.assertEqual(status, 200)
-        self.assertIn(b'line.textContent = `[${message.source}] ${message.message}`', script)
+        self.assertIn(b'cell.textContent = value', script)
         self.assertIn(b"fetch('/status-messages'", script)
         status, styles = self.get('/static/machines.css')
         self.assertEqual(status, 200)
-        self.assertIn(b'height: calc(7.5em + 2px)', styles)
-        self.assertIn(b'overflow-y: auto', styles)
+        self.assertIn(b'height: calc(9em + 2px)', styles)
+        self.assertIn(b'overflow: auto', styles)
 
     def test_application_scan_queues_worker_and_reports_busy_or_unavailable(self):
         scanner = self.server.machine_scanner = Mock()

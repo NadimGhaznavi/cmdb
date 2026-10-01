@@ -103,7 +103,7 @@ Requests for a different scan while one is active report that the scanner is bus
 Other machines' reachability results are preserved by a single-host scan.
 The app uses MyCount’s warm dark theme: brown backgrounds, cream text, orange
 links and focus outlines, and subtle brown panel and table borders. Nodes use
-bold 16px labels with contrasting text.
+bold 24px labels with contrasting text.
 Named machines have dark brown rounded rectangles of size 160 × 80 when empty;
 unnamed machines have cream circles.
 Machines with deployed software expand into rounded containers with the machine
@@ -119,8 +119,10 @@ listing stored Schema names for that deployment, one per line (or a dash when
 none are recorded). User databases appear first, followed by a horizontal rule
 when any are present, then system databases: `mysql`, `information_schema`,
 `performance_schema`, and `sys` when recorded.
-Selection turns a reachable machine orange with dark text. Unreachable machines
-use muted red with cream text and an orange border when selected.
+Selection turns a reachable machine blue with cream text. Unreachable machines
+use muted red with cream text and a blue border when selected. Software boxes
+use a lighter shade of their machine's background, including blue when selected
+and muted red when unreachable.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.
@@ -231,7 +233,7 @@ The Nmap pass preserves existing hostnames, including manual edits. Existing `si
 values and machines absent from a scan are retained.
 
 Inventory shows machines absent from the latest successful discovery in
-red, including their software boxes. Selected machines keep the yellow border.
+red, including their software boxes. Selected machines use a blue border.
 Reachability is held in memory until restart; failed discovery scans preserve
 the previous result. Hosts outside the scanned subnet and hosts awaiting the
 first successful scan keep their usual colors.

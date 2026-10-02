@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.10] - 2026-10-02 @ 05:58
+
 - Split Backup Vault's backup timestamp into Date and Time columns, and add
   per-column text filters below the headings with a Clear filters button.
 

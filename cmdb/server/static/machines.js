@@ -347,6 +347,29 @@ document.getElementById('add-application-form').addEventListener('submit', async
 let applicationsRequest = 0;
 let registeredApplicationsRequest = 0;
 
+async function deleteApplication(row, application, button, status) {
+  if (button.disabled) return;
+  const name = application.name || application.subtype || application.type || 'Application';
+  let message = `Delete “${name}” (ID ${application.id}) from the CMDB? Its recorded deployments will also be removed. This does not uninstall software from hosts. It can be rediscovered or manually re-added.`;
+  if (application.type === 'DBMS') message += ' Backup history and files will be kept, and related backup schedules will be disabled.';
+  if (!window.confirm(message)) return;
+  button.disabled = true;
+  status.textContent = 'Deleting…';
+  try {
+    const response = await fetch(`/api/applications/${application.id}`, {
+      method: 'DELETE', signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Application could not be deleted.');
+    row.remove();
+    await Promise.all([loadRegisteredApplications(), loadApplications()]);
+  } catch (error) {
+    status.textContent = error.message || 'Application could not be deleted. Refresh before retrying.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function loadRegisteredApplications() {
   const request = ++registeredApplicationsRequest;
   const status = document.getElementById('registered-applications-status');
@@ -365,6 +388,17 @@ async function loadRegisteredApplications() {
         cell.textContent = application[field] ?? '—';
         row.append(cell);
       }
+      const actions = document.createElement('td');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Delete';
+      button.setAttribute('aria-label', `Delete ${application.name || application.subtype || application.type || 'application'} (ID ${application.id})`);
+      const rowStatus = document.createElement('span');
+      rowStatus.className = 'backup-row-status';
+      rowStatus.setAttribute('role', 'status');
+      button.addEventListener('click', () => deleteApplication(row, application, button, rowStatus));
+      actions.append(button, rowStatus);
+      row.append(actions);
       body.append(row);
     }
     status.textContent = applications.length ? '' : 'No registered applications recorded yet.';

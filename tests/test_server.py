@@ -94,6 +94,66 @@ class ServerTests(unittest.TestCase):
         self.server.server_close()
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
+    @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
+    @patch('cmdb.server.CmdbHandler.Cron')
+    def test_delete_application_transaction_closes_and_removes_disabled_cron(self, cron, records, factory):
+        records.return_value.delete_application.return_value = [12]
+        status, body = self.delete_application('42')
+        self.assertEqual((status, json.loads(body)), (200, {'status': 'deleted'}))
+        records.return_value.delete_application.assert_called_once_with(42)
+        cron.return_value.delete.assert_called_once_with(12)
+        factory.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
+    def test_delete_application_missing_and_invalid_ids(self, records, factory):
+        for identity in ('0', '-1', 'abc', '42/extra', str(2**64), '1' * 21):
+            status, body = self.delete_application(identity)
+            self.assertEqual((status, json.loads(body)), (404, {'error': 'Application not found.'}))
+        factory.assert_not_called()
+        records.return_value.delete_application.return_value = None
+        self.assertEqual(self.delete_application('42')[0], 404)
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
+    def test_delete_application_failure_rolls_back_and_hides_details(self, records, factory):
+        for error, expected in ((pymysql.OperationalError('private failure'), 503),
+                                (pymysql.IntegrityError('private dependency'), 409)):
+            factory.reset_mock()
+            records.return_value.delete_application.side_effect = error
+            with self.assertLogs(level='ERROR'):
+                status, body = self.delete_application('42')
+            self.assertEqual(status, expected)
+            self.assertNotIn(b'private', body)
+            self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[1], error)
+            factory.return_value.close.assert_called_once()
+
+    def delete_application(self, identity):
+        connection = HTTPConnection(*self.server.server_address)
+        try:
+            connection.request('DELETE', '/api/applications/' + identity)
+            response = connection.getresponse()
+            return response.status, response.read()
+        finally:
+            connection.close()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
+    @patch('cmdb.server.CmdbHandler.Cron')
+    def test_delete_application_cron_failure_exits_transaction(self, cron, records, factory):
+        records.return_value.delete_application.return_value = [12]
+        error = OSError('private cron failure')
+        cron.return_value.delete.side_effect = error
+        with self.assertLogs(level='ERROR'):
+            status, body = self.delete_application('42')
+        self.assertEqual(status, 503)
+        self.assertNotIn(b'private', body)
+        self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[1], error)
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_registered_applications_lists_software_systems_and_closes_database(self, factory):
         records = [
             {'id': 1, 'name': 'MyCount', 'type': None, 'subtype': None, 'supplier': None, 'version': None},

@@ -25,6 +25,7 @@ function backupSize(bytes) {
 
 async function loadBackupFiles() {
   const request = ++backupFilesRequest;
+  document.querySelector('.backup-files-table').classList.remove('filesystem-scanned');
   const status = document.getElementById("backup-files-status");
   const body = document.getElementById("backup-files-rows");
   status.textContent = "Loading backup files…";
@@ -65,6 +66,7 @@ async function loadBackupFiles() {
 }
 
 async function scanBackupFiles() {
+  document.querySelector('.backup-files-table').classList.add('filesystem-scanned');
   const button = document.getElementById('scan-backup-files');
   const status = document.getElementById('backup-files-status');
   const request = backupFilesRequest;

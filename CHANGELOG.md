@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Hide Backup Vault's Status column until Scan Filesystem is clicked, and hide
+  it again when the table refreshes.
+
 - Leave missing values and unchecked filesystem statuses blank in Backup Vault.
 
 - Add Size after Filename in Backup Vault, displaying recorded backup sizes

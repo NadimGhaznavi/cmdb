@@ -58,14 +58,16 @@ including queue time, preparation, dumping, and checksum calculation. Hours do
 not wrap at 24. While a job is starting or running, its progress message is
 “Processing backup job...”.
 The table refreshes when the view opens and after an observed backup completes.
-Failed and running attempts are excluded. Status starts blank until Scan Filesystem
-checks each recorded path through the local backup agent, displaying Found or Missing.
+Failed and running attempts are excluded. The Status column is hidden until Scan
+Filesystem is clicked. It checks each recorded path through the local backup agent,
+displaying Found or Missing.
 This checks filesystem metadata only, without reading dump contents or checking checksums.
 Access errors report a failed scan rather than marking files missing.
 Each Missing row offers Delete Record to clean up after manual file deletion.
 Deletion rechecks the path, removes only that Backup record, and never deletes a file,
 inventory item, or schedule. Deleted records stay gone on refresh. Scan status is
-temporary; reopening or refreshing the table requires another scan.
+temporary; reopening or refreshing the table hides the Status column and requires
+another scan.
 
 ## Execution
 

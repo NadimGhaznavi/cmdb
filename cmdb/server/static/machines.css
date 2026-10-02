@@ -51,6 +51,7 @@
 .debian-hosts-table thead th { vertical-align: bottom; }
 .debian-hosts-table .patch-row-status { width: 100%; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }
+.backup-files-table:not(.filesystem-scanned) [data-field="fileStatus"] { display: none; }
 .backup-host { margin: 1rem 0; }
 .backup-host summary { cursor: pointer; font-weight: bold; overflow-wrap: anywhere; }
 .backup-host summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

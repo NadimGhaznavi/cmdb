@@ -12,29 +12,58 @@ function elapsedTime(seconds) {
   return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
 }
 
+function backupSize(bytes) {
+  if (bytes == null) return '';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+  let unit = 0;
+  while (bytes >= 1024 && unit < units.length - 1) {
+    bytes /= 1024;
+    unit += 1;
+  }
+  return `${unit === 0 ? bytes : bytes.toFixed(1)} ${units[unit]}`;
+}
+
+function filterBackupFiles() {
+  const scanned = document.querySelector('.backup-files-table').classList.contains('filesystem-scanned');
+  const filters = [...document.querySelectorAll('[data-backup-filter]')]
+    .filter(input => scanned || !input.closest('[data-field="fileStatus"]'))
+    .map(input => ({ column: Number(input.dataset.backupFilter), value: input.value.trim().toLowerCase() }));
+  const rows = [...document.querySelectorAll('#backup-files-rows tr')];
+  for (const row of rows) {
+    row.hidden = !filters.every(filter => row.cells[filter.column].textContent.toLowerCase().includes(filter.value));
+  }
+  document.getElementById('backup-files-no-matches').hidden = !rows.length || rows.some(row => !row.hidden);
+}
+
 async function loadBackupFiles() {
   const request = ++backupFilesRequest;
+  document.querySelector('.backup-files-table').classList.remove('filesystem-scanned');
   const status = document.getElementById("backup-files-status");
   const body = document.getElementById("backup-files-rows");
+  const latest = document.getElementById("most-recent-backup");
   status.textContent = "Loading backup files…";
   try {
     const response = await fetch("/api/backups/files", { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error("Backup files are unavailable. Reopen Backups to try again.");
     const { files, directory } = await response.json();
     if (request !== backupFilesRequest) return;
+    const backupTime = files[0]?.backupTime || '';
+    latest.textContent = backupTime ? localTimestamp(backupTime).slice(0, 16) : '';
+    latest.dateTime = backupTime;
     document.querySelector('#backup-directory span').textContent = directory;
     body.replaceChildren();
     for (const file of files) {
       const row = document.createElement("tr");
       row.dataset.backupId = file.id;
-      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename]) {
+      const timestamp = file.backupTime ? localTimestamp(file.backupTime) : '';
+      for (const value of [timestamp.slice(0, 10), timestamp.slice(11), file.elapsedSeconds == null ? '' : elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename, backupSize(file.sizeBytes)]) {
         const cell = document.createElement("td");
-        cell.textContent = value;
+        cell.textContent = value ?? '';
         row.append(cell);
       }
       const state = document.createElement('td');
       state.dataset.field = 'fileStatus';
-      state.textContent = '---';
+      state.textContent = '';
       const actions = document.createElement('td');
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -46,23 +75,29 @@ async function loadBackupFiles() {
       body.append(row);
     }
     status.textContent = files.length ? "" : "No backup files yet.";
+    filterBackupFiles();
   } catch (error) {
     if (request !== backupFilesRequest) return;
+    latest.textContent = '';
+    latest.removeAttribute('datetime');
     body.replaceChildren();
+    filterBackupFiles();
     status.textContent = error.message || "Backup files could not be loaded.";
   }
 }
 
 async function scanBackupFiles() {
+  document.querySelector('.backup-files-table').classList.add('filesystem-scanned');
   const button = document.getElementById('scan-backup-files');
   const status = document.getElementById('backup-files-status');
   const request = backupFilesRequest;
   button.disabled = true;
   status.textContent = 'Scanning backup files…';
   for (const row of document.querySelectorAll('#backup-files-rows tr')) {
-    row.querySelector('[data-field="fileStatus"]').textContent = '---';
+    row.querySelector('[data-field="fileStatus"]').textContent = '';
     row.querySelector('button').hidden = true;
   }
+  filterBackupFiles();
   try {
     const response = await fetch('/api/backups/files/scan', { method: 'POST', signal: AbortSignal.timeout(45000) });
     const result = await response.json();
@@ -70,10 +105,11 @@ async function scanBackupFiles() {
     if (request !== backupFilesRequest) return;
     const statuses = new Map(result.files.map(file => [String(file.id), file.status]));
     for (const row of document.querySelectorAll('#backup-files-rows tr')) {
-      const state = statuses.get(row.dataset.backupId) || '---';
+      const state = statuses.get(row.dataset.backupId) || '';
       row.querySelector('[data-field="fileStatus"]').textContent = state;
       row.querySelector('button').hidden = state !== 'Missing';
     }
+    filterBackupFiles();
     status.textContent = 'Filesystem scan complete.';
   } catch (error) {
     if (request === backupFilesRequest) status.textContent = error.message;
@@ -93,6 +129,7 @@ async function deleteBackupRecord(row, identity) {
     row.remove();
     status.textContent = 'Backup record deleted.';
     loadBackups();
+    loadBackupFiles();
   } catch (error) {
     status.textContent = error.message;
     button.disabled = false;
@@ -100,6 +137,13 @@ async function deleteBackupRecord(row, identity) {
 }
 
 document.getElementById('scan-backup-files').addEventListener('click', scanBackupFiles);
+for (const input of document.querySelectorAll('[data-backup-filter]')) {
+  input.addEventListener('input', filterBackupFiles);
+}
+document.getElementById('clear-backup-filters').addEventListener('click', () => {
+  for (const input of document.querySelectorAll('[data-backup-filter]')) input.value = '';
+  filterBackupFiles();
+});
 
 async function loadBackups() {
   const status = document.getElementById("backups-status");
@@ -746,6 +790,10 @@ async function loadMachines() {
   const details = document.getElementById("machine-details");
   const selectionDetails = document.getElementById("selection-details");
   const softwareDetails = document.getElementById("software-details");
+  const environment = document.getElementById("machine-environment");
+  const update = document.getElementById("update-machine");
+  const environmentStatus = document.getElementById("machine-environment-status");
+  let selectedMachine = null;
   try {
     if (typeof cytoscape !== "function") {
       throw new Error("The machine graph could not be loaded. Refresh to try again.");
@@ -766,7 +814,7 @@ async function loadMachines() {
       const center = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
       const systems = softwareDeployments.filter(system => system.machine === machine.id)
         .sort(compareSoftware);
-      elements.push({ data: { ...machine, id: machine.ipAddress, label: machineLabel(machine) },
+      elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
         classes: machine.reachable === false ? "machine down" : "machine", position: center });
       systems.forEach((system, offset) => {
         elements.push({ data: { ...system, id: `deployment-${system.id}`,
@@ -835,6 +883,10 @@ async function loadMachines() {
       if (refreshing) return;
       graph.nodes().unselect();
       node.select();
+      selectedMachine = node;
+      environment.value = node.data("taggedValue")?.find(tag => tag.tag === "DeploymentEnvironment")?.value
+        ?? "unclassified";
+      environmentStatus.textContent = "";
       for (const field of ["ipAddress", "macAddress", "hostName", "createdOn", "updatedOn"]) {
         const value = field === "createdOn" || field === "updatedOn"
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
@@ -870,6 +922,39 @@ async function loadMachines() {
         softwareDetails.append(section);
       }
     }
+    update.addEventListener("click", async () => {
+      if (!selectedMachine || update.disabled) return;
+      const node = selectedMachine;
+      const value = environment.value;
+      update.disabled = true;
+      environment.disabled = true;
+      environmentStatus.textContent = "Saving…";
+      try {
+        const response = await fetch("/api/machines/environment", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ machine: node.data("machineId"), environment: value }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save the environment. Try again.");
+        const tags = (node.data("taggedValue") || []).filter(tag => tag.tag !== "DeploymentEnvironment");
+        if (result.environment !== "unclassified") {
+          tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
+        }
+        node.data("taggedValue", tags);
+        if (selectedMachine === node) {
+          environment.value = result.environment;
+          environmentStatus.textContent = "Environment saved.";
+        }
+      } catch (error) {
+        if (selectedMachine === node) {
+          environmentStatus.textContent = error.message || "Could not save the environment. Try again.";
+        }
+      } finally {
+        update.disabled = false;
+        environment.disabled = false;
+      }
+    });
     graph.on("tap", "node", event => {
       if (refreshing) return;
       const node = event.target;

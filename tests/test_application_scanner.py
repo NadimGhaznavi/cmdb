@@ -8,6 +8,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from cmdb.activity.ApplicationScanner import ApplicationScanner, application_version
+from cmdb.activity.MachineScanner import MachineScanner
 from cmdb.entity.Machine import Machine
 from cmdb.entity.StatusMessages import StatusMessages
 
@@ -47,8 +48,7 @@ class ApplicationScannerTests(TestCase):
                                            Mock(stdout=''), subprocess.TimeoutExpired('ssh', 30)]
         self.worker.run({'192.0.2.7': 7})
         self.worker.run({'192.0.2.7': 7})
-        with self.assertRaises(OSError):
-            self.worker.run({'192.0.2.7': 7})
+        self.worker.run({'192.0.2.7': 7})
         self.assertEqual([entry['message'] for entry in self.history.snapshot()], [
             'sally: MyCount 1.2.3', 'sally: MyCount — not detected.',
             'sally: MyCount — read failed.'])
@@ -130,15 +130,40 @@ class ApplicationScannerTests(TestCase):
             self.worker.run({'192.0.2.7': 7})
             records.assert_not_called()
 
-    def test_host_failure_continues_other_hosts_and_reports_partial_failure(self):
+    def test_host_failure_continues_other_hosts_and_records_individual_failure(self):
         self.worker._ssh.run.side_effect = [subprocess.TimeoutExpired('ssh', 30),
                                            Mock(stdout='VERSION = "1.2.3"')]
-        with self.assertRaises(OSError):
-            self.worker.run({'192.0.2.7': 7, '192.0.2.8': 8})
+        self.worker.run({'192.0.2.7': 7, '192.0.2.8': 8})
         self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
             8, 17, '/opt/prod/mycount', '1.2.3')
         self.assertEqual([entry['message'] for entry in self.history.snapshot()], [
             '192.0.2.7: MyCount — read failed.', '192.0.2.8: MyCount 1.2.3'])
+
+    def test_worker_completes_when_last_application_read_fails(self):
+        for applications_only in (False, True):
+            with self.subTest(applications_only=applications_only):
+                history = StatusMessages()
+                self.worker.status_messages = history
+                self.worker._ssh.run.side_effect = subprocess.TimeoutExpired('ssh', 30)
+                scanner = MachineScanner(history)
+                scanner._requested_applications = applications_only
+
+                def scan():
+                    self.worker.run({'192.0.2.7': 7})
+
+                scanner.scan_once = Mock(side_effect=scan)
+                scanner.scan_applications = Mock(side_effect=scan)
+
+                def wait(interval):
+                    if scanner._completed_scan_id:
+                        scanner._stop_requested.set()
+
+                scanner._wake.wait = Mock(side_effect=wait)
+                scanner.run()
+                self.assertEqual([entry['message'] for entry in history.snapshot()][-2:],
+                                 ['192.0.2.7: MyCount — read failed.', 'Scan complete'])
+                self.assertIsNone(scanner.scan_status()['error'])
+                self.assertEqual(scanner.scan_status()['completedScanId'], 1)
 
     def test_unsafe_names_and_stopped_scans_run_no_commands(self):
         self.SoftwareSystemDb.return_value.list_applications.return_value = [

@@ -38,8 +38,15 @@
 #backups-page { min-width: 0; min-height: 0; border: 0; padding: 0; gap: 1rem; }
 .backup-panel { min-width: 0; border: 1px solid var(--border); border-radius: .4rem; padding: 1rem 1.5rem; }
 .backup-panel > h3 { margin: 0 0 1rem; }
-.backup-vault { flex: 1; display: flex; flex-direction: column; }
-.backup-vault > .backup-table-scroll { flex: 1; }
+.backup-vault[open] { flex: 1; }
+.backup-vault > summary { display: flex; align-items: center; gap: .75rem; cursor: pointer; list-style: none; }
+.backup-vault > summary::-webkit-details-marker { display: none; }
+.backup-vault > summary::before { content: '▶'; font-size: .75rem; }
+.backup-vault[open] > summary::before { content: '▼'; }
+.backup-vault > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.backup-vault h3 { margin: 0; }
+.backup-vault-latest { margin-left: auto; text-align: right; color: var(--muted); font-size: .85rem; }
+.backup-vault-latest time { white-space: nowrap; }
 #applications-page, #patching-page { min-width: 0; border: 0; padding: 0; gap: 1rem; }
 #applications-page .backups-table, #patching-page .backups-table { min-width: 30rem; }
 .patch-row-status { max-width: 32rem; white-space: pre-wrap; }
@@ -51,6 +58,9 @@
 .debian-hosts-table thead th { vertical-align: bottom; }
 .debian-hosts-table .patch-row-status { width: 100%; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }
+.backup-files-table:not(.filesystem-scanned) [data-field="fileStatus"] { display: none; }
+.backup-files-filters td { background: var(--surface); }
+.backup-files-filters input { width: 100%; min-width: 5rem; background: var(--background); color: var(--text); border: 1px solid var(--border); padding: .4rem .6rem; font: inherit; }
 .backup-host { margin: 1rem 0; }
 .backup-host summary { cursor: pointer; font-weight: bold; overflow-wrap: anywhere; }
 .backup-host summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -91,9 +101,10 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 #selection-details th, #selection-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 #selection-details th { width: 45%; color: var(--muted); font-weight: normal; }
 .page-actions { margin: 0; }
+.machine-actions { display: flex; align-items: center; gap: .5rem; }
 .page-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-top: 1rem; }
 .page-footer p { margin: 0 0 0 auto; text-align: right; }
-.page-actions button, .backup-vault button {
+.page-actions button, .page-actions select, .backup-vault button {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
@@ -102,8 +113,9 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
   border-radius: .25rem;
   cursor: pointer;
 }
+.machine-actions button, .machine-actions select { padding: .5rem .6rem; }
 .page-actions button:hover, .backup-vault button:hover, .backups-table button:hover { background: var(--accent); color: var(--background); }
-.page-actions button:focus-visible, .backup-vault button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.page-actions button:focus-visible, .page-actions select:focus-visible, .backup-vault button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 600px) {
   body { padding: .5rem; gap: .5rem; }
   header, main { padding: 1rem; }

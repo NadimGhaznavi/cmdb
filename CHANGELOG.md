@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add a confirmed Delete action to each Registered Applications row. Remove the
+  selected definition and its application deployments from CMDB, then refresh
+  both tables. Preserve MariaDB backup history and files, disable its backup
+  schedules, and reuse retained database inventory when rediscovered.
+
 ## [0.15.11] - 2026-10-02 @ 17:41
 
 - Rename the Add Application panel to Registered Applications and list every

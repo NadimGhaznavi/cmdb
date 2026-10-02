@@ -18,6 +18,7 @@ from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupFiles import BackupFiles
+from cmdb.interface.Cron import Cron
 from cmdb.interface.PatchDb import PatchDb
 from cmdb.interface.SSH import SSH
 from cmdb.activity.Scheduler import Scheduler
@@ -474,6 +475,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         path = urlsplit(self.path).path
+        if path.startswith('/api/applications/'):
+            self.delete_application(path.removeprefix('/api/applications/'))
+            return
         if path.startswith('/api/databases/'):
             self.delete_database(path.removeprefix('/api/databases/'))
             return
@@ -490,6 +494,34 @@ class CmdbHandler(BaseHTTPRequestHandler):
         except (OSError, RuntimeError, pymysql.MySQLError):
             logging.exception('Could not delete backup schedule')
             self.respond(503, b'{"error":"Could not delete the schedule and cron entry."}', 'application/json')
+            return
+        self.respond(200, b'{"status":"deleted"}', 'application/json')
+
+    def delete_application(self, identity: str) -> None:
+        if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
+            self.respond(404, b'{"error":"Application not found."}', 'application/json')
+            return
+        try:
+            with Cron.EDIT_LOCK:
+                db = DbMgr()
+                try:
+                    with db.transaction():
+                        schedules = SoftwareSystemDb(db).delete_application(int(identity))
+                        if schedules is not None:
+                            for schedule in schedules:
+                                Cron().delete(schedule)
+                finally:
+                    db.close()
+        except pymysql.IntegrityError:
+            logging.exception('Application deletion has dependent inventory')
+            self.respond(409, b'{"error":"Application still has dependent inventory. Refresh and retry."}', 'application/json')
+            return
+        except (OSError, RuntimeError, pymysql.MySQLError):
+            logging.exception('Could not delete application')
+            self.respond(503, b'{"error":"Could not delete the application. Refresh before retrying; backup schedules may now be disabled."}', 'application/json')
+            return
+        if schedules is None:
+            self.respond(404, b'{"error":"Application not found."}', 'application/json')
             return
         self.respond(200, b'{"status":"deleted"}', 'application/json')
 

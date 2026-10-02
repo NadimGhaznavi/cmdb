@@ -16,16 +16,27 @@ class DataManagerDb:
         component = SoftwareDeploymentDb(self._db).component_for(
             SoftwareSystem(type='DBMS', subtype='MariaDB', supplier='MariaDB', version=version))
         rows = self._db.query(
-            "SELECT dm.id FROM DataManager dm JOIN DeployedComponent dc ON dc.id = dm.id "
+            "SELECT dm.id, dc.component FROM DataManager dm JOIN DeployedComponent dc ON dc.id = dm.id "
             "JOIN Component c ON c.id = dc.component JOIN ModelElement me ON me.id = c.id "
-            "JOIN SoftwareSystem ss ON ss.id = me.namespace "
+            "LEFT JOIN SoftwareSystem ss ON ss.id = me.namespace "
             "WHERE dc.machine = %s AND BINARY dc.pathname = BINARY %s "
-            "AND ss.type = 'DBMS' AND ss.subtype = 'MariaDB' ORDER BY dm.id LIMIT 1",
+            "AND ((ss.type = 'DBMS' AND ss.subtype = 'MariaDB') OR me.namespace IS NULL) "
+            "ORDER BY dm.id LIMIT 1",
             (machine, pathname),
         )
         if rows:
             manager = rows[0]['id']
+            previous = rows[0]['component']
             self._db.execute('UPDATE DeployedComponent SET component=%s WHERE id=%s', (component.id, manager))
+            # A deleted definition leaves a standalone component for backup history.
+            removed = self._db.execute(
+                'DELETE c FROM Component c JOIN ModelElement me ON me.id = c.id '
+                'WHERE c.id = %s AND me.namespace IS NULL '
+                'AND NOT EXISTS (SELECT 1 FROM DeployedComponent dc WHERE dc.component = c.id)', (previous,))
+            if removed:
+                self._db.execute('DELETE FROM TaggedValue WHERE modelElement = %s', (previous,))
+                self._db.execute('DELETE FROM Namespace WHERE id = %s', (previous,))
+                self._db.execute('DELETE FROM ModelElement WHERE id = %s', (previous,))
         else:
             manager = namespaces.create_package(namespace=machine)
             self._db.execute('INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)',

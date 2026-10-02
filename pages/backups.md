@@ -52,10 +52,14 @@ using the newest recorded successful backup's completion time in browser-local
 time. The timestamp is blank when no backups are recorded or files cannot be loaded.
 Backup Vault lists all recorded successful database backups,
 newest completion first (newest record first when times match). Its columns are
-Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
+Date (`YYYY-MM-DD`) and Time (`HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
 or IP address), Database, Filename (the file name only), Size, Status, and Actions.
 Size uses the recorded byte count, displayed as B, KB, MB, GB, or larger units
 in steps of 1,024, with one decimal place for KB and above. Missing values are blank.
+The filter row below the column headings filters each data column as you type.
+Filters match part of the displayed text, ignoring case, and combine across columns.
+Clear filters restores all rows. Filters stay in place when the table refreshes;
+the Status filter applies only while the Status column is visible after a scan.
 The configured `Backup directory` appears below the heading. Scan Filesystem sits
 at the bottom left of the vault panel, below the table.
 Elapsed Time measures whole seconds from CMDB's attempt creation to completion,

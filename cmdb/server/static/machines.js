@@ -23,6 +23,18 @@ function backupSize(bytes) {
   return `${unit === 0 ? bytes : bytes.toFixed(1)} ${units[unit]}`;
 }
 
+function filterBackupFiles() {
+  const scanned = document.querySelector('.backup-files-table').classList.contains('filesystem-scanned');
+  const filters = [...document.querySelectorAll('[data-backup-filter]')]
+    .filter(input => scanned || !input.closest('[data-field="fileStatus"]'))
+    .map(input => ({ column: Number(input.dataset.backupFilter), value: input.value.trim().toLowerCase() }));
+  const rows = [...document.querySelectorAll('#backup-files-rows tr')];
+  for (const row of rows) {
+    row.hidden = !filters.every(filter => row.cells[filter.column].textContent.toLowerCase().includes(filter.value));
+  }
+  document.getElementById('backup-files-no-matches').hidden = !rows.length || rows.some(row => !row.hidden);
+}
+
 async function loadBackupFiles() {
   const request = ++backupFilesRequest;
   document.querySelector('.backup-files-table').classList.remove('filesystem-scanned');
@@ -43,7 +55,8 @@ async function loadBackupFiles() {
     for (const file of files) {
       const row = document.createElement("tr");
       row.dataset.backupId = file.id;
-      for (const value of [file.backupTime ? localTimestamp(file.backupTime) : '', file.elapsedSeconds == null ? '' : elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename, backupSize(file.sizeBytes)]) {
+      const timestamp = file.backupTime ? localTimestamp(file.backupTime) : '';
+      for (const value of [timestamp.slice(0, 10), timestamp.slice(11), file.elapsedSeconds == null ? '' : elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename, backupSize(file.sizeBytes)]) {
         const cell = document.createElement("td");
         cell.textContent = value ?? '';
         row.append(cell);
@@ -62,11 +75,13 @@ async function loadBackupFiles() {
       body.append(row);
     }
     status.textContent = files.length ? "" : "No backup files yet.";
+    filterBackupFiles();
   } catch (error) {
     if (request !== backupFilesRequest) return;
     latest.textContent = '';
     latest.removeAttribute('datetime');
     body.replaceChildren();
+    filterBackupFiles();
     status.textContent = error.message || "Backup files could not be loaded.";
   }
 }
@@ -82,6 +97,7 @@ async function scanBackupFiles() {
     row.querySelector('[data-field="fileStatus"]').textContent = '';
     row.querySelector('button').hidden = true;
   }
+  filterBackupFiles();
   try {
     const response = await fetch('/api/backups/files/scan', { method: 'POST', signal: AbortSignal.timeout(45000) });
     const result = await response.json();
@@ -93,6 +109,7 @@ async function scanBackupFiles() {
       row.querySelector('[data-field="fileStatus"]').textContent = state;
       row.querySelector('button').hidden = state !== 'Missing';
     }
+    filterBackupFiles();
     status.textContent = 'Filesystem scan complete.';
   } catch (error) {
     if (request === backupFilesRequest) status.textContent = error.message;
@@ -120,6 +137,13 @@ async function deleteBackupRecord(row, identity) {
 }
 
 document.getElementById('scan-backup-files').addEventListener('click', scanBackupFiles);
+for (const input of document.querySelectorAll('[data-backup-filter]')) {
+  input.addEventListener('input', filterBackupFiles);
+}
+document.getElementById('clear-backup-filters').addEventListener('click', () => {
+  for (const input of document.querySelectorAll('[data-backup-filter]')) input.value = '';
+  filterBackupFiles();
+});
 
 async function loadBackups() {
   const status = document.getElementById("backups-status");

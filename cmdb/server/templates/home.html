@@ -144,7 +144,8 @@
         <table class="backups-table backup-files-table" aria-label="Backup files">
           <thead>
             <tr>
-              <th scope="col">Backup Time</th>
+              <th scope="col">Date</th>
+              <th scope="col">Time</th>
               <th scope="col">Elapsed Time</th>
               <th scope="col">Machine</th>
               <th scope="col">Database</th>
@@ -153,10 +154,22 @@
               <th scope="col" data-field="fileStatus">Status</th>
               <th scope="col">Actions</th>
             </tr>
+            <tr class="backup-files-filters">
+              <td><input type="search" data-backup-filter="0" aria-label="Filter backup date" placeholder="YYYY-MM-DD" size="10"></td>
+              <td><input type="search" data-backup-filter="1" aria-label="Filter backup time" placeholder="HH:MM:SS" size="8"></td>
+              <td><input type="search" data-backup-filter="2" aria-label="Filter elapsed time" placeholder="Filter…" size="8"></td>
+              <td><input type="search" data-backup-filter="3" aria-label="Filter machine" placeholder="Filter…" size="12"></td>
+              <td><input type="search" data-backup-filter="4" aria-label="Filter database" placeholder="Filter…" size="12"></td>
+              <td><input type="search" data-backup-filter="5" aria-label="Filter filename" placeholder="Filter…" size="16"></td>
+              <td><input type="search" data-backup-filter="6" aria-label="Filter size" placeholder="Filter…" size="8"></td>
+              <td data-field="fileStatus"><input type="search" data-backup-filter="7" aria-label="Filter file status" placeholder="Filter…" size="8"></td>
+              <td><button id="clear-backup-filters" type="button">Clear filters</button></td>
+            </tr>
           </thead>
           <tbody id="backup-files-rows"></tbody>
         </table>
       </div>
+      <p id="backup-files-no-matches" role="status" hidden>No backups match the filters.</p>
       <footer class="page-footer">
         <div class="page-actions">
           <button id="scan-backup-files" type="button">Scan Filesystem</button>

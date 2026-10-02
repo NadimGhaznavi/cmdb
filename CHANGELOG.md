@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Split Backup Vault's backup timestamp into Date and Time columns, and add
+  per-column text filters below the headings with a Clear filters button.
+
 - Make the entire Backup Vault collapsible, initially showing only its title row
   with the most recent successful backup time right aligned in `YYYY-MM-DD HH:MM` format.
 

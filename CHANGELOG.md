@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.12] - 2026-10-02 @ 18:07
+
 - Add a confirmed Delete action to each Registered Applications row. Remove the
   selected definition and its application deployments from CMDB, then refresh
   both tables. Preserve MariaDB backup history and files, disable its backup

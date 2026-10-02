@@ -178,8 +178,8 @@
     </details>
   </main>
   <main id="applications-page" aria-labelledby="applications-heading" hidden>
-    <section class="backup-panel" aria-labelledby="deployed-applications-heading">
-      <h3 id="deployed-applications-heading">Deployed Applications</h3>
+    <details class="backup-panel" aria-labelledby="deployed-applications-heading">
+      <summary><h3 id="deployed-applications-heading">Deployed Applications</h3></summary>
       <p id="applications-status" role="status">Loading applications…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Deployed applications">
         <table class="backups-table applications-table" aria-label="Deployed applications">
@@ -192,9 +192,9 @@
           <tbody id="application-rows"></tbody>
         </table>
       </div>
-    </section>
-    <section class="backup-panel" aria-labelledby="registered-applications-heading">
-      <h3 id="registered-applications-heading">Registered Applications</h3>
+    </details>
+    <details class="backup-panel" aria-labelledby="registered-applications-heading">
+      <summary><h3 id="registered-applications-heading">Registered Applications</h3></summary>
       <p id="registered-applications-status" role="status">Loading registered applications…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Registered applications">
         <table class="backups-table" aria-label="Registered applications">
@@ -208,7 +208,7 @@
         <div class="page-actions"><button id="add-application" type="submit">Add Application</button></div>
       </form>
       <p id="add-application-status" role="status"></p>
-    </section>
+    </details>
     <footer class="page-footer">
       <div class="page-actions"><button id="rescan-applications" type="button">Re-Scan Applications</button></div>
       <p id="application-scan-status" role="status"></p>

@@ -58,7 +58,9 @@ The header logo and browser favicon use `pages/images/cmdb.png`, also used by
 the documentation site. Clicking the application logo returns to Inventory.
 Applications shows one Deployed Applications table for existing software deployments,
 including Debian and MariaDB, with Host, Application, Version, and Install Directory
-columns. It starts sorted by Host ascending. Click any column heading
+columns. Both Deployed Applications and Registered Applications start collapsed,
+showing only their heading titles. Click a heading to expand or collapse its table
+and controls. The deployed table starts sorted by Host ascending. Click any column heading
 to sort ascending; clicking the active heading reverses the order. Version sorting
 compares numeric parts naturally (for example, 11.9 precedes 11.10). An arrow
 marks the active sort direction, which is retained when reopening the page.

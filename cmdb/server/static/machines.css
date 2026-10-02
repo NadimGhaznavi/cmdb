@@ -48,6 +48,9 @@
 .backup-vault-latest { margin-left: auto; text-align: right; color: var(--muted); font-size: .85rem; }
 .backup-vault-latest time { white-space: nowrap; }
 #applications-page, #patching-page { min-width: 0; border: 0; padding: 0; gap: 1rem; }
+#applications-page .backup-panel > summary { cursor: pointer; }
+#applications-page .backup-panel > summary h3 { display: inline; margin: 0; }
+#applications-page .backup-panel > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 #applications-page .backups-table, #patching-page .backups-table { min-width: 30rem; }
 .patch-row-status { max-width: 32rem; white-space: pre-wrap; }
 .patch-row-status:empty { display: none; }

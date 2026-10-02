@@ -34,13 +34,14 @@
           <div class="page-actions machine-actions">
             <button id="rescan-machine" type="button">Re-Scan</button>
             <select id="machine-environment" aria-label="Machine environment">
-              <option value="Unclassified">Unclassified</option>
-              <option value="Prod">Prod</option>
-              <option value="QA">QA</option>
-              <option value="DEV">DEV</option>
+              <option value="unclassified">Unclassified</option>
+              <option value="prod">Prod</option>
+              <option value="qa">QA</option>
+              <option value="dev">DEV</option>
             </select>
             <button id="update-machine" type="button">Update</button>
           </div>
+          <p id="machine-environment-status" role="status"></p>
           <table aria-label="Machine details">
             <tbody>
               <tr><th scope="row">{{label.ipAddress}}:</th><td id="detail-ipAddress"></td></tr>
@@ -145,6 +146,7 @@
               <th scope="col">Machine</th>
               <th scope="col">Database</th>
               <th scope="col">Filename</th>
+              <th scope="col">Size</th>
               <th scope="col">Status</th>
               <th scope="col">Actions</th>
             </tr>

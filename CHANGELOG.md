@@ -7,9 +7,14 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add Size after Filename in Backup Vault, displaying recorded backup sizes
+  in human-readable units such as KB and MB.
+
 - Add a machine environment dropdown (Unclassified, Prod, QA, DEV) and an
-  Update button beside Re-Scan in selected inventory machine details. These
-  controls are presentation only; saving the environment is not implemented yet.
+  Update button beside Re-Scan in selected inventory machine details. Save
+  `DeploymentEnvironment` as a TaggedValue on the machine's ModelElement,
+  updating or creating it for dev, qa, and prod, and deleting it for Unclassified.
+  Load saved classifications when selecting machines and show save results.
 
 - Report `Scan complete` when scanning finishes, keeping individual application
   read failures in status history without failing the overall scan.

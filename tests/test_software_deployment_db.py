@@ -48,6 +48,32 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.machines = MachineDb(self.db)
         self.software = SoftwareDeploymentDb(self.db)
 
+    def test_machine_environment_tag_create_update_delete_and_discovery_preservation(self):
+        first = self.machines.upsert(Machine('192.0.2.7'))
+        second = self.machines.upsert(Machine('192.0.2.8'))
+        self.db.execute('INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s)',
+                        (first, 'OtherTag', 'keep'))
+        self.assertTrue(self.machines.update_environment(first, 'dev'))
+        tag = self.db.query("SELECT * FROM TaggedValue WHERE tag = 'DeploymentEnvironment'")[0]
+        self.assertEqual((tag['modelElement'], tag['value']), (first, 'dev'))
+        for value in ('qa', 'prod', 'prod'):
+            self.assertTrue(self.machines.update_environment(first, value))
+            stored = self.db.query("SELECT * FROM TaggedValue WHERE tag = 'DeploymentEnvironment'")
+            self.assertEqual(len(stored), 1)
+            self.assertEqual((stored[0]['id'], stored[0]['value']), (tag['id'], value))
+        self.assertTrue(self.machines.update_environment(second, 'qa'))
+        self.machines.upsert(Machine('192.0.2.7', macAddress='00:11:22:33:44:55'))
+        machines = {machine.id: machine for machine in self.machines.list_machines()}
+        self.assertEqual({tag.tag: tag.value for tag in machines[first].taggedValue},
+                         {'OtherTag': 'keep', 'DeploymentEnvironment': 'prod'})
+        for _ in range(2):
+            self.assertTrue(self.machines.update_environment(first, 'unclassified'))
+        machines = {machine.id: machine for machine in self.machines.list_machines()}
+        self.assertEqual({tag.tag: tag.value for tag in machines[first].taggedValue}, {'OtherTag': 'keep'})
+        self.assertEqual({tag.tag: tag.value for tag in machines[second].taggedValue},
+                         {'DeploymentEnvironment': 'qa'})
+        self.assertFalse(self.machines.update_environment(999999, 'dev'))
+
     def record(self, machine, version="6.X"):
         with self.db.transaction():
             self.software.record_operating_system(machine, SoftwareSystem(

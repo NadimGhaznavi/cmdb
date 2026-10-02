@@ -112,6 +112,13 @@ current uninstall/install workflow; no record migration is provided.
 Tag names use a binary collation so their casing is significant. TaggedValue
 has its own technical ID; it does not inherit from ModelElement.
 
+Machine classification uses `tag="DeploymentEnvironment"` with `value="dev"`,
+`"qa"`, or `"prod"`. Its `modelElement` references the machine's inherited
+ModelElement identity (the same ID as Machine and Namespace). Update creates
+the tag or changes its value while preserving its ID. Unclassified removes
+only this tag; other tags and other machines' classifications are preserved.
+No additional schema column or table is required.
+
 The scanner includes `VERSION_CODENAME` in software-definition matching. Hosts
 with matching release fields and codenames share the same definition and tag.
 A changed codename selects or creates a separate definition rather than changing

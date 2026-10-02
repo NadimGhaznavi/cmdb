@@ -230,10 +230,10 @@ class ServerTests(unittest.TestCase):
         finally:
             connection.close()
 
-    def post_hostname(self, values, *, content_type='application/json'):
+    def post_hostname(self, values, *, content_type='application/json', path='/api/machines/hostname'):
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
         try:
-            connection.request('POST', '/api/machines/hostname', json.dumps(values),
+            connection.request('POST', path, json.dumps(values),
                                {'Content-Type': content_type})
             response = connection.getresponse()
             return response.status, json.loads(response.read())
@@ -269,12 +269,13 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)['databases'][0]['lastBackup'], '2026-09-28T14:00:00+00:00')
         records.return_value.files.return_value = [{'id': 42, 'backupTime': datetime(2026, 9, 28, 14),
                                                    'hostName': 'sally.example', 'databaseName': 'cmdb',
-                                                   'pathname': 'sally/db/recorded.dump'}]
+                                                   'pathname': 'sally/db/recorded.dump', 'sizeBytes': 1536}]
         with patch('cmdb.server.CmdbHandler.DCmdb.BACKUP_DIR', '/configured/backups'):
             status, body = self.get('/api/backups/files')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['files'][0]['backupTime'], '2026-09-28T14:00:00+00:00')
         self.assertEqual(json.loads(body)['files'][0]['filename'], 'recorded.dump')
+        self.assertEqual(json.loads(body)['files'][0]['sizeBytes'], 1536)
         self.assertEqual(json.loads(body)['directory'], '/configured/backups')
         records.return_value.get.assert_not_called()
         records.return_value.get.return_value = None
@@ -399,12 +400,70 @@ class ServerTests(unittest.TestCase):
             connection.close()
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_save_machine_environment_and_clear_tag(self, factory):
+        db = factory.return_value
+        db.query.return_value = [{'id': 7}]
+        for value in ('dev', 'qa', 'prod', 'unclassified'):
+            with self.subTest(value=value):
+                db.reset_mock()
+                status, body = self.post_hostname({'machine': 7, 'environment': value},
+                                                 path='/api/machines/environment')
+                self.assertEqual((status, body), (200, {'environment': value}))
+                db.query.assert_called_once_with('SELECT id FROM Machine WHERE id = %s FOR UPDATE', (7,))
+                sql, params = db.execute.call_args.args
+                if value == 'unclassified':
+                    self.assertIn('DELETE FROM TaggedValue', sql)
+                    self.assertEqual(params, (7, 'DeploymentEnvironment'))
+                else:
+                    self.assertIn('ON DUPLICATE KEY UPDATE', sql)
+                    self.assertEqual(params, (7, 'DeploymentEnvironment', value))
+                db.transaction.assert_called_once()
+                db.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_invalid_environment_requests_do_not_open_database(self, factory):
+        for values in ([], {}, {'machine': True, 'environment': 'prod'},
+                       {'machine': 0, 'environment': 'prod'}, {'machine': 2**64, 'environment': 'prod'},
+                       {'machine': '7', 'environment': 'prod'}, {'machine': 7, 'environment': 'Prod'},
+                       {'machine': 7, 'environment': None}, {'machine': 7, 'environment': []},
+                       {'machine': 7, 'environment': 'dev', 'extra': 1}):
+            with self.subTest(values=values):
+                self.assertEqual(self.post_hostname(values, path='/api/machines/environment')[0], 400)
+        self.assertEqual(self.post_hostname({}, path='/api/machines/environment',
+                                            content_type='text/plain')[0], 415)
+        factory.assert_not_called()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_environment_missing_machine_and_database_failure(self, factory):
+        db = factory.return_value
+        db.query.return_value = []
+        values = {'machine': 7, 'environment': 'qa'}
+        self.assertEqual(self.post_hostname(values, path='/api/machines/environment')[0], 404)
+        db.execute.assert_not_called()
+        db.close.assert_called_once()
+        db.reset_mock()
+        db.query.return_value = [{'id': 7}]
+        db.execute.side_effect = pymysql.OperationalError('private details')
+        status, body = self.post_hostname(values, path='/api/machines/environment')
+        self.assertEqual(status, 503)
+        self.assertNotIn('private details', json.dumps(body))
+        db.close.assert_called_once()
+        self.assertIs(db.transaction.return_value.__exit__.call_args.args[0], pymysql.OperationalError)
+
+    @patch('cmdb.server.CmdbHandler.DbMgr', side_effect=pymysql.OperationalError('private details'))
+    def test_environment_connection_failure(self, factory):
+        status, body = self.post_hostname({'machine': 7, 'environment': 'dev'},
+                                         path='/api/machines/environment')
+        self.assertEqual(status, 503)
+        self.assertNotIn('private details', json.dumps(body))
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_save_hostname_updates_only_selected_machine(self, factory):
         factory.return_value.query.side_effect = [[{
             'id': 7, 'ipAddress': '192.168.0.7', 'hostName': 'worker.lan',
             'site': 'home',
             'createdOn': datetime(2026, 9, 27, 12), 'updatedOn': datetime(2026, 9, 27, 13),
-        }], [], []]
+        }], [], [], []]
         status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': ' worker.lan '})
         self.assertEqual(status, 200)
         self.assertEqual(body['machine']['hostName'], 'worker.lan')
@@ -483,6 +542,7 @@ class ServerTests(unittest.TestCase):
             'createdOn': datetime(2026, 9, 27, 12, 0), 'updatedOn': datetime(2026, 9, 27, 13, 0),
         }], [{'id': 21, 'machine': 7}, {'id': 22, 'machine': 7}],
             [{'id': 21, 'namespace': 7}, {'id': 22, 'namespace': 7}],
+            [{'id': 31, 'modelElement': 7, 'tag': 'DeploymentEnvironment', 'value': 'qa'}],
             [{'id': 22, 'machine': 7, 'subtype': 'MariaDB'}],
             [{'dataManager': 22, 'name': 'ax3l'}, {'dataManager': 22, 'name': 'r3el'}]]
         status, body = self.get('/api/machines')
@@ -494,6 +554,8 @@ class ServerTests(unittest.TestCase):
         self.assertIsNone(record['site'])
         self.assertIsNone(record['reachable'])
         self.assertEqual(record['deployedComponent'], [21, 22])
+        self.assertEqual(record['taggedValue'], [
+            {'id': 31, 'modelElement': 7, 'tag': 'DeploymentEnvironment', 'value': 'qa'}])
         self.assertEqual(record['createdOn'], '2026-09-27T12:00:00+00:00')
         self.assertEqual(record['updatedOn'], '2026-09-27T13:00:00+00:00')
         factory.return_value.close.assert_called_once()

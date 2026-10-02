@@ -12,6 +12,17 @@ function elapsedTime(seconds) {
   return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
 }
 
+function backupSize(bytes) {
+  if (bytes == null) return '---';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+  let unit = 0;
+  while (bytes >= 1024 && unit < units.length - 1) {
+    bytes /= 1024;
+    unit += 1;
+  }
+  return `${unit === 0 ? bytes : bytes.toFixed(1)} ${units[unit]}`;
+}
+
 async function loadBackupFiles() {
   const request = ++backupFilesRequest;
   const status = document.getElementById("backup-files-status");
@@ -27,7 +38,7 @@ async function loadBackupFiles() {
     for (const file of files) {
       const row = document.createElement("tr");
       row.dataset.backupId = file.id;
-      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename]) {
+      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename, backupSize(file.sizeBytes)]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);
@@ -746,6 +757,10 @@ async function loadMachines() {
   const details = document.getElementById("machine-details");
   const selectionDetails = document.getElementById("selection-details");
   const softwareDetails = document.getElementById("software-details");
+  const environment = document.getElementById("machine-environment");
+  const update = document.getElementById("update-machine");
+  const environmentStatus = document.getElementById("machine-environment-status");
+  let selectedMachine = null;
   try {
     if (typeof cytoscape !== "function") {
       throw new Error("The machine graph could not be loaded. Refresh to try again.");
@@ -766,7 +781,7 @@ async function loadMachines() {
       const center = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
       const systems = softwareDeployments.filter(system => system.machine === machine.id)
         .sort(compareSoftware);
-      elements.push({ data: { ...machine, id: machine.ipAddress, label: machineLabel(machine) },
+      elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
         classes: machine.reachable === false ? "machine down" : "machine", position: center });
       systems.forEach((system, offset) => {
         elements.push({ data: { ...system, id: `deployment-${system.id}`,
@@ -835,6 +850,10 @@ async function loadMachines() {
       if (refreshing) return;
       graph.nodes().unselect();
       node.select();
+      selectedMachine = node;
+      environment.value = node.data("taggedValue")?.find(tag => tag.tag === "DeploymentEnvironment")?.value
+        ?? "unclassified";
+      environmentStatus.textContent = "";
       for (const field of ["ipAddress", "macAddress", "hostName", "createdOn", "updatedOn"]) {
         const value = field === "createdOn" || field === "updatedOn"
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
@@ -870,6 +889,39 @@ async function loadMachines() {
         softwareDetails.append(section);
       }
     }
+    update.addEventListener("click", async () => {
+      if (!selectedMachine || update.disabled) return;
+      const node = selectedMachine;
+      const value = environment.value;
+      update.disabled = true;
+      environment.disabled = true;
+      environmentStatus.textContent = "Saving…";
+      try {
+        const response = await fetch("/api/machines/environment", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ machine: node.data("machineId"), environment: value }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save the environment. Try again.");
+        const tags = (node.data("taggedValue") || []).filter(tag => tag.tag !== "DeploymentEnvironment");
+        if (result.environment !== "unclassified") {
+          tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
+        }
+        node.data("taggedValue", tags);
+        if (selectedMachine === node) {
+          environment.value = result.environment;
+          environmentStatus.textContent = "Environment saved.";
+        }
+      } catch (error) {
+        if (selectedMachine === node) {
+          environmentStatus.textContent = error.message || "Could not save the environment. Try again.";
+        }
+      } finally {
+        update.disabled = false;
+        environment.disabled = false;
+      }
+    });
     graph.on("tap", "node", event => {
       if (refreshing) return;
       const node = event.target;

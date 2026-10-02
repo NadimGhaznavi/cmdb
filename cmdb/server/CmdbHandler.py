@@ -150,6 +150,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == '/api/machines/environment':
+            self.update_machine_environment()
+            return
         if urlsplit(self.path).path == "/api/applications":
             self.add_application()
             return
@@ -228,6 +231,40 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Machine no longer exists."}', "application/json")
             return
         self.respond(200, json.dumps({"machine": machine_record(machine)}).encode("utf-8"), "application/json")
+
+    def update_machine_environment(self) -> None:
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError
+            values = json.loads(self.rfile.read(length))
+            if (not isinstance(values, dict) or values.keys() != {'machine', 'environment'}
+                    or type(values['machine']) is not int or not 0 < values['machine'] < 2**64
+                    or values['environment'] not in ('dev', 'qa', 'prod', 'unclassified')):
+                raise ValueError
+        except (ValueError, UnicodeError):
+            self.respond(400, b'{"error":"Provide a machine ID and dev, qa, prod, or unclassified."}',
+                         'application/json')
+            return
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
+            return
+        try:
+            db = DbMgr()
+            try:
+                saved = MachineDb(db).update_environment(values['machine'], values['environment'])
+            finally:
+                db.close()
+        except pymysql.MySQLError:
+            self.respond(503, b'{"error":"Could not save the environment. Try again."}', 'application/json')
+            return
+        if not saved:
+            self.respond(404, b'{"error":"Machine no longer exists."}', 'application/json')
+            return
+        self.respond(200, json.dumps({'environment': values['environment']}).encode(), 'application/json')
 
     def rescan_machine(self, address: str) -> None:
         try:

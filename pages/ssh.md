@@ -97,7 +97,7 @@ SSH timeouts leave the existing hostname unchanged and allow checks on other
 machines to continue. Successful hostname retrieval replaces the stored value,
 including a manual edit. Failures are retried on the next scan without new logging.
 
-The activity uses `DCmdb.SSH_CONNECT_TIMEOUT_SECONDS` (5 seconds) and
+The activity uses `DCMDB.SSH_CONNECT_TIMEOUT_SECONDS` (5 seconds) and
 `SSH_COMMAND_TIMEOUT_SECONDS` (30 seconds per command). It checks for shutdown
 between hosts and commands. SSH follow-up still runs when the OS scan times out
 or finds no usable OS classification. No database connection is held while

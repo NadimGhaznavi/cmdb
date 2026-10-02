@@ -10,7 +10,7 @@ import pymysql
 from cmdb.entity.Machine import Machine
 from cmdb.entity.StatusMessages import StatusMessages
 from cmdb.entity.SoftwareSystem import SoftwareSystem
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.activity.MachineScanner import MachineScanner
 
 
@@ -35,7 +35,7 @@ class MachineScannerTests(TestCase):
                     worker.scan_applications = Mock(side_effect=failure)
                     worker.run()
                     description = ('Applications' if applications_only
-                                   else f'Inventory ({DCmdb.SCAN_TARGET})')
+                                   else f'Inventory ({DCMDB.SCAN_TARGET})')
                     outcome = f'{description}: Scan failed. Try again.' if failure else 'Scan complete'
                     self.assertEqual([{'source': entry['source'], 'message': entry['message']}
                                       for entry in history.snapshot()], [
@@ -172,9 +172,9 @@ class MachineScannerTests(TestCase):
             MachineScanner().scan_once()
             lookup.assert_not_called()
         self.assertEqual(scanner.return_value.scan.call_args_list, [
-            call(DCmdb.SCAN_TARGET, arguments="-sn -n", timeout=DCmdb.SCAN_TIMEOUT_SECONDS),
+            call(DCMDB.SCAN_TARGET, arguments="-sn -n", timeout=DCMDB.SCAN_TIMEOUT_SECONDS),
             call("192.168.0.1 192.168.0.2 192.168.0.3",
-                 arguments="-O -n --osscan-limit --max-os-tries 1", timeout=DCmdb.OS_SCAN_TIMEOUT_SECONDS),
+                 arguments="-O -n --osscan-limit --max-os-tries 1", timeout=DCMDB.OS_SCAN_TIMEOUT_SECONDS),
         ])
         self.assertEqual([call.args[0] for call in inventory.return_value.upsert.call_args_list],
                          [Machine("192.168.0.1"), Machine("192.168.0.2"),

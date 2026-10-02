@@ -10,14 +10,14 @@ from pathlib import Path
 import pwd
 import subprocess
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
-account = pwd.getpwnam(DCmdb.SERVICE_USER)
-home = Path(DCmdb.SERVICE_HOME)
-directory = Path(DCmdb.SSH_DIR)
-key = Path(DCmdb.SSH_KEY)
+account = pwd.getpwnam(DCMDB.SERVICE_USER)
+home = Path(DCMDB.SERVICE_HOME)
+directory = Path(DCMDB.SSH_DIR)
+key = Path(DCMDB.SSH_KEY)
 public = key.with_suffix('.pub')
-known_hosts = Path(DCmdb.SSH_KNOWN_HOSTS)
+known_hosts = Path(DCMDB.SSH_KNOWN_HOSTS)
 
 for path in (home, directory, key, public, known_hosts):
     if path.is_symlink():
@@ -32,7 +32,7 @@ for path in (key, public, known_hosts):
 
 if not key.exists():
     subprocess.run(['/usr/bin/ssh-keygen', '-q', '-t', 'ed25519', '-N', '',
-                    '-C', DCmdb.SERVICE_USER, '-f', str(key)], check=True)
+                    '-C', DCMDB.SERVICE_USER, '-f', str(key)], check=True)
 key.chmod(0o600)
 os.chown(key, account.pw_uid, account.pw_gid)
 # Reconstruct the public half if missing, retaining the existing private key.

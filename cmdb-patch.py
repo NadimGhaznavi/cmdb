@@ -8,7 +8,7 @@ from pathlib import Path
 
 from cmdb.activity.PatchRunner import PatchRunner
 from cmdb.activity.PatchScheduler import PatchScheduler
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 
 
@@ -19,7 +19,7 @@ def main():
     if args.schedule_id is not None and not 0 < args.schedule_id < 2**64:
         parser.error('schedule-id must be a positive database ID')
     try:
-        os.environ.update(DatabaseEnvironment.read(Path(DCmdb.DATABASE_ENV)))
+        os.environ.update(DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV)))
         if args.schedule_id is not None:
             PatchScheduler().run(args.schedule_id)
         else:

@@ -124,10 +124,13 @@ WHERE ss.type IN ('OS', 'linux');
 
 Named SoftwareSystems created through Add Application are discovery targets.
 For `MyCount`, the scanner checks `/opt/prod/mycount`, using
-`DCmdb.BASE_INSTALL_DIR` and the lowercase application name. If that directory
+`DCMDB.BASE_INSTALL_DIR` and the lowercase application name. If that directory
 exists, it reads `/opt/prod/mycount/mycount/constants/DMyCount.py` through the
 inventory agent's SSH interface, or directly for the local host.
-Development checkouts under `/opt/dev` are not installed application targets.
+For `CMDB`, it reads `/opt/prod/cmdb/cmdb/constants/DCMDB.py` and the literal
+`DCMDB.VERSION`. Register `CMDB` through Add Application to enable discovery
+on inventoried hosts. Development checkouts under `/opt/dev` are not installed
+application targets.
 
 A nonempty literal string assigned to `VERSION` at module or class scope
 confirms an installation. Annotated assignments such as

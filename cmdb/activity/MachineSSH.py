@@ -9,7 +9,7 @@ import socket
 import subprocess
 from threading import Event
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.MachineDb import MachineDb
@@ -31,7 +31,7 @@ class MachineSSH:
                 return
             try:
                 if not self._ssh.is_local(address):
-                    with socket.create_connection((address, 22), timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS):
+                    with socket.create_connection((address, 22), timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS):
                         pass
                 hostname = self._hostname(address)
             except (OSError, subprocess.SubprocessError, ValueError):
@@ -66,8 +66,8 @@ class MachineSSH:
     def _run(self, address: str, command: str, **options) -> subprocess.CompletedProcess[str]:
         if self._stop_requested.is_set():
             raise InterruptedError("SSH activity stopped.")
-        return self._ssh.run(address, command, timeout=DCmdb.SSH_COMMAND_TIMEOUT_SECONDS,
-                             connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS, **options)
+        return self._ssh.run(address, command, timeout=DCMDB.SSH_COMMAND_TIMEOUT_SECONDS,
+                             connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS, **options)
 
     def _hostname(self, address: str) -> str | None:
         try:
@@ -78,14 +78,14 @@ class MachineSSH:
             # A changed host key must not trigger account provisioning.
             if "REMOTE HOST IDENTIFICATION HAS CHANGED" in (error.stderr or ""):
                 return None
-            public_key = Path(DCmdb.SSH_KEY + ".pub").read_text().strip()
+            public_key = Path(DCMDB.SSH_KEY + ".pub").read_text().strip()
             if (not public_key.startswith("ssh-ed25519 ") or "\n" in public_key
                     or "\r" in public_key):
                 raise ValueError("Expected the local cmdb Ed25519 public key.")
-            if re.fullmatch(r"[a-z_][a-z0-9_]*", DCmdb.AGENT_USER) is None:
+            if re.fullmatch(r"[a-z_][a-z0-9_]*", DCMDB.AGENT_USER) is None:
                 raise ValueError("Invalid service account name.")
             script = (Path(__file__).parent / "scripts" / "provision-agent.sh").read_text()
-            command = "sh -s -- " + shlex.join([DCmdb.AGENT_USER, public_key])
+            command = "sh -s -- " + shlex.join([DCMDB.AGENT_USER, public_key])
             self._run(address, command, user="root", input=script)
             self._run(address, "true")
         result = self._run(address, "hostname -f 2>/dev/null || hostname")

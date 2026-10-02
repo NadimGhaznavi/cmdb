@@ -6,7 +6,7 @@ from ipaddress import ip_address, ip_network
 import nmap
 import pymysql
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.activity.MachineSSH import MachineSSH
 from cmdb.activity.ApplicationScanner import ApplicationScanner
 from cmdb.entity.StatusMessages import StatusMessages
@@ -81,10 +81,10 @@ class MachineScanner(Thread):
         self.join()
 
     def run(self) -> None:
-        print(f"Machine scanner started: {DCmdb.SCAN_TARGET}, "
-              f"interval {DCmdb.SCAN_INTERVAL_SECONDS}s", flush=True)
+        print(f"Machine scanner started: {DCMDB.SCAN_TARGET}, "
+              f"interval {DCMDB.SCAN_INTERVAL_SECONDS}s", flush=True)
         while not self._stop_requested.is_set():
-            self._wake.wait(DCmdb.SCAN_INTERVAL_SECONDS)
+            self._wake.wait(DCMDB.SCAN_INTERVAL_SECONDS)
             with self._state_lock:
                 if self._stop_requested.is_set():
                     break
@@ -98,7 +98,7 @@ class MachineScanner(Thread):
                 self._pending_scan = False
                 self._active_target = target
                 self._active_applications = applications_only
-            description = "Applications" if applications_only else f"Inventory ({target or DCmdb.SCAN_TARGET})"
+            description = "Applications" if applications_only else f"Inventory ({target or DCMDB.SCAN_TARGET})"
             self.status_messages.append(f"{description}: scan started.")
             error = None
             try:
@@ -119,8 +119,8 @@ class MachineScanner(Thread):
                     self._error = error
 
     def scan_once(self, target: str | None = None) -> None:
-        result = Nmap().scan(target or DCmdb.SCAN_TARGET, arguments="-sn -n",
-                             timeout=DCmdb.SCAN_TIMEOUT_SECONDS)
+        result = Nmap().scan(target or DCMDB.SCAN_TARGET, arguments="-sn -n",
+                             timeout=DCMDB.SCAN_TIMEOUT_SECONDS)
         if result["nmap"]["scaninfo"].get("error"):
             raise nmap.PortScannerError("Nmap reported a scan error.")
         if self._stop_requested.is_set():
@@ -134,7 +134,7 @@ class MachineScanner(Thread):
             mac_address = host.get("addresses", {}).get("mac") or None
             machines.append(Machine(ipAddress=address, macAddress=mac_address))
         try:
-            network = ip_network(DCmdb.SCAN_TARGET, strict=False)
+            network = ip_network(DCMDB.SCAN_TARGET, strict=False)
         except ValueError:
             network = None
         with self._state_lock:
@@ -187,7 +187,7 @@ class MachineScanner(Thread):
         # Commit discovery first, without holding a database connection during Nmap.
         result = Nmap().scan(" ".join(machine_ids),
                              arguments="-O -n --osscan-limit --max-os-tries 1",
-                             timeout=DCmdb.OS_SCAN_TIMEOUT_SECONDS)
+                             timeout=DCMDB.OS_SCAN_TIMEOUT_SECONDS)
         if result["nmap"]["scaninfo"].get("error"):
             raise nmap.PortScannerError("Nmap reported an OS scan error.")
         observations = []

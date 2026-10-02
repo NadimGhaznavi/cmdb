@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 from cmdb.activity.ApplicationScanner import ApplicationScanner, application_version
 from cmdb.activity.MachineScanner import MachineScanner
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.entity.Machine import Machine
 from cmdb.entity.StatusMessages import StatusMessages
 
@@ -97,7 +98,7 @@ class ApplicationScannerTests(TestCase):
             return subprocess.run(['/bin/sh', '-c', command], capture_output=True,
                                   text=True, check=True, timeout=5)
         self.worker._ssh.run.side_effect = run
-        with TemporaryDirectory() as root, patch('cmdb.activity.ApplicationScanner.DCmdb.BASE_INSTALL_DIR', root):
+        with TemporaryDirectory() as root, patch('cmdb.activity.ApplicationScanner.DCMDB.BASE_INSTALL_DIR', root):
             self.worker.run({'192.0.2.7': 7})
             constants = Path(root) / 'mycount' / 'mycount' / 'constants' / 'DMyCount.py'
             constants.parent.mkdir(parents=True)
@@ -110,12 +111,29 @@ class ApplicationScannerTests(TestCase):
             self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
                 7, 17, str(Path(root) / 'mycount'), '1.2.3')
 
+    def test_cmdb_discovers_its_own_constants_and_version(self):
+        self.SoftwareSystemDb.return_value.list_applications.return_value = [{'id': 17, 'name': 'CMDB'}]
+
+        def run(address, command, **kwargs):
+            return subprocess.run(['/bin/sh', '-c', command], capture_output=True,
+                                  text=True, check=True, timeout=5)
+
+        self.worker._ssh.run.side_effect = run
+        source = Path(__file__).resolve().parents[1] / 'cmdb/constants/DCMDB.py'
+        with TemporaryDirectory() as root, patch.object(DCMDB, 'BASE_INSTALL_DIR', root):
+            constants = Path(root) / 'cmdb/cmdb/constants/DCMDB.py'
+            constants.parent.mkdir(parents=True)
+            constants.write_text(source.read_text())
+            self.worker.run({'192.0.2.7': 7})
+            self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
+                7, 17, str(Path(root) / 'cmdb'), DCMDB.VERSION)
+
     def test_only_prefixed_constants_are_used(self):
         def run(address, command, **kwargs):
             return subprocess.run(['/bin/sh', '-c', command], capture_output=True,
                                   text=True, check=True, timeout=5)
         self.worker._ssh.run.side_effect = run
-        with TemporaryDirectory() as root, patch('cmdb.activity.ApplicationScanner.DCmdb.BASE_INSTALL_DIR', root):
+        with TemporaryDirectory() as root, patch('cmdb.activity.ApplicationScanner.DCMDB.BASE_INSTALL_DIR', root):
             constants = Path(root) / 'mycount' / 'mycount' / 'constants' / 'DMyCount.py'
             constants.parent.mkdir(parents=True)
             constants.with_name('MyCount.py').write_text('VERSION = "1.2.3"')

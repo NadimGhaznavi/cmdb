@@ -3,7 +3,7 @@
 from pathlib import Path
 import subprocess
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.SSH import SSH
 
 
@@ -14,7 +14,7 @@ class SSHPatch:
         ssh = SSH()
         timeout = 7200 if action == 'patch' else 60
         if ssh.is_local(address):
-            script = str(Path(DCmdb.BASE_DIR) / 'cmdb/interface/scripts/patch-host.sh')
+            script = str(Path(DCMDB.BASE_DIR) / 'cmdb/interface/scripts/patch-host.sh')
             result = subprocess.run(['/usr/bin/sudo', '-n', '/bin/sh', script, action],
                                     stdin=subprocess.DEVNULL, capture_output=True, text=True,
                                     timeout=timeout, check=True)

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.14] - 2026-10-02 @ 18:35
+
 - Make Deployed Applications and Registered Applications collapsible, initially
   showing only their heading titles. Expand a heading to access its table and controls.
 

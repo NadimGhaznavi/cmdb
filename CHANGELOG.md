@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.13] - 2026-10-02 @ 18:19
+
 - Rename the constants module and class to `DCMDB`, and move the project version
   into its literal `VERSION` constant so CMDB can discover its own installation.
   Update imports, installation tooling, and releases to use the new version source.

@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
-version_file="VERSION"
+version_file="cmdb/constants/DCMDB.py"
 version_number='(0|[1-9][0-9]*)'
 prerelease_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
 version_pattern="^${version_number}\.${version_number}\.${version_number}(-${prerelease_identifier}(\.${prerelease_identifier})*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"
@@ -17,7 +17,7 @@ fail() {
 
 current_version() {
     local value
-    value=$(cat -- "${version_file}") ||
+    value=$(sed -nE 's/^    VERSION: Final\[str\] = "([^"]+)"$/\1/p' "${version_file}") ||
         fail "Cannot read the CMDB version."
     [[ ${value} =~ ${version_pattern} ]] || fail "Cannot read a single valid CMDB version."
     printf '%s\n' "${value}"
@@ -51,7 +51,7 @@ Run from a clean feature branch with local dev and main up to date.
 Use a version without a leading v. The next branch defaults to
 feat/maint-<version with patch incremented>.
 
-Updates VERSION and CHANGELOG.md, merges through dev to main, tags and
+Updates DCMDB.VERSION and CHANGELOG.md, merges through dev to main, tags and
 pushes the release, then creates the next local feature branch.
 EOF
 }
@@ -112,7 +112,8 @@ git merge-base --is-ancestor dev "${source_branch}" || fail "Merge dev into the 
 git switch dev
 git merge --no-ff "${source_branch}" -m "Merge ${source_branch} for ${tag}"
 
-printf '%s\n' "${version}" > "${version_file}"
+current_version >/dev/null
+sed -i -E "s/^(    VERSION: Final\[str\] = )\"[^\"]+\"$/\1\"${version}\"/" "${version_file}"
 sed -i "/^## \[Unreleased\]$/a\\
 \\
 ## [${version}] - ${release_date}" CHANGELOG.md

@@ -29,8 +29,9 @@ bash -n scripts/new-release.sh
 For server changes, run the Python tests described in
 [CMDB server]({{ site.baseurl }}{% link pages/server.md %}).
 
-Review `CHANGELOG.md`'s `Unreleased` section. `VERSION` starts at `0.0.0` as an
-unreleased baseline; it does not represent a published release.
+Review `CHANGELOG.md`'s `Unreleased` section. The project version is the literal
+`DCMDB.VERSION` in `cmdb/constants/DCMDB.py`; the release script reads and
+updates this constant.
 
 ## Cut a release
 
@@ -52,7 +53,7 @@ the next feature branch name.
 
 The script checks the working tree, version, changelog, and branches,
 then fetches remote refs and verifies branch ancestry. It merges the
-feature branch into `dev`, updates `VERSION` and `CHANGELOG.md`, commits the
+feature branch into `dev`, updates `DCMDB.VERSION` and `CHANGELOG.md`, commits the
 release, merges into `main`, and creates an annotated tag such as `v0.1.0`.
 It advances `dev` to `main`, atomically pushes `main`, `dev`, and the tag to
 `origin`, then creates the next local feature branch, such as `feat/maint-0.1.1`.

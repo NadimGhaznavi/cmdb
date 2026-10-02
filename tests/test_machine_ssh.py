@@ -9,7 +9,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from cmdb.activity.MachineSSH import MachineSSH
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
 
 def result(stdout=''):
@@ -35,7 +35,7 @@ class MachineSSHTests(TestCase):
         self.addCleanup(directory.cleanup)
         key = Path(directory.name) / 'id_ed25519'
         Path(str(key) + '.pub').write_text('ssh-ed25519 AAAATEST cmdb\n')
-        settings = patch.object(DCmdb, 'SSH_KEY', str(key))
+        settings = patch.object(DCMDB, 'SSH_KEY', str(key))
         settings.start()
         self.addCleanup(settings.stop)
 
@@ -43,7 +43,7 @@ class MachineSSHTests(TestCase):
         self.remote.side_effect = [result(), result('worker.example.lan\n'), result('[]'), result('')]
         self.activity.run({'192.168.0.7': 42})
         self.create_connection.assert_called_once_with(('192.168.0.7', 22),
-                                                       timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
+                                                       timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
         self.assertTrue(all('user' not in call.kwargs for call in self.remote.call_args_list))
         self.MachineDb.return_value.update_discovered_hostname.assert_called_once_with(42, 'worker.example.lan')
         self.DbMgr.return_value.close.assert_called_once()

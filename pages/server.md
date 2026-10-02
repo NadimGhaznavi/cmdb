@@ -243,10 +243,10 @@ instance per worker thread.
 
 The server starts `cmdb/activity/MachineScanner.py` immediately and owns its
 startup and shutdown. The background activity waits
-`DCmdb.SCAN_INTERVAL_SECONDS` (default `300`) after each scan before repeating.
+`DCMDB.SCAN_INTERVAL_SECONDS` (default `300`) after each scan before repeating.
 `SCAN_TARGET` defaults to the observed LAN, `192.168.0.0/24`;
 `SCAN_TIMEOUT_SECONDS` defaults to `30`. These settings are in
-`cmdb/constants/DCmdb.py`.
+`cmdb/constants/DCMDB.py`.
 
 The worker uses host discovery with DNS resolution disabled (`-sn -n`) and
 upserts responding hosts into

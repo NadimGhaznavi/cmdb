@@ -27,7 +27,8 @@ the authorized workflow.
   `cmdb/server/` owns HTTP serving and service lifecycle.
 - `cmdb-server.py` is the service entry point; `systemd/` contains its unit template.
 - `tests/` verifies HTTP behavior and database contracts.
-- `VERSION` holds the project version; `0.0.0` is the initial unreleased baseline.
+- `DCMDB.VERSION` in `cmdb/constants/DCMDB.py` holds the project version as a
+  literal string.
 - `CHANGELOG.md` records user-visible changes and releases.
 
 The shared `NadimGhaznavi/minimal-mistakes` theme owns the site's presentation.

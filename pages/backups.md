@@ -16,7 +16,7 @@ Retention is saved as policy only; automatic file deletion is not implemented.
 The Cron interface uses [python-crontab](https://pypi.org/project/python-crontab/)
 to manage the `cmdb` account's crontab. Each entry has an exact comment marker,
 `cmdb-backup-schedule-<id>`. Updates replace only that schedule's entry; unrelated
-cron jobs are preserved. The configured expression is `DCmdb.BACKUP_CRON`,
+cron jobs are preserved. The configured expression is `DCMDB.BACKUP_CRON`,
 currently `0 12 * * *`.
 
 Cron invokes the installed venv directly:
@@ -87,7 +87,7 @@ for bookkeeping and close their CMDB connections before remote work.
 SSHDb runs `mariadb-dump` as `cmdbagent` on the database host, using the local
 MariaDB socket. Neuromancer uses the existing local command path without SSH.
 
-`DCmdb.BACKUP_DIR` is `/imports/disk1/backups`. The output location is:
+`DCMDB.BACKUP_DIR` is `/imports/disk1/backups`. The output location is:
 
 ```text
 /imports/disk1/backups/<host>/db/<database>/mariadb-<host>-<database>-YYYY-MM-DD_HH:MM:SS.dump
@@ -122,7 +122,7 @@ server's UID/GID mapping. Installation does not change NFS configuration.
 Install/upgrade grants the local agent database dump privileges. Remote agents
 with old grants are reprovisioned through the existing root SSH path.
 
-The host-side command is limited to `DCmdb.BACKUP_TIMEOUT_SECONDS` (3600 seconds).
+The host-side command is limited to `DCMDB.BACKUP_TIMEOUT_SECONDS` (3600 seconds).
 Normal failures clean up temporary files and record the error. A force kill or
 storage outage can leave a `.part` file. A lost connection may leave file outcome
 unknown; CMDB does not infer success without returned metadata.

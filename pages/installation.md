@@ -143,7 +143,7 @@ the service remains stopped and the application files remain in place.
 ## Runtime configuration
 
 Paths, account names, and the default listener `0.0.0.0:14444` are defined in
-`cmdb/constants/DCmdb.py`. The service is intended for a trusted LAN. It has no
+`cmdb/constants/DCMDB.py`. The service is intended for a trusted LAN. It has no
 authentication and installation does not add a public proxy or router mapping.
 
 Systemd reads `/etc/cmdb/database.env` before starting the unprivileged process.

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.SSH import SSH
 
 
@@ -77,11 +77,11 @@ class SSHTests(unittest.TestCase):
         argv = args[0]
         self.assertEqual(argv[-3:], ['--', '192.168.0.7', command])
         self.assertEqual(argv[argv.index('-l') + 1], 'cmdbagent')
-        self.assertEqual(argv[argv.index('-i') + 1], DCmdb.SSH_KEY)
+        self.assertEqual(argv[argv.index('-i') + 1], DCMDB.SSH_KEY)
         self.assertEqual(argv[argv.index('-p') + 1], '2222')
         self.assertIn('BatchMode=yes', argv)
         self.assertIn('StrictHostKeyChecking=accept-new', argv)
-        self.assertIn(f'UserKnownHostsFile={DCmdb.SSH_KNOWN_HOSTS}', argv)
+        self.assertIn(f'UserKnownHostsFile={DCMDB.SSH_KNOWN_HOSTS}', argv)
         self.assertEqual(options['timeout'], 60)
         self.assertTrue(options['check'])
         self.assertNotIn('shell', options)
@@ -92,8 +92,8 @@ class SSHTests(unittest.TestCase):
         argv = run.call_args.args[0]
         self.assertEqual(argv[0], '/usr/bin/ssh')
         self.assertEqual(argv[argv.index('-l') + 1], 'root')
-        self.assertEqual(argv[argv.index('-i') + 1], DCmdb.SSH_KEY)
-        self.assertIn(f'UserKnownHostsFile={DCmdb.SSH_KNOWN_HOSTS}', argv)
+        self.assertEqual(argv[argv.index('-i') + 1], DCMDB.SSH_KEY)
+        self.assertIn(f'UserKnownHostsFile={DCMDB.SSH_KNOWN_HOSTS}', argv)
         self.assertEqual(argv[-3:], ['--', '192.168.0.7', 'id -u'])
 
     @patch('cmdb.interface.SSH.subprocess.run')
@@ -134,7 +134,7 @@ class SSHKeyTests(unittest.TestCase):
         self.known = self.ssh / 'known_hosts'
         for attribute, value in {'SERVICE_HOME': self.home, 'SSH_DIR': self.ssh,
                                  'SSH_KEY': self.key, 'SSH_KNOWN_HOSTS': self.known}.items():
-            self.stack.enter_context(patch.object(DCmdb, attribute, str(value)))
+            self.stack.enter_context(patch.object(DCMDB, attribute, str(value)))
         self.stack.enter_context(patch('pwd.getpwnam', return_value=SimpleNamespace(
             pw_uid=os.getuid(), pw_gid=os.getgid())))
         self.stack.enter_context(patch('builtins.print'))

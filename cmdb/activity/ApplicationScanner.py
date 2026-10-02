@@ -7,7 +7,7 @@ import shlex
 import subprocess
 from threading import Event
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.entity.StatusMessages import StatusMessages
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
@@ -64,15 +64,15 @@ class ApplicationScanner:
                 # The convention requires a Python module name and one path segment.
                 if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name) is None:
                     continue
-                pathname = str(PurePosixPath(DCmdb.BASE_INSTALL_DIR) / name.lower())
+                pathname = str(PurePosixPath(DCMDB.BASE_INSTALL_DIR) / name.lower())
                 constants_dir = PurePosixPath(pathname) / name.lower() / 'constants'
                 constants = str(constants_dir / ('D' + name + '.py'))
                 command = (f'if [ -d {shlex.quote(pathname)} ] && [ -f {shlex.quote(constants)} ]; '
                            f'then cat -- {shlex.quote(constants)}; fi')
                 try:
                     result = self._ssh.run(address, command,
-                                           timeout=DCmdb.SSH_COMMAND_TIMEOUT_SECONDS,
-                                           connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
+                                           timeout=DCMDB.SSH_COMMAND_TIMEOUT_SECONDS,
+                                           connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
                 except (OSError, subprocess.SubprocessError):
                     self.status_messages.append(f'{host}: {name} — read failed.')
                     continue

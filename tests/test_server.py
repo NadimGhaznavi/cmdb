@@ -350,7 +350,7 @@ class ServerTests(unittest.TestCase):
         records.return_value.files.return_value = [{'id': 42, 'backupTime': datetime(2026, 9, 28, 14),
                                                    'hostName': 'sally.example', 'databaseName': 'cmdb',
                                                    'pathname': 'sally/db/recorded.dump', 'sizeBytes': 1536}]
-        with patch('cmdb.server.CmdbHandler.DCmdb.BACKUP_DIR', '/configured/backups'):
+        with patch('cmdb.server.CmdbHandler.DCMDB.BACKUP_DIR', '/configured/backups'):
             status, body = self.get('/api/backups/files')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['files'][0]['backupTime'], '2026-09-28T14:00:00+00:00')

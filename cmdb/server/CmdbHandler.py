@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 import pymysql
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.constants.DLabel import DLabel
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.BackupDb import BackupDb
@@ -56,7 +56,7 @@ def machine_record(machine: Machine) -> dict:
 class CmdbHandler(BaseHTTPRequestHandler):
     def setup(self) -> None:
         super().setup()
-        self.connection.settimeout(DCmdb.REQUEST_TIMEOUT)
+        self.connection.settimeout(DCMDB.REQUEST_TIMEOUT)
 
     def do_GET(self) -> None:
         path = urlsplit(self.path).path
@@ -132,7 +132,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
                     if path == '/api/backups':
                         result = {'databases': backups.databases(), 'hosts': backups.hosts()}
                     elif path == '/api/backups/files':
-                        result = {'files': backups.files(), 'directory': DCmdb.BACKUP_DIR}
+                        result = {'files': backups.files(), 'directory': DCMDB.BACKUP_DIR}
                         for record in result['files']:
                             record['filename'] = PurePosixPath(record['pathname']).name
                     else:

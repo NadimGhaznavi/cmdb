@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Rename the constants module and class to `DCMDB`, and move the project version
+  into its literal `VERSION` constant so CMDB can discover its own installation.
+  Update imports, installation tooling, and releases to use the new version source.
+
 ## [0.15.12] - 2026-10-02 @ 18:07
 
 - Add a confirmed Delete action to each Registered Applications row. Remove the

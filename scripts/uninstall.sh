@@ -14,28 +14,28 @@ import re
 import shutil
 import subprocess
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
-application = Path(DCmdb.BASE_DIR)
+application = Path(DCMDB.BASE_DIR)
 if application.is_symlink() or application != Path('/opt/prod/cmdb'):
     raise SystemExit('Refusing to remove an unexpected application directory.')
 if Path.cwd().resolve().is_relative_to(application.resolve()):
     raise SystemExit('Run uninstall from a separate checkout.')
-if re.fullmatch(r'[a-z_][a-z0-9_]*', DCmdb.DATABASE_NAME) is None:
+if re.fullmatch(r'[a-z_][a-z0-9_]*', DCMDB.DATABASE_NAME) is None:
     raise SystemExit('Invalid CMDB database name.')
-if Path(DCmdb.SERVICE_UNIT).name != DCmdb.SERVICE_UNIT:
+if Path(DCMDB.SERVICE_UNIT).name != DCMDB.SERVICE_UNIT:
     raise SystemExit('Invalid CMDB service unit name.')
 
 # Check database access before removing anything.
 mariadb = ['mariadb', '--protocol=socket', '--user=root']
 subprocess.run(mariadb, input='SELECT 1;\n', text=True,
                stdout=subprocess.DEVNULL, check=True)
-unit = Path('/etc/systemd/system') / DCmdb.SERVICE_UNIT
+unit = Path('/etc/systemd/system') / DCMDB.SERVICE_UNIT
 state = subprocess.run(
-    ['systemctl', 'show', DCmdb.SERVICE_UNIT, '--property=LoadState', '--value'],
+    ['systemctl', 'show', DCMDB.SERVICE_UNIT, '--property=LoadState', '--value'],
     capture_output=True, text=True, check=True).stdout.strip()
 if unit.exists() or unit.is_symlink() or state != 'not-found':
-    subprocess.run(['systemctl', 'disable', '--now', DCmdb.SERVICE_UNIT], check=True)
+    subprocess.run(['systemctl', 'disable', '--now', DCMDB.SERVICE_UNIT], check=True)
 patch_unit = Path('/etc/systemd/system/cmdb-patch.service')
 if patch_unit.exists():
     subprocess.run(['systemctl', 'disable', '--now', 'cmdb-patch.service'], check=True)
@@ -43,10 +43,10 @@ if patch_unit.exists():
 if (application / 'cmdb/interface/Cron.py').exists():
     subprocess.run([str(application / '.venv/bin/python'), '-B', '-c',
                     'from cmdb.interface.Cron import Cron; '
-                    f'Cron(user={DCmdb.SERVICE_USER!r}).clear()'], cwd=application, check=True)
+                    f'Cron(user={DCMDB.SERVICE_USER!r}).clear()'], cwd=application, check=True)
 
 # Retain the database user and its password so installation can reuse the credentials.
-subprocess.run(mariadb, input=f'DROP DATABASE IF EXISTS `{DCmdb.DATABASE_NAME}`;\n',
+subprocess.run(mariadb, input=f'DROP DATABASE IF EXISTS `{DCMDB.DATABASE_NAME}`;\n',
                text=True, check=True)
 patch_unit.unlink(missing_ok=True)
 unit.unlink(missing_ok=True)

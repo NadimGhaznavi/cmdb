@@ -9,24 +9,24 @@ settings_output=$(python3 -B - <<'PY'
 from pathlib import Path
 import stat
 import grp
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 
-installation = Path(DCmdb.BASE_DIR)
+installation = Path(DCMDB.BASE_DIR)
 if installation.is_symlink() or Path.cwd().resolve() == installation.resolve():
     raise SystemExit('Run deployment from a separate checkout; installation must not be a symlink.')
-path = Path(DCmdb.DATABASE_ENV)
+path = Path(DCMDB.DATABASE_ENV)
 info = path.lstat()
 if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o640
-        or info.st_gid != grp.getgrnam(DCmdb.SERVICE_USER).gr_gid):
+        or info.st_gid != grp.getgrnam(DCMDB.SERVICE_USER).gr_gid):
     raise SystemExit('Credentials must be a root:cmdb regular file with mode 640; run install.sh first.')
 values = DatabaseEnvironment.read(path)
-if values['DB_NAME'] != DCmdb.DATABASE_NAME or values['DB_USER'] != DCmdb.DATABASE_USER:
+if values['DB_NAME'] != DCMDB.DATABASE_NAME or values['DB_USER'] != DCMDB.DATABASE_USER:
     raise SystemExit('Credentials do not belong to CMDB; run install.sh first.')
-print(DCmdb.BASE_DIR)
-print(DCmdb.SERVICE_USER)
-print(DCmdb.SERVICE_UNIT)
-print(DCmdb.SERVICE_HOME)
+print(DCMDB.BASE_DIR)
+print(DCMDB.SERVICE_USER)
+print(DCMDB.SERVICE_UNIT)
+print(DCMDB.SERVICE_HOME)
 PY
 )
 mapfile -t settings <<< "$settings_output"
@@ -50,20 +50,20 @@ import os
 import re
 import subprocess
 from tempfile import NamedTemporaryFile
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
-if re.fullmatch(r'[a-z_][a-z0-9_]*', DCmdb.SERVICE_USER) is None:
+if re.fullmatch(r'[a-z_][a-z0-9_]*', DCMDB.SERVICE_USER) is None:
     raise SystemExit('Invalid CMDB service account name.')
-if re.fullmatch(r'[a-z_][a-z0-9_]*', DCmdb.AGENT_USER) is None or DCmdb.AGENT_USER == DCmdb.SERVICE_USER:
+if re.fullmatch(r'[a-z_][a-z0-9_]*', DCMDB.AGENT_USER) is None or DCMDB.AGENT_USER == DCMDB.SERVICE_USER:
     raise SystemExit('Invalid CMDB inventory account name.')
-rule = Path('sudoers/cmdb-nmap').read_text().replace('@USER@', DCmdb.SERVICE_USER)
-rule = rule.replace('@AGENT@', DCmdb.AGENT_USER)
-rule += ''.join(f'{DCmdb.SERVICE_USER} ALL=(root) NOPASSWD: /bin/sh '
-                f'{DCmdb.BASE_DIR}/cmdb/interface/scripts/patch-host.sh {action}\n'
+rule = Path('sudoers/cmdb-nmap').read_text().replace('@USER@', DCMDB.SERVICE_USER)
+rule = rule.replace('@AGENT@', DCMDB.AGENT_USER)
+rule += ''.join(f'{DCMDB.SERVICE_USER} ALL=(root) NOPASSWD: /bin/sh '
+                f'{DCMDB.BASE_DIR}/cmdb/interface/scripts/patch-host.sh {action}\n'
                 for action in ('probe', 'patch', 'reboot', 'verify'))
 target = Path('/etc/sudoers.d/cmdb-nmap')
-rule += (f'{DCmdb.SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/python3 '
-         f'{DCmdb.BASE_DIR}/cmdb/interface/scripts/drop-database.py *\n')
+rule += (f'{DCMDB.SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/python3 '
+         f'{DCMDB.BASE_DIR}/cmdb/interface/scripts/drop-database.py *\n')
 target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
 with NamedTemporaryFile(mode='w', prefix='.cmdb-nmap-', dir=target.parent, delete=False) as stream:
     candidate = Path(stream.name)
@@ -98,26 +98,26 @@ printf 'Copying CMDB application and service definition...\n'
 python3 -B - <<'PY'
 from pathlib import Path
 import shutil
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
-destination = Path(DCmdb.BASE_DIR)
+destination = Path(DCMDB.BASE_DIR)
 shutil.copytree('cmdb', destination / 'cmdb', dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
 shutil.copytree('schema', destination / 'schema', dirs_exist_ok=True)
 shutil.copytree('pages/images', destination / 'pages/images', dirs_exist_ok=True)
-for name in ('cmdb-server.py', 'cmdb-backup.py', 'cmdb-patch.py', 'requirements.txt', 'VERSION'):
+for name in ('cmdb-server.py', 'cmdb-backup.py', 'cmdb-patch.py', 'requirements.txt'):
     shutil.copy2(name, destination / name)
-template = Path('systemd', DCmdb.SERVICE_UNIT).read_text()
-unit = template.replace('@APP@', DCmdb.BASE_DIR).replace('@USER@', DCmdb.SERVICE_USER)
-unit = unit.replace('@DATABASE_ENV@', DCmdb.DATABASE_ENV)
-unit = unit.replace('@SSH_DIR@', DCmdb.SSH_DIR)
-unit = unit.replace('@BACKUP_DIR@', DCmdb.BACKUP_DIR)
-target = Path('/etc/systemd/system', DCmdb.SERVICE_UNIT)
+template = Path('systemd', DCMDB.SERVICE_UNIT).read_text()
+unit = template.replace('@APP@', DCMDB.BASE_DIR).replace('@USER@', DCMDB.SERVICE_USER)
+unit = unit.replace('@DATABASE_ENV@', DCMDB.DATABASE_ENV)
+unit = unit.replace('@SSH_DIR@', DCMDB.SSH_DIR)
+unit = unit.replace('@BACKUP_DIR@', DCMDB.BACKUP_DIR)
+target = Path('/etc/systemd/system', DCMDB.SERVICE_UNIT)
 target.write_text(unit)
 target.chmod(0o644)
 template = Path('systemd/cmdb-patch.service').read_text()
-unit = template.replace('@APP@', DCmdb.BASE_DIR).replace('@USER@', DCmdb.SERVICE_USER)
-unit = unit.replace('@DATABASE_ENV@', DCmdb.DATABASE_ENV)
+unit = template.replace('@APP@', DCMDB.BASE_DIR).replace('@USER@', DCMDB.SERVICE_USER)
+unit = unit.replace('@DATABASE_ENV@', DCMDB.DATABASE_ENV)
 target = Path('/etc/systemd/system/cmdb-patch.service')
 target.write_text(unit)
 target.chmod(0o644)
@@ -128,11 +128,11 @@ printf 'Checking MariaDB connection...\n'
 "$install_dir/.venv/bin/python" -B - <<'PY'
 import os
 from pathlib import Path
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 from cmdb.interface.DbMgr import DbMgr
 
-os.environ.update(DatabaseEnvironment.read(Path(DCmdb.DATABASE_ENV)))
+os.environ.update(DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV)))
 db = DbMgr()
 try:
     db.query('SELECT 1 AS ready')
@@ -153,13 +153,13 @@ import json
 import time
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
 opener = build_opener(ProxyHandler({}))
 for endpoint, expected in (('health', 'ok'), ('ready', 'ready')):
     for attempt in range(30):
         try:
-            with opener.open(f'http://127.0.0.1:{DCmdb.PORT}/{endpoint}', timeout=1) as response:
+            with opener.open(f'http://127.0.0.1:{DCMDB.PORT}/{endpoint}', timeout=1) as response:
                 body = json.load(response)
                 if response.status == 200 and body == {'status': expected, 'service': 'cmdb-server'}:
                     break
@@ -167,6 +167,6 @@ for endpoint, expected in (('health', 'ok'), ('ready', 'ready')):
             pass
         time.sleep(1)
     else:
-        raise SystemExit('Health check failed; inspect journalctl -u ' + DCmdb.SERVICE_UNIT)
-print(f'CMDB server listening on port: {DCmdb.PORT}')
+        raise SystemExit('Health check failed; inspect journalctl -u ' + DCMDB.SERVICE_UNIT)
+print(f'CMDB server listening on port: {DCMDB.PORT}')
 PY

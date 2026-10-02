@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from crontab import CronTab
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.Cron import Cron
 
 
@@ -20,7 +20,7 @@ class CronTests(unittest.TestCase):
             self.assertEqual(len(jobs), 1)
             self.assertEqual(str(jobs[0].slices), '0 12 * * *')
             self.assertEqual(jobs[0].command,
-                             DCmdb.BASE_DIR + '/.venv/bin/python -B ' + DCmdb.BASE_DIR + '/cmdb-backup.py --schedule-id 12')
+                             DCMDB.BASE_DIR + '/.venv/bin/python -B ' + DCMDB.BASE_DIR + '/cmdb-backup.py --schedule-id 12')
             interface.update(13, True)
             interface.delete(12)
             self.assertEqual(len(list(tab.find_comment('cmdb-backup-schedule-12'))), 0)

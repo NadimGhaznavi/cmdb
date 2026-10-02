@@ -6,7 +6,7 @@ from threading import Lock
 
 from crontab import CronTab
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
 
 class Cron:
@@ -17,7 +17,7 @@ class Cron:
     def __init__(self, user=True) -> None:
         self._user = user
 
-    def update(self, schedule: int, enabled: bool, expression: str = DCmdb.BACKUP_CRON) -> None:
+    def update(self, schedule: int, enabled: bool, expression: str = DCMDB.BACKUP_CRON) -> None:
         self._update(schedule, enabled, self.PREFIX, 'cmdb-backup.py', expression)
 
     def update_patch(self, schedule: int, enabled: bool, expression: str) -> None:
@@ -30,8 +30,8 @@ class Cron:
         comment = prefix + str(schedule)
         tab.remove_all(comment=comment)
         if enabled:
-            command = shlex.join([DCmdb.BASE_DIR + '/.venv/bin/python', '-B',
-                                  DCmdb.BASE_DIR + '/' + runner, '--schedule-id', str(schedule)])
+            command = shlex.join([DCMDB.BASE_DIR + '/.venv/bin/python', '-B',
+                                  DCMDB.BASE_DIR + '/' + runner, '--schedule-id', str(schedule)])
             job = tab.new(command=command.replace('%', r'\%'), comment=comment)
             job.setall(expression)
         tab.write()

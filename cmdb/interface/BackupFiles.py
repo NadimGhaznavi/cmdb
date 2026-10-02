@@ -4,7 +4,7 @@ import json
 from pathlib import Path, PurePosixPath
 import shlex
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.SSH import SSH
 
 
@@ -18,7 +18,7 @@ class BackupFiles:
             paths.append(str(path))
         script = (Path(__file__).parent / 'scripts/scan-backups.py').read_text()
         result = SSH().run('127.0.0.1', shlex.join(['python3', '-c', script]),
-                           input=json.dumps({'directory': DCmdb.BACKUP_DIR, 'paths': paths}))
+                           input=json.dumps({'directory': DCMDB.BACKUP_DIR, 'paths': paths}))
         statuses = json.loads(result.stdout)
         if (not isinstance(statuses, list) or len(statuses) != len(paths)
                 or any(status not in ('Found', 'Missing') for status in statuses)):

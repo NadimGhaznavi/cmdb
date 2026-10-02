@@ -3,7 +3,8 @@
 from typing import Final
 
 
-class DCmdb:
+class DCMDB:
+    VERSION: Final[str] = "0.15.13"
     BASE_INSTALL_DIR: Final[str] = "/opt/prod"
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
     SERVICE_USER: Final[str] = "cmdb"

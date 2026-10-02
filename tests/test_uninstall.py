@@ -6,7 +6,7 @@ import subprocess
 import unittest
 from unittest.mock import call, patch
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/uninstall.sh'
@@ -41,8 +41,8 @@ class UninstallTests(unittest.TestCase):
         events, unlink, remove = self.run_uninstall()
         self.assertEqual(events, [
             (['mariadb', '--protocol=socket', '--user=root'], 'SELECT 1;\n'),
-            (['systemctl', 'show', DCmdb.SERVICE_UNIT, '--property=LoadState', '--value'], None),
-            (['systemctl', 'disable', '--now', DCmdb.SERVICE_UNIT], None),
+            (['systemctl', 'show', DCMDB.SERVICE_UNIT, '--property=LoadState', '--value'], None),
+            (['systemctl', 'disable', '--now', DCMDB.SERVICE_UNIT], None),
             (['systemctl', 'disable', '--now', 'cmdb-patch.service'], None),
             (['/opt/prod/cmdb/.venv/bin/python', '-B', '-c',
               "from cmdb.interface.Cron import Cron; Cron(user='cmdb').clear()"], None),
@@ -70,12 +70,12 @@ class UninstallTests(unittest.TestCase):
 
     def test_drop_failure_preserves_files_for_retry(self):
         events, unlink, remove = self.run_uninstall(failure='DROP')
-        self.assertIn((['systemctl', 'disable', '--now', DCmdb.SERVICE_UNIT], None), events)
+        self.assertIn((['systemctl', 'disable', '--now', DCMDB.SERVICE_UNIT], None), events)
         unlink.assert_not_called()
         remove.assert_not_called()
 
     def test_unexpected_application_path_is_rejected_before_commands(self):
-        with patch.object(DCmdb, 'BASE_DIR', '/opt/prod'), patch('subprocess.run') as run:
+        with patch.object(DCMDB, 'BASE_DIR', '/opt/prod'), patch('subprocess.run') as run:
             with self.assertRaises(SystemExit):
                 exec(compile(SOURCE, str(SCRIPT), 'exec'), {})
         run.assert_not_called()

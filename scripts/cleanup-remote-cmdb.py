@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
@@ -49,8 +49,8 @@ def cleanup(addresses: list[str], local_identity: str) -> int:
             continue
         try:
             result = ssh.run(address, 'sh -s -- ' + shlex.quote(local_identity), user='root',
-                             input=REMOVE_ACCOUNT, timeout=DCmdb.SSH_COMMAND_TIMEOUT_SECONDS,
-                             connect_timeout=DCmdb.SSH_CONNECT_TIMEOUT_SECONDS)
+                             input=REMOVE_ACCOUNT, timeout=DCMDB.SSH_COMMAND_TIMEOUT_SECONDS,
+                             connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
             print(f'{address}: {result.stdout.strip()}', flush=True)
         except (OSError, subprocess.SubprocessError, ValueError) as error:
             failed = True
@@ -67,7 +67,7 @@ def main() -> int:
     local_identity = Path('/etc/machine-id').read_text().strip()
     if not local_identity:
         raise SystemExit('Local machine identity is empty; cleanup stopped.')
-    values = DatabaseEnvironment.read(Path(DCmdb.DATABASE_ENV))
+    values = DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV))
     os.environ.update(values)
     db = DbMgr()
     try:
@@ -76,7 +76,7 @@ def main() -> int:
         db.close()
         for name in values:
             os.environ.pop(name, None)
-    account = pwd.getpwnam(DCmdb.SERVICE_USER)
+    account = pwd.getpwnam(DCMDB.SERVICE_USER)
     os.initgroups(account.pw_name, account.pw_gid)
     os.setgid(account.pw_gid)
     os.setuid(account.pw_uid)

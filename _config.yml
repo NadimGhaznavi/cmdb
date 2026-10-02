@@ -35,7 +35,6 @@ exclude:
   - AGENTS.md
   - README.md
   - LICENSE
-  - VERSION
   - scripts
   - cmdb
   - cmdb-server.py

@@ -7,7 +7,7 @@ import pwd
 import socket
 import re
 
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 
 
 class SSH:
@@ -36,7 +36,7 @@ class SSH:
                 continue
         return False
 
-    def run(self, host: str, command: str, *, user: str = DCmdb.AGENT_USER, port: int = 22,
+    def run(self, host: str, command: str, *, user: str = DCMDB.AGENT_USER, port: int = 22,
             timeout: int = 30, connect_timeout: int = 10,
             input: str | None = None) -> subprocess.CompletedProcess[str]:
         """Execute a host shell command and return captured stdout/stderr.
@@ -61,16 +61,16 @@ class SSH:
             except KeyError as error:
                 raise PermissionError("Local inventory account is not installed.") from error
             if target_uid != os.geteuid():
-                if user != DCmdb.AGENT_USER:
+                if user != DCMDB.AGENT_USER:
                     raise PermissionError("Local identity switching is limited to the inventory agent.")
                 argv = ["/usr/bin/sudo", "-n", "-H", "-u", user, "--", *argv]
         else:
             argv = ["/usr/bin/ssh", "-F", "/dev/null", "-T",
              "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
              "-o", "IdentityAgent=none", "-o", "StrictHostKeyChecking=accept-new",
-             "-o", f"UserKnownHostsFile={DCmdb.SSH_KNOWN_HOSTS}",
+             "-o", f"UserKnownHostsFile={DCMDB.SSH_KNOWN_HOSTS}",
              "-o", f"ConnectTimeout={connect_timeout}",
-             "-i", DCmdb.SSH_KEY, "-l", user, "-p", str(port),
+             "-i", DCMDB.SSH_KEY, "-l", user, "-p", str(port),
              "--", host, command]
         return subprocess.run(
             argv,

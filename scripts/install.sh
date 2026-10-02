@@ -30,13 +30,13 @@ mariadb --protocol=socket --user=root --batch --skip-column-names -e 'SELECT 1' 
 
 settings_output=$(python3 -B - <<'PY'
 from pathlib import Path
-from cmdb.constants.DCmdb import DCmdb
-installation = Path(DCmdb.BASE_DIR)
+from cmdb.constants.DCMDB import DCMDB
+installation = Path(DCMDB.BASE_DIR)
 if installation.is_symlink() or Path.cwd().resolve() == installation.resolve():
     raise SystemExit('Run deployment from a separate checkout; installation must not be a symlink.')
-print(DCmdb.BASE_DIR)
-print(DCmdb.SERVICE_USER)
-print(DCmdb.SERVICE_HOME)
+print(DCMDB.BASE_DIR)
+print(DCMDB.SERVICE_USER)
+print(DCMDB.SERVICE_HOME)
 PY
 )
 mapfile -t settings <<< "$settings_output"
@@ -58,19 +58,19 @@ import stat
 import grp
 import subprocess
 from cmdb.constants.DDbMgr import DDbMgr
-from cmdb.constants.DCmdb import DCmdb
+from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 
-path = Path(DCmdb.DATABASE_ENV)
+path = Path(DCMDB.DATABASE_ENV)
 expected = {'DB_HOST': 'localhost', 'DB_PORT': str(DDbMgr.PORT),
-            'DB_NAME': DCmdb.DATABASE_NAME, 'DB_USER': DCmdb.DATABASE_USER}
+            'DB_NAME': DCMDB.DATABASE_NAME, 'DB_USER': DCMDB.DATABASE_USER}
 if path.is_symlink():
     raise SystemExit('Credentials must not be a symbolic link.')
 if path.exists():
     info = path.stat()
     mode = stat.S_IMODE(info.st_mode)
     if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or mode not in (0o600, 0o640)
-            or (mode == 0o640 and info.st_gid != grp.getgrnam(DCmdb.SERVICE_USER).gr_gid)):
+            or (mode == 0o640 and info.st_gid != grp.getgrnam(DCMDB.SERVICE_USER).gr_gid)):
         raise SystemExit('Existing credentials must be root-owned with mode 600 or root:cmdb mode 640.')
     values = DatabaseEnvironment.read(path)
     if any(values[key] != value for key, value in expected.items()):
@@ -87,10 +87,10 @@ else:
             stream.write(f'{key}={value}\n')
 
 # The independent cron runner needs read access without access to modify credentials.
-os.chown(path, 0, grp.getgrnam(DCmdb.SERVICE_USER).gr_gid)
+os.chown(path, 0, grp.getgrnam(DCMDB.SERVICE_USER).gr_gid)
 path.chmod(0o640)
 
-database, user = DCmdb.DATABASE_NAME, DCmdb.DATABASE_USER
+database, user = DCMDB.DATABASE_NAME, DCMDB.DATABASE_USER
 sql = (f'CREATE DATABASE IF NOT EXISTS `{database}` CHARACTER SET utf8mb4;\n'
        f"CREATE USER IF NOT EXISTS '{user}'@'localhost' IDENTIFIED BY '{password}';\n"
        f"GRANT ALL ON `{database}`.* TO '{user}'@'localhost';\n")

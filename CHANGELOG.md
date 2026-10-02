@@ -7,6 +7,31 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.10] - 2026-10-02 @ 05:58
+
+- Split Backup Vault's backup timestamp into Date and Time columns, and add
+  per-column text filters below the headings with a Clear filters button.
+
+- Make the entire Backup Vault collapsible, initially showing only its title row
+  with the most recent successful backup time right aligned in `YYYY-MM-DD HH:MM` format.
+
+- Hide Backup Vault's Status column until Scan Filesystem is clicked, and hide
+  it again when the table refreshes.
+
+- Leave missing values and unchecked filesystem statuses blank in Backup Vault.
+
+- Add Size after Filename in Backup Vault, displaying recorded backup sizes
+  in human-readable units such as KB and MB.
+
+- Add a machine environment dropdown (Unclassified, Prod, QA, DEV) and an
+  Update button beside Re-Scan in selected inventory machine details. Save
+  `DeploymentEnvironment` as a TaggedValue on the machine's ModelElement,
+  updating or creating it for dev, qa, and prod, and deleting it for Unclassified.
+  Load saved classifications when selecting machines and show save results.
+
+- Report `Scan complete` when scanning finishes, keeping individual application
+  read failures in status history without failing the overall scan.
+
 ## [0.15.8] - 2026-10-01 @ 05:19
 
 - Detect installed applications using only their `D`-prefixed constants files

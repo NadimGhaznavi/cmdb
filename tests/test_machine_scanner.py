@@ -36,14 +36,13 @@ class MachineScannerTests(TestCase):
                     worker.run()
                     description = ('Applications' if applications_only
                                    else f'Inventory ({DCmdb.SCAN_TARGET})')
-                    completed = 'Scan completed.' if applications_only else 'Inventory scan complete'
-                    outcome = 'Scan failed. Try again.' if failure else completed
+                    outcome = f'{description}: Scan failed. Try again.' if failure else 'Scan complete'
                     self.assertEqual([{'source': entry['source'], 'message': entry['message']}
                                       for entry in history.snapshot()], [
                         {'source': 'cmdb.activity.MachineScanner',
                          'message': f'{description}: scan started.'},
                         {'source': 'cmdb.activity.MachineScanner',
-                         'message': f'{description}: {outcome}'}])
+                         'message': outcome}])
                     selected = worker.scan_applications if applications_only else worker.scan_once
                     selected.assert_called_once_with()
                     self.assertEqual(worker.scan_status()['error'],

@@ -29,6 +29,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/backup-schedules` | Saves modelElement, enabled, cron expression, and retention; creates or removes the schedule's cron entry. |
 | `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
+| `POST /api/machines/environment` | Saves `DeploymentEnvironment` for a machine ID; Unclassified removes the tag. |
 | `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
 | `/status-messages` | Reads shared in-memory status history as JSON without querying MariaDB. |
@@ -141,7 +142,15 @@ for example `ipAddress` displays as IP Address and `hostName` as Host Name.
 The mapping affects presentation only; model attributes, API keys, and database
 columns retain their original names.
 
-Machine details are read-only. Successful SSH discovery populates the hostname
+The environment dropdown loads the selected machine's saved classification.
+Update sends a JSON object with `machine` (the numeric Machine ID) and
+`environment` (`dev`, `qa`, `prod`, or `unclassified`). Saving creates or updates
+the `DeploymentEnvironment` TaggedValue on that machine's ModelElement;
+Unclassified deletes it. The API returns the saved `environment`, HTTP 400
+for invalid input, 404 for a missing machine, or 503 for database failure.
+The controls show save progress and results; discovery preserves the tag.
+
+Other machine details are read-only. Successful SSH discovery populates the hostname
 reported by the machine.
 
 [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 and its MIT license are bundled

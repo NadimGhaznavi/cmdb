@@ -31,7 +31,17 @@
       <aside id="selection-details" aria-label="Selection details" hidden>
         <details id="machine-details" open>
           <summary id="machine-heading"></summary>
-          <div class="page-actions"><button id="rescan-machine" type="button">Re-Scan</button></div>
+          <div class="page-actions machine-actions">
+            <button id="rescan-machine" type="button">Re-Scan</button>
+            <select id="machine-environment" aria-label="Machine environment">
+              <option value="unclassified">Unclassified</option>
+              <option value="prod">Prod</option>
+              <option value="qa">QA</option>
+              <option value="dev">DEV</option>
+            </select>
+            <button id="update-machine" type="button">Update</button>
+          </div>
+          <p id="machine-environment-status" role="status"></p>
           <table aria-label="Machine details">
             <tbody>
               <tr><th scope="row">{{label.ipAddress}}:</th><td id="detail-ipAddress"></td></tr>
@@ -123,32 +133,49 @@
         </tr>
       </template>
     </section>
-    <section class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
-      <h3 id="backup-files-heading">Backup Vault</h3>
+    <details class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
+      <summary>
+        <h3 id="backup-files-heading">Backup Vault</h3>
+        <span class="backup-vault-latest">Most recent backup: <time id="most-recent-backup"></time></span>
+      </summary>
       <p id="backup-directory">Backup directory: <span></span></p>
       <p id="backup-files-status" role="status">Loading backup files…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Backup files">
         <table class="backups-table backup-files-table" aria-label="Backup files">
           <thead>
             <tr>
-              <th scope="col">Backup Time</th>
+              <th scope="col">Date</th>
+              <th scope="col">Time</th>
               <th scope="col">Elapsed Time</th>
               <th scope="col">Machine</th>
               <th scope="col">Database</th>
               <th scope="col">Filename</th>
-              <th scope="col">Status</th>
+              <th scope="col">Size</th>
+              <th scope="col" data-field="fileStatus">Status</th>
               <th scope="col">Actions</th>
+            </tr>
+            <tr class="backup-files-filters">
+              <td><input type="search" data-backup-filter="0" aria-label="Filter backup date" placeholder="YYYY-MM-DD" size="10"></td>
+              <td><input type="search" data-backup-filter="1" aria-label="Filter backup time" placeholder="HH:MM:SS" size="8"></td>
+              <td><input type="search" data-backup-filter="2" aria-label="Filter elapsed time" placeholder="Filter…" size="8"></td>
+              <td><input type="search" data-backup-filter="3" aria-label="Filter machine" placeholder="Filter…" size="12"></td>
+              <td><input type="search" data-backup-filter="4" aria-label="Filter database" placeholder="Filter…" size="12"></td>
+              <td><input type="search" data-backup-filter="5" aria-label="Filter filename" placeholder="Filter…" size="16"></td>
+              <td><input type="search" data-backup-filter="6" aria-label="Filter size" placeholder="Filter…" size="8"></td>
+              <td data-field="fileStatus"><input type="search" data-backup-filter="7" aria-label="Filter file status" placeholder="Filter…" size="8"></td>
+              <td><button id="clear-backup-filters" type="button">Clear filters</button></td>
             </tr>
           </thead>
           <tbody id="backup-files-rows"></tbody>
         </table>
       </div>
+      <p id="backup-files-no-matches" role="status" hidden>No backups match the filters.</p>
       <footer class="page-footer">
         <div class="page-actions">
           <button id="scan-backup-files" type="button">Scan Filesystem</button>
         </div>
       </footer>
-    </section>
+    </details>
   </main>
   <main id="applications-page" aria-labelledby="applications-heading" hidden>
     <section class="backup-panel" aria-labelledby="deployed-applications-heading">

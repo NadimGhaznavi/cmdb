@@ -45,10 +45,21 @@ backup history. Disabling via the UI retains the policy with Enabled cleared.
 The title box reads CMDB Backups, with both words at the same heading size.
 The Inventory view similarly reads CMDB Inventory.
 Live Databases and Backup Vault have their own bordered panels below it.
+Backup Vault starts collapsed. Click its title row or press Enter or Space while
+the row is focused to show or hide the directory, table, and Scan Filesystem button.
+The title row keeps `Most recent backup: YYYY-MM-DD HH:MM` right aligned,
+using the newest recorded successful backup's completion time in browser-local
+time. The timestamp is blank when no backups are recorded or files cannot be loaded.
 Backup Vault lists all recorded successful database backups,
 newest completion first (newest record first when times match). Its columns are
-Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
-or IP address), Database, Filename (the file name only), Status, and Actions.
+Date (`YYYY-MM-DD`) and Time (`HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
+or IP address), Database, Filename (the file name only), Size, Status, and Actions.
+Size uses the recorded byte count, displayed as B, KB, MB, GB, or larger units
+in steps of 1,024, with one decimal place for KB and above. Missing values are blank.
+The filter row below the column headings filters each data column as you type.
+Filters match part of the displayed text, ignoring case, and combine across columns.
+Clear filters restores all rows. Filters stay in place when the table refreshes;
+the Status filter applies only while the Status column is visible after a scan.
 The configured `Backup directory` appears below the heading. Scan Filesystem sits
 at the bottom left of the vault panel, below the table.
 Elapsed Time measures whole seconds from CMDB's attempt creation to completion,
@@ -56,14 +67,16 @@ including queue time, preparation, dumping, and checksum calculation. Hours do
 not wrap at 24. While a job is starting or running, its progress message is
 “Processing backup job...”.
 The table refreshes when the view opens and after an observed backup completes.
-Failed and running attempts are excluded. Status starts as `---` until Scan Filesystem
-checks each recorded path through the local backup agent, displaying Found or Missing.
+Failed and running attempts are excluded. The Status column is hidden until Scan
+Filesystem is clicked. It checks each recorded path through the local backup agent,
+displaying Found or Missing.
 This checks filesystem metadata only, without reading dump contents or checking checksums.
 Access errors report a failed scan rather than marking files missing.
 Each Missing row offers Delete Record to clean up after manual file deletion.
 Deletion rechecks the path, removes only that Backup record, and never deletes a file,
 inventory item, or schedule. Deleted records stay gone on refresh. Scan status is
-temporary; reopening or refreshing the table requires another scan.
+temporary; reopening or refreshing the table hides the Status column and requires
+another scan.
 
 ## Execution
 

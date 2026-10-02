@@ -153,7 +153,8 @@ recorded version, or `not detected` / `read failed`, on one line.
 
 Missing directories, missing files, or invalid VERSION values make no changes
 to inventory. Host access failures preserve records and allow the remaining
-hosts to be checked, then report scan failure. Existing deployments and unused
+hosts to be checked. The worker reports `Scan complete` when scanning finishes,
+including when individual application reads fail. Existing deployments and unused
 definitions are retained; removal and version-history management are outside
 this discovery increment.
 

@@ -62,8 +62,11 @@ to sort ascending; clicking the active heading reverses the order. Version sorti
 compares numeric parts naturally (for example, 11.9 precedes 11.10). An arrow
 marks the active sort direction, which is retained when reopening the page.
 The path is the recorded deployment path: `/` for the OS convention and
-the data directory for MariaDB. Below the table, Add Application accepts only an
-Application Name and saves a SoftwareSystem definition. Names are trimmed and
+the data directory for MariaDB. Below the deployed table, Registered Applications
+lists every stored SoftwareSystem with ID, Application Name, Type, Subtype,
+Supplier, and Version, including definitions without deployments. Beneath this
+table, an inline Application Name field and Add Application button save a
+SoftwareSystem definition and refresh the registered table. Names are trimmed and
 must contain 1–255 characters without control characters. The form reports success
 or failure. It creates no host, component, or deployment, so new definitions do
 not appear in Deployed Applications until deployed. Browser Back and Forward also switch these views.

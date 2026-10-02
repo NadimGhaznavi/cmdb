@@ -95,6 +95,17 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"error":"Patching records are unavailable."}', 'application/json')
                 return
             self.respond(200, json.dumps(result, default=backup_json).encode(), 'application/json')
+        elif path == '/api/applications':
+            try:
+                db = DbMgr()
+                try:
+                    records = SoftwareSystemDb(db).list_software_systems()
+                finally:
+                    db.close()
+            except pymysql.MySQLError:
+                self.respond(503, b'{"error":"Registered applications are unavailable."}', 'application/json')
+                return
+            self.respond(200, json.dumps({'applications': records}).encode(), 'application/json')
         elif path == "/api/machines":
             try:
                 db = DbMgr()

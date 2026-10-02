@@ -50,7 +50,7 @@ newest completion first (newest record first when times match). Its columns are
 Backup Time (`YYYY-MM-DD HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
 or IP address), Database, Filename (the file name only), Size, Status, and Actions.
 Size uses the recorded byte count, displayed as B, KB, MB, GB, or larger units
-in steps of 1,024, with one decimal place for KB and above. Unknown sizes show `---`.
+in steps of 1,024, with one decimal place for KB and above. Missing values are blank.
 The configured `Backup directory` appears below the heading. Scan Filesystem sits
 at the bottom left of the vault panel, below the table.
 Elapsed Time measures whole seconds from CMDB's attempt creation to completion,
@@ -58,7 +58,7 @@ including queue time, preparation, dumping, and checksum calculation. Hours do
 not wrap at 24. While a job is starting or running, its progress message is
 “Processing backup job...”.
 The table refreshes when the view opens and after an observed backup completes.
-Failed and running attempts are excluded. Status starts as `---` until Scan Filesystem
+Failed and running attempts are excluded. Status starts blank until Scan Filesystem
 checks each recorded path through the local backup agent, displaying Found or Missing.
 This checks filesystem metadata only, without reading dump contents or checking checksums.
 Access errors report a failed scan rather than marking files missing.

@@ -13,7 +13,7 @@ function elapsedTime(seconds) {
 }
 
 function backupSize(bytes) {
-  if (bytes == null) return '---';
+  if (bytes == null) return '';
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
   let unit = 0;
   while (bytes >= 1024 && unit < units.length - 1) {
@@ -38,14 +38,14 @@ async function loadBackupFiles() {
     for (const file of files) {
       const row = document.createElement("tr");
       row.dataset.backupId = file.id;
-      for (const value of [localTimestamp(file.backupTime), elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename, backupSize(file.sizeBytes)]) {
+      for (const value of [file.backupTime ? localTimestamp(file.backupTime) : '', file.elapsedSeconds == null ? '' : elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename, backupSize(file.sizeBytes)]) {
         const cell = document.createElement("td");
-        cell.textContent = value;
+        cell.textContent = value ?? '';
         row.append(cell);
       }
       const state = document.createElement('td');
       state.dataset.field = 'fileStatus';
-      state.textContent = '---';
+      state.textContent = '';
       const actions = document.createElement('td');
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -71,7 +71,7 @@ async function scanBackupFiles() {
   button.disabled = true;
   status.textContent = 'Scanning backup files…';
   for (const row of document.querySelectorAll('#backup-files-rows tr')) {
-    row.querySelector('[data-field="fileStatus"]').textContent = '---';
+    row.querySelector('[data-field="fileStatus"]').textContent = '';
     row.querySelector('button').hidden = true;
   }
   try {
@@ -81,7 +81,7 @@ async function scanBackupFiles() {
     if (request !== backupFilesRequest) return;
     const statuses = new Map(result.files.map(file => [String(file.id), file.status]));
     for (const row of document.querySelectorAll('#backup-files-rows tr')) {
-      const state = statuses.get(row.dataset.backupId) || '---';
+      const state = statuses.get(row.dataset.backupId) || '';
       row.querySelector('[data-field="fileStatus"]').textContent = state;
       row.querySelector('button').hidden = state !== 'Missing';
     }

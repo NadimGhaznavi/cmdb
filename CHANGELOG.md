@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Leave missing values and unchecked filesystem statuses blank in Backup Vault.
+
 - Add Size after Filename in Backup Vault, displaying recorded backup sizes
   in human-readable units such as KB and MB.
 

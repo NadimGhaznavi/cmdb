@@ -13,6 +13,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
 | `POST /api/applications` | Creates a named SoftwareSystem without a host or deployment; returns HTTP 201 with id and name. |
+| `DELETE /api/applications/<id>` | Removes one registered SoftwareSystem and its application deployments; returns HTTP 404 for a missing ID. |
 | `POST /api/applications/scan` | Queues application discovery on inventoried hosts; returns HTTP 202 with scanId, or HTTP 409 when another kind of scan is active. |
 | `GET /api/backups` | Lists MariaDB user databases, model IDs, latest attempts, and last successful completion times. |
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
@@ -64,7 +65,19 @@ marks the active sort direction, which is retained when reopening the page.
 The path is the recorded deployment path: `/` for the OS convention and
 the data directory for MariaDB. Below the deployed table, Registered Applications
 lists every stored SoftwareSystem with ID, Application Name, Type, Subtype,
-Supplier, and Version, including definitions without deployments. Beneath this
+Supplier, Version, and Actions, including definitions without deployments. Each
+row has a Delete button with confirmation. Deletion affects only that ID, even
+when names match, and refreshes both application tables. It removes the software
+definition and its application deployments from CMDB without uninstalling
+anything on hosts. Applications can be manually re-added; OS and MariaDB records
+can be rediscovered by inventory scans. Named applications need a registered
+definition before application discovery can find them again.
+For database software, CMDB retains standalone components, database managers,
+and schemas to preserve backup history and files, and disables related backup
+schedules and removes their cron entries. Rediscovery reuses the database manager
+and schema IDs; schedules remain disabled until explicitly enabled again.
+Unexpected dependent inventory prevents deletion with HTTP 409, and database or
+cron errors return HTTP 503. Beneath this
 table, an inline Application Name field and Add Application button save a
 SoftwareSystem definition and refresh the registered table. Names are trimmed and
 must contain 1–255 characters without control characters. The form reports success

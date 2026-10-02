@@ -121,6 +121,64 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(deployments[0]['softwareSystem'], application)
         self.assertEqual(len(self.machines.list_machines()[0].deployedComponent), 1)
 
+    def test_delete_application_removes_only_selected_release_and_its_deployments(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            first = definitions.create_application('MyCount')
+            second = definitions.create_application('MyCount')
+            machines = [self.machines.upsert(Machine(address)) for address in ('192.0.2.7', '192.0.2.8')]
+            for machine in machines:
+                self.software.record_application(machine, first, '/opt/prod/mycount', '1.0')
+            self.db.execute('INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s)',
+                            (first, 'test', 'value'))
+        deployments = self.software.list_deployments()
+        deleted_ids = {first} | {row['component'] for row in deployments} | {row['id'] for row in deployments}
+        with self.db.transaction():
+            self.assertEqual(definitions.delete_application(first), [])
+        self.assertEqual(definitions.list_software_systems()[0]['id'], second)
+        self.assertEqual(self.software.list_deployments(), [])
+        self.assertEqual({machine.id for machine in self.machines.list_machines()}, set(machines))
+        self.assertFalse(deleted_ids & {row['id'] for row in self.db.query('SELECT id FROM ModelElement')})
+        with self.db.transaction():
+            self.assertIsNone(definitions.delete_application(first))
+            self.software.record_application(machines[0], second, '/opt/prod/mycount', '1.0')
+        self.assertEqual(len(self.software.list_deployments()), 1)
+
+    def test_delete_database_software_preserves_backup_history_and_rediscovery_identity(self):
+        definitions = SoftwareSystemDb(self.db)
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        managers = DataManagerDb(self.db)
+        with self.db.transaction():
+            manager = managers.record_mariadb(machine, '11.8.3', '/data/', ['example'])
+        application = self.software.list_deployments()[0]['softwareSystem']
+        backups = BackupDb(self.db)
+        target = backups.databases()[0]['modelElement']
+        completed = datetime(2026, 10, 2)
+        backup = backups.start(target, completed)
+        backups.finish(backup, completed, result=dict(pathname='host/db/example.dump', sizeBytes=1, checksum='a' * 64))
+        schedule = self.db.insert('INSERT INTO BackupSchedule (modelElement, enabled) VALUES (%s, 1)', (target,))
+        files = backups.files()
+        with self.db.transaction():
+            self.assertEqual(definitions.delete_application(application), [schedule])
+        self.assertEqual(definitions.list_software_systems(), [])
+        self.assertEqual(self.software.list_deployments(), [])
+        self.assertEqual(backups.databases(), [])
+        self.assertEqual(backups.files(), files)
+        self.assertEqual(self.db.query('SELECT enabled FROM BackupSchedule')[0]['enabled'], 0)
+        with self.db.transaction():
+            self.assertEqual(managers.record_mariadb(machine, '11.8.3', '/data/', ['example']), manager)
+        self.assertEqual(backups.files(), files)
+        self.assertEqual(backups.databases()[0]['modelElement'], target)
+        self.assertEqual(len(self.db.query('SELECT id FROM Component')), 1)
+
+    def test_delete_application_dependency_failure_rolls_back(self):
+        definitions = SoftwareSystemDb(self.db)
+        application = definitions.create_application('MyCount')
+        NamespaceDb(self.db).create(namespace=application, name='dependent inventory')
+        with self.assertRaises(pymysql.IntegrityError), self.db.transaction():
+            definitions.delete_application(application)
+        self.assertEqual(definitions.list_software_systems()[0]['id'], application)
+
     def test_patch_schedule_saves_cron_policy_and_dispatches_queue(self):
         from cmdb.activity.PatchScheduler import PatchScheduler
         from cmdb.interface.PatchDb import PatchDb
@@ -532,7 +590,8 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         files = backups.files()
         self.assertEqual([row['id'] for row in files], [identities[2], identities[0], identities[1]])
         self.assertEqual(files[0], dict(id=identities[2], backupTime=later, elapsedSeconds=3600, databaseName='cmdb',
-                                       hostName='sally.example', ipAddress='192.0.2.7', pathname=f'host/db/{identities[2]}.dump'))
+                                       hostName='sally.example', ipAddress='192.0.2.7',
+                                       pathname=f'host/db/{identities[2]}.dump', sizeBytes=1))
         self.assertEqual(files[-1]['elapsedSeconds'], 0)
 
     def test_backup_schedule_rejects_invalid_policy_values(self):

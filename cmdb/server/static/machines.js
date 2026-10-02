@@ -335,6 +335,7 @@ document.getElementById('add-application-form').addEventListener('submit', async
     if (!response.ok) throw new Error(result.error || 'Application could not be added.');
     status.textContent = `Application “${result.name}” added.`;
     input.value = '';
+    await loadRegisteredApplications();
   } catch (error) {
     status.textContent = error.message || 'Application could not be added.';
   } finally {
@@ -344,6 +345,34 @@ document.getElementById('add-application-form').addEventListener('submit', async
 });
 
 let applicationsRequest = 0;
+let registeredApplicationsRequest = 0;
+
+async function loadRegisteredApplications() {
+  const request = ++registeredApplicationsRequest;
+  const status = document.getElementById('registered-applications-status');
+  const body = document.getElementById('registered-application-rows');
+  body.replaceChildren();
+  status.textContent = 'Loading registered applications…';
+  try {
+    const response = await fetch('/api/applications', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Registered applications are unavailable. Reopen Applications to try again.');
+    const { applications } = await response.json();
+    if (request !== registeredApplicationsRequest) return;
+    for (const application of applications) {
+      const row = document.createElement('tr');
+      for (const field of ['id', 'name', 'type', 'subtype', 'supplier', 'version']) {
+        const cell = document.createElement('td');
+        cell.textContent = application[field] ?? '—';
+        row.append(cell);
+      }
+      body.append(row);
+    }
+    status.textContent = applications.length ? '' : 'No registered applications recorded yet.';
+  } catch (error) {
+    if (request !== registeredApplicationsRequest) return;
+    status.textContent = error.message || 'Registered applications could not be loaded.';
+  }
+}
 
 let applicationRows = [];
 let applicationSort = 'host';
@@ -432,7 +461,10 @@ function showPage() {
   }
   document.getElementById('inventory-footer').hidden = page !== 'inventory';
   document.title = page === 'inventory' ? 'CMDB' : `${page[0].toUpperCase() + page.slice(1)} — CMDB`;
-  if (page === 'applications') loadApplications();
+  if (page === 'applications') {
+    loadApplications();
+    loadRegisteredApplications();
+  }
   if (patching) loadPatchingHosts();
   if (backups) {
     loadBackups();

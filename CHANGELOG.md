@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Rename the Add Application panel to Registered Applications and list every
+  stored SoftwareSystem above an inline Application Name field and Add Application
+  button. Refresh the registered table after adding an application.
+
 ## [0.15.10] - 2026-10-02 @ 05:58
 
 - Split Backup Vault's backup timestamp into Date and Time columns, and add

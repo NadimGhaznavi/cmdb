@@ -133,8 +133,11 @@
         </tr>
       </template>
     </section>
-    <section class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
-      <h3 id="backup-files-heading">Backup Vault</h3>
+    <details class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
+      <summary>
+        <h3 id="backup-files-heading">Backup Vault</h3>
+        <span class="backup-vault-latest">Most recent backup: <time id="most-recent-backup"></time></span>
+      </summary>
       <p id="backup-directory">Backup directory: <span></span></p>
       <p id="backup-files-status" role="status">Loading backup files…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Backup files">
@@ -159,7 +162,7 @@
           <button id="scan-backup-files" type="button">Scan Filesystem</button>
         </div>
       </footer>
-    </section>
+    </details>
   </main>
   <main id="applications-page" aria-labelledby="applications-heading" hidden>
     <section class="backup-panel" aria-labelledby="deployed-applications-heading">

@@ -28,12 +28,16 @@ async function loadBackupFiles() {
   document.querySelector('.backup-files-table').classList.remove('filesystem-scanned');
   const status = document.getElementById("backup-files-status");
   const body = document.getElementById("backup-files-rows");
+  const latest = document.getElementById("most-recent-backup");
   status.textContent = "Loading backup files…";
   try {
     const response = await fetch("/api/backups/files", { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error("Backup files are unavailable. Reopen Backups to try again.");
     const { files, directory } = await response.json();
     if (request !== backupFilesRequest) return;
+    const backupTime = files[0]?.backupTime || '';
+    latest.textContent = backupTime ? localTimestamp(backupTime).slice(0, 16) : '';
+    latest.dateTime = backupTime;
     document.querySelector('#backup-directory span').textContent = directory;
     body.replaceChildren();
     for (const file of files) {
@@ -60,6 +64,8 @@ async function loadBackupFiles() {
     status.textContent = files.length ? "" : "No backup files yet.";
   } catch (error) {
     if (request !== backupFilesRequest) return;
+    latest.textContent = '';
+    latest.removeAttribute('datetime');
     body.replaceChildren();
     status.textContent = error.message || "Backup files could not be loaded.";
   }
@@ -106,6 +112,7 @@ async function deleteBackupRecord(row, identity) {
     row.remove();
     status.textContent = 'Backup record deleted.';
     loadBackups();
+    loadBackupFiles();
   } catch (error) {
     status.textContent = error.message;
     button.disabled = false;

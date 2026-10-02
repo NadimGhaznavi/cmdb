@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Make the entire Backup Vault collapsible, initially showing only its title row
+  with the most recent successful backup time right aligned in `YYYY-MM-DD HH:MM` format.
+
 - Hide Backup Vault's Status column until Scan Filesystem is clicked, and hide
   it again when the table refreshes.
 

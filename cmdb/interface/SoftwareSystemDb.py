@@ -20,3 +20,10 @@ class SoftwareSystemDb:
             'SELECT MIN(ss.id) AS id, me.name FROM SoftwareSystem ss '
             'JOIN ModelElement me ON me.id = ss.id '
             'WHERE me.name IS NOT NULL AND ss.type IS NULL GROUP BY me.name ORDER BY id')
+
+    def list_software_systems(self) -> list[dict]:
+        """Return every registered SoftwareSystem, including undeployed definitions."""
+        return self._db.query(
+            'SELECT ss.id, me.name, ss.type, ss.subtype, ss.supplier, ss.version '
+            'FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
+            'ORDER BY me.name, ss.subtype, ss.id')

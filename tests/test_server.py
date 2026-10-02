@@ -94,6 +94,26 @@ class ServerTests(unittest.TestCase):
         self.server.server_close()
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_registered_applications_lists_software_systems_and_closes_database(self, factory):
+        records = [
+            {'id': 1, 'name': 'MyCount', 'type': None, 'subtype': None, 'supplier': None, 'version': None},
+            {'id': 2, 'name': None, 'type': 'OS', 'subtype': 'Debian', 'supplier': 'Debian', 'version': '13'},
+        ]
+        factory.return_value.query.return_value = records
+        status, body = self.get('/api/applications')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'applications': records})
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_registered_applications_database_failure_closes_and_hides_details(self, factory):
+        factory.return_value.query.side_effect = pymysql.OperationalError('private failure')
+        status, body = self.get('/api/applications')
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(body), {'error': 'Registered applications are unavailable.'})
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_add_application_saves_name_without_deployment(self, factory):
         factory.return_value.insert.return_value = 42
         connection = HTTPConnection(*self.server.server_address)

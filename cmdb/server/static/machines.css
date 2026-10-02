@@ -139,10 +139,10 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 .applications-table th button { border: 0; background: transparent; color: inherit; font-weight: inherit; padding: 0; white-space: nowrap; }
 .applications-table th button:hover { background: transparent; color: inherit; text-decoration: underline; }
 
-.application-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 1rem; }
-.application-form-field { display: flex; flex-direction: column; gap: .5rem; flex: 1 1 16rem; min-width: 0; }
-.application-form-field input { width: 100%; min-width: 0; background: var(--background); color: var(--text); border: 1px solid var(--border); padding: .5rem .6rem; font: inherit; }
-.application-form-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.application-form { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+.application-form label { white-space: nowrap; }
+.application-form input { flex: 1 1 16rem; min-width: 0; background: var(--background); color: var(--text); border: 1px solid var(--border); padding: .5rem .6rem; font: inherit; }
+.application-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 .status-messages { border: 1px solid var(--border); border-radius: .4rem; padding: 1rem 1.5rem; }
 .status-messages h2 { font-size: 1rem; margin: 0 0 .75rem; }

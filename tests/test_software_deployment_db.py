@@ -88,6 +88,22 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             "JOIN ModelElement me ON me.id = c.id "
             "JOIN SoftwareSystem ss ON ss.id = me.namespace ORDER BY dc.machine")
 
+    def test_registered_software_systems_include_undeployed_and_distinct_instances(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            first = definitions.create_application('MyCount')
+            second = definitions.create_application('MyCount')
+            machine = self.machines.upsert(Machine('192.0.2.7'))
+            self.software.record_operating_system(machine, SoftwareSystem(
+                type='OS', subtype='Linux', supplier='Linux', version='6.X'))
+        records = definitions.list_software_systems()
+        self.assertEqual(len(records), 3)
+        self.assertEqual({row['id'] for row in records if row['name'] == 'MyCount'}, {first, second})
+        operating_system = next(row for row in records if row['type'] == 'OS')
+        self.assertEqual(operating_system['subtype'], 'Linux')
+        self.assertEqual(operating_system['supplier'], 'Linux')
+        self.assertEqual(operating_system['version'], '6.X')
+
     def test_named_application_discovery_reuses_deployment_and_keeps_host_versions_distinct(self):
         definitions = SoftwareSystemDb(self.db)
         with self.db.transaction():

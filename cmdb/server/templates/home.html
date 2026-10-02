@@ -193,13 +193,18 @@
         </table>
       </div>
     </section>
-    <section class="backup-panel" aria-labelledby="add-application-heading">
-      <h3 id="add-application-heading">Add Application</h3>
+    <section class="backup-panel" aria-labelledby="registered-applications-heading">
+      <h3 id="registered-applications-heading">Registered Applications</h3>
+      <p id="registered-applications-status" role="status">Loading registered applications…</p>
+      <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Registered applications">
+        <table class="backups-table" aria-label="Registered applications">
+          <thead><tr><th scope="col">ID</th><th scope="col">Application Name</th><th scope="col">Type</th><th scope="col">Subtype</th><th scope="col">Supplier</th><th scope="col">Version</th></tr></thead>
+          <tbody id="registered-application-rows"></tbody>
+        </table>
+      </div>
       <form id="add-application-form" class="application-form">
-        <div class="application-form-field">
-          <label for="application-name">Application Name</label>
-          <input id="application-name" name="name" type="text" maxlength="255" required>
-        </div>
+        <label for="application-name">Application Name:</label>
+        <input id="application-name" name="name" type="text" maxlength="255" required>
         <div class="page-actions"><button id="add-application" type="submit">Add Application</button></div>
       </form>
       <p id="add-application-status" role="status"></p>

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [0.15.11] - 2026-10-02 @ 17:41
+
 - Rename the Add Application panel to Registered Applications and list every
   stored SoftwareSystem above an inline Application Name field and Add Application
   button. Refresh the registered table after adding an application.

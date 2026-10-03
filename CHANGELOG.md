@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Reduce Inventory application label font size to 16px to match machine labels.
+
 ## [1.0.1] - 2026-10-03 @ 07:04
 
 - Reduce Inventory machine label font size from 24px to 16px.

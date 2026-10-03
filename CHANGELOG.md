@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-03 @ 13:06
+
 - Keep Inventory Refresh working when an application is deleted during discovery:
   skip the removed definition instead of crashing the scanner, and lock existing
   definitions while recording their deployments.

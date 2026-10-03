@@ -4,7 +4,7 @@ from typing import Final
 
 
 class DCMDB:
-    VERSION: Final[str] = "1.0.3"
+    VERSION: Final[str] = "1.0.4"
     BASE_INSTALL_DIR: Final[str] = "/opt/prod"
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
     SERVICE_USER: Final[str] = "cmdb"

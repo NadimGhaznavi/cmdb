@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Compact Inventory machine and application nodes using a shared size based on
+  the widest displayed label plus padding; reduce spacing inside machine groups.
+
 ## [1.0.2] - 2026-10-03 @ 07:06
 
 - Reduce Inventory application label font size to 16px to match machine labels.

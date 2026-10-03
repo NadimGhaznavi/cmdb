@@ -37,9 +37,14 @@ class SoftwareDeploymentDb:
             deployment["databases"] = databases.get(deployment["id"], [])
         return deployments
 
-    def record_application(self, machine: int, application: int, pathname: str, version: str) -> None:
-        """Record a named application's current installation in the caller transaction."""
-        name = self._db.query('SELECT name FROM ModelElement WHERE id = %s', (application,))[0]['name']
+    def record_application(self, machine: int, application: int, pathname: str, version: str) -> bool:
+        """Record an installation, or skip a definition deleted since discovery began."""
+        definitions = self._db.query(
+            'SELECT me.name FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
+            'WHERE ss.id = %s FOR UPDATE', (application,))
+        if not definitions:
+            return False
+        name = definitions[0]['name']
         releases = self._db.query(
             'SELECT ss.id, ss.version FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
             'WHERE me.name = %s AND ss.type IS NULL AND (ss.version = %s OR ss.version IS NULL) '
@@ -74,6 +79,7 @@ class SoftwareDeploymentDb:
             self._db.execute(
                 'INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)',
                 (identity, pathname, machine, component))
+        return True
 
     def debian_hosts(self) -> list[dict]:
         """List machines whose deployed operating system is identified as Debian."""

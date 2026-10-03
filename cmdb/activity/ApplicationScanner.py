@@ -85,8 +85,9 @@ class ApplicationScanner:
                 db = DbMgr()
                 try:
                     with db.transaction():
-                        SoftwareDeploymentDb(db).record_application(
+                        recorded = SoftwareDeploymentDb(db).record_application(
                             machine, application['id'], pathname, version)
                 finally:
                     db.close()
-                self.status_messages.append(f'{host}: {name} {version}')
+                self.status_messages.append(f'{host}: {name} {version}' if recorded
+                                            else f'{host}: {name} — definition removed; skipped.')

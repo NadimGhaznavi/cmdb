@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Keep Inventory Refresh working when an application is deleted during discovery:
+  skip the removed definition instead of crashing the scanner, and lock existing
+  definitions while recording their deployments.
+
 ## [1.0.3] - 2026-10-03 @ 07:20
 
 - Compact Inventory machine and application nodes using a shared size based on

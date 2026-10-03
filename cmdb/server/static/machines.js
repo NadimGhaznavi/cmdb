@@ -927,10 +927,9 @@ async function loadMachines() {
             { selector: "node", style: {
               "background-color": palette.surface, "border-color": palette.border, "border-width": 2,
               "width": 160, "height": 160, "label": "data(label)", "color": palette.text,
-              "font-size": 24, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
+              "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
               "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
             } },
-            { selector: ".machine", style: { "font-size": 16 } },
             { selector: ".machine[?hostName]", style: {
               "shape": "round-rectangle", "width": 160, "height": 80,
             } },

@@ -869,6 +869,14 @@ async function loadMachines() {
       throw new Error("Machines are unavailable. Refresh to try again.");
     }
     const { machines, softwareDeployments = [] } = await response.json();
+    const labelFont = "bold 16px Arial";
+    const labelContext = document.createElement("canvas").getContext("2d");
+    labelContext.font = labelFont;
+    const labels = [...machines.map(machineLabel), ...softwareDeployments
+      .filter(system => machines.some(machine => machine.id === system.machine)).map(softwareLabel)];
+    const nodeWidth = Math.ceil(Math.max(0, ...labels.flatMap(label => label.split("\n")
+      .map(line => labelContext.measureText(line).width)))) + 24;
+    const nodeHeight = 32;
     const groups = document.getElementById("machine-groups");
     const graphs = [];
     const sections = [];
@@ -917,7 +925,7 @@ async function loadMachines() {
             elements.push({ data: { ...system, id: `deployment-${system.id}`,
               parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
               selectable: false, grabbable: false,
-              position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * 110 } });
+              position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * (nodeHeight + 12) } });
           });
         });
         const graph = cytoscape({
@@ -926,12 +934,10 @@ async function loadMachines() {
           style: [
             { selector: "node", style: {
               "background-color": palette.surface, "border-color": palette.border, "border-width": 2,
-              "width": 160, "height": 160, "label": "data(label)", "color": palette.text,
+              "shape": "round-rectangle", "width": nodeWidth, "height": nodeHeight,
+              "label": "data(label)", "color": palette.text, "font-family": "Arial",
               "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
-              "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
-            } },
-            { selector: ".machine[?hostName]", style: {
-              "shape": "round-rectangle", "width": 160, "height": 80,
+              "text-wrap": "wrap", "text-max-width": nodeWidth - 24,
             } },
             { selector: "node:selected", style: {
               "background-color": palette.selection, "border-color": palette.selection, "border-width": 3,
@@ -944,13 +950,11 @@ async function loadMachines() {
               "background-color": palette.selection, "border-color": palette.selection, "color": palette.text,
             } },
             { selector: ".machine:parent", style: {
-              "shape": "round-rectangle", "padding": 35,
-              "text-valign": "top", "text-margin-y": 27, "text-max-width": 300,
+              "padding": 24,
+              "text-valign": "top", "text-margin-y": 18,
             } },
             { selector: ".software", style: {
-              "shape": "round-rectangle", "width": 300, "height": 90,
               "background-color": palette["software-surface"], "border-color": palette.border, "color": palette.text,
-              "text-max-width": 280,
             } },
             { selector: ".machine[!hostName] > .software", style: {
               "background-color": palette["software-unnamed"], "color": palette.background,
@@ -990,8 +994,8 @@ async function loadMachines() {
       if (!group.section.open || !group.container.clientWidth) return;
       const nodes = graph.nodes(".machine");
       const boxes = nodes.map(node => node.boundingBox());
-      const cellWidth = Math.max(200, ...boxes.map(box => box.w)) + 40;
-      const cellHeight = Math.max(160, ...boxes.map(box => box.h)) + 40;
+      const cellWidth = Math.max(nodeWidth, ...boxes.map(box => box.w)) + 40;
+      const cellHeight = Math.max(nodeHeight, ...boxes.map(box => box.h)) + 40;
       const width = group.container.clientWidth;
       const columns = Math.max(1, Math.floor(width / cellWidth));
       const rows = Math.ceil(nodes.length / columns);

@@ -110,8 +110,11 @@ state when expanded. Last Backup displays `---` until the first successful backu
 Browser Back and Forward also switch
 views. The scan button and refresh timestamp are shown only on Inventory.
 
-The inventory graph has its own bordered box, filling the remaining window below
-the title. Selecting a machine reveals a separate details box on the left; on
+Inventory groups machines into bordered, collapsible boxes stacked in this order:
+Production, Quality Assurance, Development, and Unclassified. All boxes start expanded
+and show `Machines (XX)` beside their title, including when collapsed. Each box uses
+a responsive grid and shows an empty message when it has no machines. Missing or
+unrecognized deployment environments appear under Unclassified. Selecting a machine reveals a separate details box on the left; on
 narrow screens the details box appears above the graph. The graph box includes
 its loading or error message, Refresh button, and last-refresh timestamp. It loads
 database records when the page opens. Refresh at the bottom left wakes the existing
@@ -132,7 +135,7 @@ Machines with deployed software expand into rounded containers with the machine
 name above nested software rectangles. Software labels include the subtype,
 codename when present, and version, such as `Debian (trixie) 13.6`.
 MariaDB appears in a matching box below the OS, regardless of discovery order.
-Machines remain arranged in a circle. Clicking a machine or any inner software
+Machines are arranged in a grid within their environment box. Clicking a machine or any inner software
 rectangle loads the machine and its available software systems in the left panel.
 The OS appears first, then MariaDB. Each software section starts collapsed with
 a heading such as `Software System: Linux` or `Software System: RDBMS`; click
@@ -167,6 +170,8 @@ the `DeploymentEnvironment` TaggedValue on that machine's ModelElement;
 Unclassified deletes it. The API returns the saved `environment`, HTTP 400
 for invalid input, 404 for a missing machine, or 503 for database failure.
 The controls show save progress and results; discovery preserves the tag.
+A successful save moves the machine to its environment box and updates both
+group counts immediately, retaining the selected machine and each box’s collapsed state.
 
 Other machine details are read-only. Successful SSH discovery populates the hostname
 reported by the machine.

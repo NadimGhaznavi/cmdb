@@ -97,8 +97,14 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 .inventory-panel, #selection-details { border: 1px solid var(--border); border-radius: .4rem; padding: 1rem 1.5rem; }
 .inventory-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .machine-workspace { flex: 1; display: flex; gap: 1.5rem; min-width: 0; }
-.graph-area { flex: 1; min-width: 0; min-height: 20rem; position: relative; }
-#machine-graph { position: absolute; inset: 0; }
+#machine-groups { display: flex; flex-direction: column; gap: 1rem; }
+.machine-group { min-width: 0; border: 1px solid var(--border); border-radius: .4rem; padding: 1rem; }
+.machine-group > summary { cursor: pointer; font-weight: bold; }
+.machine-group > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.machine-group > summary h3 { display: inline; margin: 0; font-size: 1rem; }
+.machine-group-count { margin-left: .75rem; color: var(--muted); white-space: nowrap; }
+.machine-group-graph { width: 100%; margin-top: .75rem; }
+.machine-group-empty { color: var(--muted); margin: .75rem 0 0; }
 #selection-details { flex: 0 0 24rem; max-width: 40%; min-width: 0; }
 #selection-details table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .9rem; }
 #selection-details th, #selection-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }

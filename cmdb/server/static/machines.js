@@ -930,6 +930,7 @@ async function loadMachines() {
               "font-size": 24, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
               "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
             } },
+            { selector: ".machine", style: { "font-size": 16 } },
             { selector: ".machine[?hostName]", style: {
               "shape": "round-rectangle", "width": 160, "height": 80,
             } },

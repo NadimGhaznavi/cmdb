@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Reduce Inventory machine label font size from 24px to 16px.
+
 ## [1.0.0] - 2026-10-03 @ 06:57
 
 - Group Inventory machines into stacked, collapsible Production, Quality Assurance,

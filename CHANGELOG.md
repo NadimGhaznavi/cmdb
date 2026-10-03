@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-10-03 @ 13:10
+
+- Rename the Inventory Refresh button to Re-Scan Network.
+
 ## [1.0.4] - 2026-10-03 @ 13:06
 
 - Keep Inventory Refresh working when an application is deleted during discovery:

@@ -791,7 +791,7 @@ async function refreshMachines(address = null, applicationsOnly = false) {
     applications.disabled = false;
     applications.textContent = "Re-Scan Applications";
     rescan.textContent = "Re-Scan";
-    refresh.textContent = "Refresh";
+    refresh.textContent = "Re-Scan Network";
   }
 }
 

@@ -116,8 +116,8 @@ and show `Machines (XX)` beside their title, including when collapsed. Each box 
 a responsive grid and shows an empty message when it has no machines. Missing or
 unrecognized deployment environments appear under Unclassified. Selecting a machine reveals a separate details box on the left; on
 narrow screens the details box appears above the graph. The graph box includes
-its loading or error message, Refresh button, and last-refresh timestamp. It loads
-database records when the page opens. Refresh at the bottom left wakes the existing
+its loading or error message, Re-Scan Network button, and last-refresh timestamp. It loads
+database records when the page opens. Re-Scan Network at the bottom left wakes the existing
 scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
 Requests during an active scan share that scan; scans never overlap.

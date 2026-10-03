@@ -955,6 +955,7 @@ async function loadMachines() {
             } },
             { selector: ".software", style: {
               "background-color": palette["software-surface"], "border-color": palette.border, "color": palette.text,
+              "font-weight": "normal",
             } },
             { selector: ".machine[!hostName] > .software", style: {
               "background-color": palette["software-unnamed"], "color": palette.background,

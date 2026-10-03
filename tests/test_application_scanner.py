@@ -12,6 +12,17 @@ from cmdb.activity.MachineScanner import MachineScanner
 from cmdb.constants.DCMDB import DCMDB
 from cmdb.entity.Machine import Machine
 from cmdb.entity.StatusMessages import StatusMessages
+from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
+
+
+class ApplicationDeploymentTests(TestCase):
+    def test_deleted_application_is_not_recreated_by_stale_scan(self):
+        db = Mock()
+        db.query.return_value = []
+        self.assertFalse(SoftwareDeploymentDb(db).record_application(7, 17, '/opt/prod/mycount', '1.2.3'))
+        db.query.assert_called_once()
+        db.execute.assert_not_called()
+        db.insert.assert_not_called()
 
 
 class ApplicationVersionTests(TestCase):
@@ -41,6 +52,16 @@ class ApplicationScannerTests(TestCase):
             self.addCleanup(patcher.stop)
         self.SoftwareSystemDb.return_value.list_applications.return_value = [{'id': 17, 'name': 'MyCount'}]
         self.MachineDb.return_value.list_machines.return_value = []
+
+    def test_deleted_definition_is_skipped_and_next_application_is_scanned(self):
+        self.SoftwareSystemDb.return_value.list_applications.return_value.append(
+            {'id': 18, 'name': 'CMDB'})
+        self.SoftwareDeploymentDb.return_value.record_application.side_effect = [False, True]
+        self.worker.run({'192.0.2.7': 7})
+        self.assertEqual(self.SoftwareDeploymentDb.return_value.record_application.call_count, 2)
+        self.assertEqual([entry['message'] for entry in self.history.snapshot()], [
+            '192.0.2.7: MyCount — definition removed; skipped.', '192.0.2.7: CMDB 1.2.3'])
+        self.assertEqual(self.DbMgr.return_value.close.call_count, 3)
 
     def test_status_messages_use_short_lowercase_hostname_for_all_outcomes(self):
         self.MachineDb.return_value.list_machines.return_value = [

@@ -121,6 +121,19 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(deployments[0]['softwareSystem'], application)
         self.assertEqual(len(self.machines.list_machines()[0].deployedComponent), 1)
 
+    def test_application_deleted_during_discovery_is_skipped(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            application = definitions.create_application('MyCount')
+            machine = self.machines.upsert(Machine('192.0.2.7'))
+        with self.db.transaction():
+            definitions.delete_application(application)
+        with self.db.transaction():
+            self.assertFalse(self.software.record_application(
+                machine, application, '/opt/prod/mycount', '1.0'))
+        self.assertEqual(definitions.list_software_systems(), [])
+        self.assertEqual(self.software.list_deployments(), [])
+
     def test_delete_application_removes_only_selected_release_and_its_deployments(self):
         definitions = SoftwareSystemDb(self.db)
         with self.db.transaction():

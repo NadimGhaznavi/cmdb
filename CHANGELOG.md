@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-03 @ 07:04
+
 - Reduce Inventory machine label font size from 24px to 16px.
 
 ## [1.0.0] - 2026-10-03 @ 06:57

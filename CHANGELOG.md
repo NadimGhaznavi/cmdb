@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-03 @ 07:06
+
 - Reduce Inventory application label font size to 16px to match machine labels.
 
 ## [1.0.1] - 2026-10-03 @ 07:04

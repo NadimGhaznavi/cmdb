@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-03 @ 07:20
+
 - Compact Inventory machine and application nodes using a shared size based on
   the widest displayed label plus padding; reduce spacing inside machine groups.
 

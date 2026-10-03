@@ -869,85 +869,147 @@ async function loadMachines() {
       throw new Error("Machines are unavailable. Refresh to try again.");
     }
     const { machines, softwareDeployments = [] } = await response.json();
-    if (!machines.length) {
-      status.textContent = "No machines discovered yet.";
-      return;
+    const groups = document.getElementById("machine-groups");
+    const graphs = [];
+    const sections = [];
+    const machineEnvironment = machine => {
+      const value = machine.taggedValue?.find(tag => tag.tag === "DeploymentEnvironment")?.value;
+      return ["prod", "qa", "dev"].includes(value) ? value : "unclassified";
+    };
+    for (const [value, title] of [["prod", "Production"], ["qa", "Quality Assurance"],
+      ["dev", "Development"], ["unclassified", "Unclassified"]]) {
+      const section = document.createElement("details");
+      section.className = "machine-group";
+      section.open = true;
+      const summary = document.createElement("summary");
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      const count = document.createElement("span");
+      count.className = "machine-group-count";
+      const container = document.createElement("div");
+      container.className = "machine-group-graph";
+      container.setAttribute("aria-label", `${title} machines`);
+      const empty = document.createElement("p");
+      empty.className = "machine-group-empty";
+      empty.textContent = "No machines in this environment.";
+      summary.append(heading, count);
+      section.append(summary, container, empty);
+      groups.append(section);
+      sections.push({ value, section, count, container, empty });
     }
-    const elements = [];
-    const radius = Math.max(300, machines.length * 380 / (2 * Math.PI));
-    machines.forEach((machine, index) => {
-      const angle = 2 * Math.PI * index / machines.length - Math.PI / 2;
-      const center = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
-      const systems = softwareDeployments.filter(system => system.machine === machine.id)
-        .sort(compareSoftware);
-      elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
-        classes: machine.reachable === false ? "machine down" : "machine", position: center });
-      systems.forEach((system, offset) => {
-        elements.push({ data: { ...system, id: `deployment-${system.id}`,
-          parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
-          selectable: false, grabbable: false,
-          position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * 110 } });
+    function renderGroups() {
+      for (const graph of graphs) graph.destroy();
+      graphs.length = 0;
+      for (const group of sections) {
+        const members = machines.filter(machine => machineEnvironment(machine) === group.value);
+        group.count.textContent = `Machines (${members.length})`;
+        group.empty.hidden = Boolean(members.length);
+        group.container.hidden = !members.length;
+        if (!members.length) continue;
+        const elements = [];
+        members.forEach(machine => {
+          const center = { x: 0, y: 0 };
+          const systems = softwareDeployments.filter(system => system.machine === machine.id)
+            .sort(compareSoftware);
+          elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
+            classes: machine.reachable === false ? "machine down" : "machine", position: center });
+          systems.forEach((system, offset) => {
+            elements.push({ data: { ...system, id: `deployment-${system.id}`,
+              parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
+              selectable: false, grabbable: false,
+              position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * 110 } });
+          });
+        });
+        const graph = cytoscape({
+          container: group.container,
+          elements,
+          style: [
+            { selector: "node", style: {
+              "background-color": palette.surface, "border-color": palette.border, "border-width": 2,
+              "width": 160, "height": 160, "label": "data(label)", "color": palette.text,
+              "font-size": 24, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
+              "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
+            } },
+            { selector: ".machine[?hostName]", style: {
+              "shape": "round-rectangle", "width": 160, "height": 80,
+            } },
+            { selector: "node:selected", style: {
+              "background-color": palette.selection, "border-color": palette.selection, "border-width": 3,
+              "color": palette.text,
+            } },
+            { selector: ".machine[!hostName]", style: {
+              "background-color": palette.text, "border-color": palette.border, "color": palette.background,
+            } },
+            { selector: ".machine[!hostName]:selected", style: {
+              "background-color": palette.selection, "border-color": palette.selection, "color": palette.text,
+            } },
+            { selector: ".machine:parent", style: {
+              "shape": "round-rectangle", "padding": 35,
+              "text-valign": "top", "text-margin-y": 27, "text-max-width": 300,
+            } },
+            { selector: ".software", style: {
+              "shape": "round-rectangle", "width": 300, "height": 90,
+              "background-color": palette["software-surface"], "border-color": palette.border, "color": palette.text,
+              "text-max-width": 280,
+            } },
+            { selector: ".machine[!hostName] > .software", style: {
+              "background-color": palette["software-unnamed"], "color": palette.background,
+            } },
+            { selector: ".machine.down", style: {
+              "background-color": palette.danger, "border-color": palette.border, "color": palette.text,
+            } },
+            { selector: ".machine.down > .software", style: {
+              "background-color": palette["software-danger"], "border-color": palette.border, "color": palette.text,
+            } },
+            { selector: ".machine.down:selected", style: {
+              "border-color": palette.selection, "border-width": 3,
+            } },
+            { selector: ".machine:selected > .software", style: {
+              "background-color": palette["software-selection"], "border-color": palette.selection, "color": palette.text,
+            } },
+            { selector: ".machine.down:selected > .software", style: {
+              "background-color": palette["software-danger"],
+            } },
+          ],
+          layout: { name: "preset", padding: 40 },
+          selectionType: "single",
+          minZoom: 0.1,
+          maxZoom: 1,
+          autoungrabify: true,
+          userZoomingEnabled: false,
+          userPanningEnabled: false,
+        });
+        graphs.push(graph);
+        graph.on("tap", "node", event => {
+          selectMachine(event.target.hasClass("software") ? event.target.parent() : event.target);
+        });
+        layoutGroup(group, graph);
+      }
+    }
+    function layoutGroup(group, graph) {
+      if (!group.section.open || !group.container.clientWidth) return;
+      const nodes = graph.nodes(".machine");
+      const boxes = nodes.map(node => node.boundingBox());
+      const cellWidth = Math.max(200, ...boxes.map(box => box.w)) + 40;
+      const cellHeight = Math.max(160, ...boxes.map(box => box.h)) + 40;
+      const width = group.container.clientWidth;
+      const columns = Math.max(1, Math.floor(width / cellWidth));
+      const rows = Math.ceil(nodes.length / columns);
+      nodes.forEach((node, index) => {
+        const box = boxes[index];
+        const position = node.position();
+        node.position({
+          x: position.x + (index % columns + 0.5) * cellWidth - (box.x1 + box.x2) / 2,
+          y: position.y + (Math.floor(index / columns) + 0.5) * cellHeight - (box.y1 + box.y2) / 2,
+        });
       });
-    });
-    const graph = cytoscape({
-      container: document.getElementById("machine-graph"),
-      elements,
-      style: [
-        { selector: "node", style: {
-          "background-color": palette.surface, "border-color": palette.border, "border-width": 2,
-          "width": 160, "height": 160, "label": "data(label)", "color": palette.text,
-          "font-size": 24, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
-          "text-wrap": "wrap", "text-max-width": 110, "text-overflow-wrap": "anywhere",
-        } },
-        { selector: ".machine[?hostName]", style: {
-          "shape": "round-rectangle", "width": 160, "height": 80,
-        } },
-        { selector: "node:selected", style: {
-          "background-color": palette.selection, "border-color": palette.selection, "border-width": 3,
-          "color": palette.text,
-        } },
-        { selector: ".machine[!hostName]", style: {
-          "background-color": palette.text, "border-color": palette.border, "color": palette.background,
-        } },
-        { selector: ".machine[!hostName]:selected", style: {
-          "background-color": palette.selection, "border-color": palette.selection, "color": palette.text,
-        } },
-        { selector: ".machine:parent", style: {
-          "shape": "round-rectangle", "padding": 35,
-          "text-valign": "top", "text-margin-y": 27, "text-max-width": 300,
-        } },
-        { selector: ".software", style: {
-          "shape": "round-rectangle", "width": 300, "height": 90,
-          "background-color": palette["software-surface"], "border-color": palette.border, "color": palette.text,
-          "text-max-width": 280,
-        } },
-        { selector: ".machine[!hostName] > .software", style: {
-          "background-color": palette["software-unnamed"], "color": palette.background,
-        } },
-        { selector: ".machine.down", style: {
-          "background-color": palette.danger, "border-color": palette.border, "color": palette.text,
-        } },
-        { selector: ".machine.down > .software", style: {
-          "background-color": palette["software-danger"], "border-color": palette.border, "color": palette.text,
-        } },
-        { selector: ".machine.down:selected", style: {
-          "border-color": palette.selection, "border-width": 3,
-        } },
-        { selector: ".machine:selected > .software", style: {
-          "background-color": palette["software-selection"], "border-color": palette.selection, "color": palette.text,
-        } },
-        { selector: ".machine.down:selected > .software", style: {
-          "background-color": palette["software-danger"],
-        } },
-      ],
-      layout: { name: "preset", padding: 40 },
-      selectionType: "single",
-      minZoom: 0.1,
-      maxZoom: 3,
-    });
+      group.container.style.height = `${Math.ceil(rows * cellHeight * Math.min(1, width / cellWidth))}px`;
+      graph.resize();
+      graph.fit(undefined, 20);
+    }
     function selectMachine(node) {
       if (refreshing) return;
-      graph.nodes().unselect();
+      for (const graph of graphs) graph.nodes().unselect();
       node.select();
       selectedMachine = node;
       environment.value = node.data("taggedValue")?.find(tag => tag.tag === "DeploymentEnvironment")?.value
@@ -1007,8 +1069,13 @@ async function loadMachines() {
         if (result.environment !== "unclassified") {
           tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
         }
-        node.data("taggedValue", tags);
-        if (selectedMachine === node) {
+        machines.find(machine => machine.id === node.data("machineId")).taggedValue = tags;
+        const selectedId = selectedMachine.id();
+        const savedSelectedMachine = selectedMachine === node;
+        renderGroups();
+        const selected = graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);
+        if (selected) selectMachine(selected);
+        if (savedSelectedMachine) {
           environment.value = result.environment;
           environmentStatus.textContent = "Environment saved.";
         }
@@ -1021,21 +1088,24 @@ async function loadMachines() {
         environment.disabled = false;
       }
     });
-    graph.on("tap", "node", event => {
-      if (refreshing) return;
-      const node = event.target;
-      selectMachine(node.hasClass("software") ? node.parent() : node);
+    renderGroups();
+    const observer = new ResizeObserver(() => {
+      for (const graph of graphs) {
+        layoutGroup(sections.find(group => group.container === graph.container()), graph);
+      }
     });
+    for (const group of sections) {
+      observer.observe(group.container);
+      group.section.addEventListener("toggle", () => {
+        const graph = graphs.find(graph => graph.container() === group.container);
+        if (graph) layoutGroup(group, graph);
+      });
+    }
     const rescanned = sessionStorage.getItem('rescan-machine');
     sessionStorage.removeItem('rescan-machine');
-    if (rescanned && graph.getElementById(rescanned).length) {
-      selectMachine(graph.getElementById(rescanned));
-    }
-    new ResizeObserver(() => {
-      graph.resize();
-      graph.fit(undefined, 40);
-    }).observe(document.getElementById("machine-graph"));
-    status.textContent = "";
+    const restored = graphs.map(graph => graph.getElementById(rescanned || '')).find(node => node.length);
+    if (restored) selectMachine(restored);
+    status.textContent = machines.length ? "" : "No machines discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Machines could not be loaded. Refresh to try again.";
   }

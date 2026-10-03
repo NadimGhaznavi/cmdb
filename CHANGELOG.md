@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-03 @ 06:57
+
+- Group Inventory machines into stacked, collapsible Production, Quality Assurance,
+  Development, and Unclassified boxes with machine counts and responsive grids.
+  Saving a machine environment moves it into its new group immediately.
+
 ## [0.15.14] - 2026-10-02 @ 18:35
 
 - Make Deployed Applications and Registered Applications collapsible, initially

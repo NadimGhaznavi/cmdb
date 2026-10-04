@@ -24,8 +24,19 @@ plugins:
 
 author:
   name: "Nadim-Daniel Ghaznavi"
+  avatar: # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
   bio: "Creator"
   location: "Hamilton, ON"
+  email: "nghaznavi@gmail.com"
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/NadimGhaznavi"
+    - label: "My Website"
+      icon: "fas fa-fw fa-link"
+      url: "https://www.osoyalce.com/"
+
+
 footer:
   since: "2026"
 

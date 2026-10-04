@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-10-04 @ 05:47
+
 ## [1.0.7] - 2026-10-03 @ 17:43
 
 - Use regular font weight for application labels inside Inventory machine boxes.

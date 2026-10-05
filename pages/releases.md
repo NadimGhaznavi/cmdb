@@ -31,7 +31,9 @@ For server changes, run the Python tests described in
 
 Review `CHANGELOG.md`'s `Unreleased` section. The project version is the literal
 `DCMDB.VERSION` in `cmdb/constants/DCMDB.py`; the release script reads and
-updates this constant.
+updates this constant. The supplied release message also replaces
+`DCMDB.CMDB_CODENAME` as a safely escaped Python string, without the
+`Release <version>:` prefix used in commit and tag messages.
 
 ## Cut a release
 
@@ -49,20 +51,55 @@ example, the first release could be:
 ```
 
 Use a semantic version without a leading `v`. An optional third argument sets
-the next feature branch name.
+the next feature branch name. Git and Python 3 must be available.
 
 The script checks the working tree, version, changelog, and branches,
-then fetches remote refs and verifies branch ancestry. It merges the
-feature branch into `dev`, updates `DCMDB.VERSION` and `CHANGELOG.md`, commits the
+then fetches remote refs and verifies branch ancestry. It displays the source
+branch, tag, message, codename, next branch, and remote URL, and asks
+`Create and push this release? [y/N]`. Confirmation requires an interactive
+terminal; only `y` or `Y` proceeds. Any other response or end of input cancels
+before changing release files, branches, or tags. The fetch happens before
+confirmation so the checks use current remote refs.
+
+It merges the feature branch into `dev`, updates `DCMDB.VERSION`,
+`DCMDB.CMDB_CODENAME`, and `CHANGELOG.md`, commits the
 release, merges into `main`, and creates an annotated tag such as `v0.1.0`.
 It advances `dev` to `main`, atomically pushes `main`, `dev`, and the tag to
 `origin`, then creates the next local feature branch, such as `feat/maint-0.1.1`.
+
+Completed steps print `[ PASSED ]` in green; errors print `[ FAIL ]` in red;
+cancellations and absent remote branches print `[ WARNING ]` in yellow.
+Color is enabled for terminals, with plain text for redirected output, a
+`dumb` terminal, or when `NO_COLOR` is set. Git's own output remains visible.
 
 The script publishes Git changes. GitHub Pages handles the site build using
 the repository's configured publishing source. Check its build result and
 the live site after release. Deploy the Python server separately using the
 [installation or upgrade command]({{ site.baseurl }}{% link pages/installation.md %});
 publishing a release does not restart the server.
+
+## Adapt the script to another project
+
+Copy `scripts/new-release.sh` into the other project's `scripts/` directory
+and edit its project settings block:
+
+| Setting | Purpose |
+| --- | --- |
+| `project_name` | Name displayed in summaries and status messages |
+| `version_file` | Python constants file, relative to the repository root |
+| `version_constant`, `codename_constant` | Names of the version and codename assignments |
+| `changelog_file` | Changelog path, relative to the repository root |
+| `remote` | Git remote to fetch and push |
+| `dev_branch`, `main_branch` | Development and release branch names |
+| `feature_prefix` | Prefix for the next feature branch |
+| `python_command` | Python 3 executable used to read and update constants |
+
+Each configured constant must have exactly one assignment to a single-line
+literal Python string. Type annotations are optional. The script reads the
+file without importing project code and preserves comments, annotations, and
+other contents when replacing the values. The changelog must contain exactly
+one `## [Unreleased]` heading. Adaptations retain the confirmation and the same
+feature-to-development-to-main release flow.
 
 ## If a release stops
 

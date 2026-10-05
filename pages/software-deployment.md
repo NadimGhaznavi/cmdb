@@ -72,7 +72,7 @@ that path. Identical OS classifications share a SoftwareSystem and Component;
 each machine gets its own DeployedComponent.
 Repeat scans reuse those records. A changed classification updates that
 machine's deployment without changing another machine's software definition.
-Unused definitions are retained.
+Unused definitions and their Components are pruned at the end of each workload.
 
 After the Nmap passes, hostname collection also reads the host's Linux
 `os-release` file through the SSH interface (directly for the local machine).
@@ -136,6 +136,34 @@ A nonempty literal string assigned to `VERSION` at module or class scope
 confirms an installation. Annotated assignments such as
 `VERSION: Final[str] = "1.2.3"` are supported. The constants file is parsed,
 never imported or executed; computed versions are not evaluated.
+The same file may declare optional application metadata as literal strings,
+at module or class scope, alongside `VERSION`:
+
+```python
+VERSION = "1.2.3"
+CMDB_TYPE = "application"
+CMDB_SUBTYPE = "inventory"
+CMDB_SUPPLIER = "Example Supplier"
+CMDB_CODENAME = "Orion"
+```
+
+| Constant | CWM storage |
+| --- | --- |
+| `CMDB_TYPE` | `SoftwareSystem.type` |
+| `CMDB_SUBTYPE` | `SoftwareSystem.subtype` |
+| `CMDB_SUPPLIER` | `SoftwareSystem.supplier` |
+| `CMDB_CODENAME` | `TaggedValue` on SoftwareSystem, tagged `VERSION_CODENAME` |
+
+Values are trimmed and must be nonempty strings of at most 255 characters,
+without control characters. Missing, computed, or invalid optional values are
+ignored and do not erase metadata already stored for a matching release.
+`VERSION` remains required for detection. Metadata fills missing fields on a
+compatible release; conflicting values select or create a separate definition,
+preserving definitions used by other hosts. When optional fields are omitted,
+discovery prefers the host's existing compatible release. A new version stores
+only the metadata supplied by that observation.
+Named applications remain discovery targets after their type is populated.
+
 Names must match `[A-Za-z_][A-Za-z0-9_]*` for this discovery convention.
 Definitions with other names can still be saved but are skipped by discovery.
 
@@ -147,19 +175,24 @@ different versions retain distinct release references. The manually created
 unversioned definition is populated on the first successful discovery.
 Application names supply labels in Inventory and the Applications table.
 
-Inventory scans check applications on responding hosts after the SSH follow-up.
+Inventory workloads check applications on each responding host after its host
+details and MariaDB inventory are collected.
 Re-Scan Applications checks all inventoried hosts without running network or OS
-discovery. Both run on the existing scanner worker; duplicate requests share
-the active scan and conflicting scan requests report that the scanner is busy.
-The Status Messages box reports each checked host IP and application with its
-recorded version, or `not detected` / `read failed`, on one line.
+discovery. Both use the coordinator’s single worker and FIFO request queue;
+workloads run sequentially. Add Application queues discovery for the new definition on all
+inventoried hosts.
+The Status Messages box reports each checked host’s short hostname (or IP) and
+application with its recorded version, or `not detected` / `read failed`, on one line.
 
 Missing directories, missing files, or invalid VERSION values make no changes
 to inventory. Host access failures preserve records and allow the remaining
 hosts to be checked. The worker reports `Scan complete` when scanning finishes,
-including when individual application reads fail. Existing deployments and unused
-definitions are retained; removal and version-history management are outside
-this discovery increment.
+including when individual application reads fail. Existing deployments are
+retained. At the end of every workload, undeployed SoftwareSystems and their
+unused Components are pruned and each removal is recorded in Status Messages.
+Newly added definitions survive earlier workloads until their own queued
+discovery attempt ends. An application that has never been deployed is then
+pruned if discovery records no deployment.
 
 
 ## MariaDB discovery

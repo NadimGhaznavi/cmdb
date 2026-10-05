@@ -387,7 +387,8 @@ async function loadRegisteredApplications() {
       const row = document.createElement('tr');
       for (const field of ['id', 'name', 'type', 'subtype', 'supplier', 'version']) {
         const cell = document.createElement('td');
-        cell.textContent = application[field] ?? '—';
+        cell.textContent = field === 'type' && application[field] === 'application'
+          ? 'Application' : application[field] ?? '—';
         row.append(cell);
       }
       const actions = document.createElement('td');
@@ -852,7 +853,9 @@ function renderDatabases(cell, names) {
 function compareSoftware(left, right) {
   const order = system => ["OS", "linux"].includes(system.type) ? 0
     : system.type === "DBMS" && system.subtype === "MariaDB" ? 1 : 2;
-  return order(left) - order(right) || left.id - right.id;
+  const name = system => system.name || system.subtype || system.type || "Software";
+  return order(left) - order(right)
+    || name(left).localeCompare(name(right), undefined, { sensitivity: "base" });
 }
 
 async function loadMachines() {
@@ -1057,7 +1060,8 @@ async function loadMachines() {
               cell.textContent = "—";
             }
           } else {
-            cell.textContent = system[cell.dataset.field] ?? "—";
+            cell.textContent = cell.dataset.field === "type" && system.type === "application"
+              ? "Application" : system[cell.dataset.field] ?? "—";
           }
         }
         softwareDetails.append(section);

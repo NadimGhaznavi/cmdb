@@ -7,6 +7,18 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-05 @ 17:30
+
+- Standardize the release script with reusable project settings, an interactive
+  release confirmation, and colorized `[ PASSED ]`, `[ FAIL ]`, and `[ WARNING ]`
+  progress messages. Set `CMDB_CODENAME` from the supplied release message.
+
+- Sort Inventory applications alphabetically, keeping the OS first and MariaDB
+  second when present.
+
+- Display the Software System type `application` as `Application` in registered
+  applications and Inventory details.
+
 ## [1.1.0] - 2026-10-05 @ 03:34
 
 - Read optional `CMDB_TYPE`, `CMDB_SUBTYPE`, `CMDB_SUPPLIER`, and `CMDB_CODENAME`

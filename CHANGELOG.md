@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-05 @ 17:30
+
 - Standardize the release script with reusable project settings, an interactive
   release confirmation, and colorized `[ PASSED ]`, `[ FAIL ]`, and `[ WARNING ]`
   progress messages. Set `CMDB_CODENAME` from the supplied release message.

@@ -333,9 +333,11 @@ document.getElementById('add-application-form').addEventListener('submit', async
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Application could not be added.');
-    status.textContent = `Application “${result.name}” added.`;
+    status.textContent = `Application “${result.name}” added; discovery queued…`;
+    await waitForScan(result.scanId);
+    status.textContent = `Discovery complete for “${result.name}”. See Status Messages for results.`;
     input.value = '';
-    await loadRegisteredApplications();
+    await Promise.all([loadRegisteredApplications(), loadApplications()]);
   } catch (error) {
     status.textContent = error.message || 'Application could not be added.';
   } finally {
@@ -750,6 +752,21 @@ async function loadPatchReport() {
 window.addEventListener("hashchange", showPage);
 showPage();
 
+async function waitForScan(scanId) {
+  while (true) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const response = await fetch(`/api/scan?scanId=${scanId}`, {
+      cache: 'no-store', signal: AbortSignal.timeout(15000),
+    });
+    const scan = await response.json();
+    if (!response.ok) throw new Error(scan.error || 'Could not check the scan.');
+    if (scan.completedScanId >= scanId) {
+      if (scan.error) throw new Error(scan.error);
+      return;
+    }
+  }
+}
+
 async function refreshMachines(address = null, applicationsOnly = false) {
   if (refreshing) return;
   refreshing = true;
@@ -770,18 +787,9 @@ async function refreshMachines(address = null, applicationsOnly = false) {
     const response = await fetch(endpoint, { method: "POST", signal: AbortSignal.timeout(15000) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not start a scan.");
-    while (true) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const response = await fetch("/api/scan", { cache: "no-store", signal: AbortSignal.timeout(15000) });
-      const scan = await response.json();
-      if (!response.ok) throw new Error(scan.error || "Could not check the scan.");
-      if (scan.completedScanId >= result.scanId) {
-        if (scan.error) throw new Error(scan.error);
-        if (address) sessionStorage.setItem('rescan-machine', address);
-        window.location.reload();
-        return;
-      }
-    }
+    await waitForScan(result.scanId);
+    if (address) sessionStorage.setItem('rescan-machine', address);
+    window.location.reload();
   } catch (error) {
     status.textContent = error.message || "Scan failed. Try again.";
   } finally {

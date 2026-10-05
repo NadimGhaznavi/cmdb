@@ -8,7 +8,7 @@ import signal
 from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 from cmdb.server.CmdbHandler import CmdbHandler
-from cmdb.activity.MachineScanner import MachineScanner
+from cmdb.activity.InventoryCoordinator import InventoryCoordinator
 from cmdb.activity.BackupManager import BackupManager
 
 
@@ -29,16 +29,16 @@ def main() -> None:
     try:
         with CmdbHTTPServer((args.host, args.port), CmdbHandler) as server:
             print(f"CMDB: http://{args.host}:{server.server_port}/", flush=True)
-            scanner = MachineScanner(server.status_messages)
+            coordinator = InventoryCoordinator(server.status_messages)
             server.backup_manager = BackupManager()
-            server.machine_scanner = scanner
-            scanner.start()
+            server.inventory_coordinator = coordinator
+            coordinator.start()
             try:
                 server.serve_forever()
             except KeyboardInterrupt:
                 pass
             finally:
-                scanner.stop()
+                coordinator.stop()
                 server.backup_manager.stop()
     finally:
         signal.signal(signal.SIGTERM, previous)

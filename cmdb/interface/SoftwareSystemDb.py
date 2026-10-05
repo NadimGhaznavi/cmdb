@@ -19,7 +19,7 @@ class SoftwareSystemDb:
         return self._db.query(
             'SELECT MIN(ss.id) AS id, me.name FROM SoftwareSystem ss '
             'JOIN ModelElement me ON me.id = ss.id '
-            'WHERE me.name IS NOT NULL AND ss.type IS NULL GROUP BY me.name ORDER BY id')
+            'WHERE me.name IS NOT NULL GROUP BY me.name ORDER BY id')
 
     def list_software_systems(self) -> list[dict]:
         """Return every registered SoftwareSystem, including undeployed definitions."""
@@ -27,6 +27,23 @@ class SoftwareSystemDb:
             'SELECT ss.id, me.name, ss.type, ss.subtype, ss.supplier, ss.version '
             'FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
             'ORDER BY me.name, ss.subtype, ss.id')
+
+    def prune_unused(self, protected: set[int]) -> list[dict]:
+        """Remove undeployed systems and their components in the caller's transaction."""
+        systems = self._db.query(
+            'SELECT ss.id, me.name, ss.type, ss.subtype, ss.version '
+            'FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
+            'WHERE NOT EXISTS (SELECT 1 FROM Component c '
+            'JOIN ModelElement ce ON ce.id = c.id '
+            'JOIN DeployedComponent dc ON dc.component = c.id '
+            'WHERE ce.namespace = ss.id) ORDER BY ss.id FOR UPDATE')
+        removed = []
+        for system in systems:
+            if system['id'] in protected:
+                continue
+            self.delete_application(system['id'])
+            removed.append(system)
+        return removed
 
     def delete_application(self, identity: int) -> list[int] | None:
         """Remove one software definition in the caller's transaction.

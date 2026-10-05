@@ -64,11 +64,10 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'height: calc(9em + 2px)', styles)
         self.assertIn(b'overflow: auto', styles)
 
-    def test_application_scan_queues_worker_and_reports_busy_or_unavailable(self):
-        scanner = self.server.machine_scanner = Mock()
-        scanner.request_scan.side_effect = [9, ValueError('Another scan is in progress.'),
-                                           RuntimeError('Scanner is unavailable.')]
-        for expected in (202, 409, 503):
+    def test_application_scan_queues_worker_and_reports_unavailable(self):
+        scanner = self.server.inventory_coordinator = Mock()
+        scanner.request_scan.side_effect = [9, RuntimeError('Scanner is unavailable.')]
+        for expected in (202, 503):
             connection = HTTPConnection(*self.server.server_address)
             try:
                 connection.request('POST', '/api/applications/scan')
@@ -173,26 +172,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body), {'error': 'Registered applications are unavailable.'})
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.DbMgr')
-    def test_add_application_saves_name_without_deployment(self, factory):
-        factory.return_value.insert.return_value = 42
+    def test_add_application_registers_and_queues_discovery(self):
+        coordinator = self.server.inventory_coordinator = Mock()
+        coordinator.add_application.return_value = (42, 9)
         connection = HTTPConnection(*self.server.server_address)
         try:
             connection.request('POST', '/api/applications', json.dumps({'name': '  MyCount  '}),
                                {'Content-Type': 'application/json'})
             response = connection.getresponse()
             self.assertEqual(response.status, 201)
-            self.assertEqual(json.loads(response.read()), {'id': 42, 'name': 'MyCount'})
+            self.assertEqual(json.loads(response.read()), {'id': 42, 'name': 'MyCount', 'scanId': 9})
         finally:
             connection.close()
-        db = factory.return_value
-        db.insert.assert_called_once_with('INSERT INTO ModelElement (namespace, name) VALUES (%s, %s)',
-                                          (None, 'MyCount'))
-        self.assertEqual([call.args[0] for call in db.execute.call_args_list], [
-            'INSERT INTO Namespace (id) VALUES (%s)', 'INSERT INTO Package (id) VALUES (%s)',
-            'INSERT INTO SoftwareSystem (id) VALUES (%s)'])
-        db.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
-        db.close.assert_called_once()
+        coordinator.add_application.assert_called_once_with('MyCount')
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_add_application_rejects_invalid_names_before_database_access(self, factory):
@@ -210,22 +202,20 @@ class ServerTests(unittest.TestCase):
                     connection.close()
         factory.assert_not_called()
 
-    @patch('cmdb.server.CmdbHandler.DbMgr')
-    def test_add_application_failure_exits_transaction_and_closes(self, factory):
-        factory.return_value.execute.side_effect = pymysql.OperationalError('private failure')
-        connection = HTTPConnection(*self.server.server_address)
-        try:
-            with self.assertLogs(level='ERROR'):
-                connection.request('POST', '/api/applications', json.dumps({'name': 'MyCount'}),
-                                   {'Content-Type': 'application/json'})
-                response = connection.getresponse()
-                self.assertEqual(response.status, 503)
-                self.assertNotIn(b'private failure', response.read())
-        finally:
-            connection.close()
-        self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[0],
-                      pymysql.OperationalError)
-        factory.return_value.close.assert_called_once()
+    def test_add_application_failure_and_unavailable_worker(self):
+        coordinator = self.server.inventory_coordinator = Mock()
+        for error in (pymysql.OperationalError('private failure'), RuntimeError('unavailable')):
+            coordinator.add_application.side_effect = error
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                with patch('cmdb.server.CmdbHandler.logging.exception'):
+                    connection.request('POST', '/api/applications', json.dumps({'name': 'MyCount'}),
+                                       {'Content-Type': 'application/json'})
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 503)
+                    self.assertNotIn(b'private failure', response.read())
+            finally:
+                connection.close()
 
     @patch('cmdb.server.CmdbHandler.PatchDb')
     @patch('cmdb.server.CmdbHandler.DbMgr')
@@ -424,7 +414,7 @@ class ServerTests(unittest.TestCase):
                 connection.close()
 
     def test_refresh_signals_server_worker_and_exposes_completion(self):
-        scanner = self.server.machine_scanner = Mock()
+        scanner = self.server.inventory_coordinator = Mock()
         scanner.request_scan.return_value = 7
         scanner.scan_status.return_value = {
             'scanId': 7, 'completedScanId': 6, 'running': True, 'error': None,
@@ -446,7 +436,7 @@ class ServerTests(unittest.TestCase):
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_selected_machine_rescan(self, db, inventory):
         inventory.return_value.list_machines.return_value = [Mock(ipAddress='192.168.0.7')]
-        scanner = self.server.machine_scanner = Mock()
+        scanner = self.server.inventory_coordinator = Mock()
         scanner.request_scan.return_value = 8
         for address, expected in [('192.168.0.7', 202), ('192.168.0.8', 404), ('invalid', 400)]:
             connection = HTTPConnection(*self.server.server_address)
@@ -458,15 +448,25 @@ class ServerTests(unittest.TestCase):
             finally:
                 connection.close()
         scanner.request_scan.assert_called_once_with('192.168.0.7')
-        scanner.request_scan.side_effect = ValueError('Another scan is in progress.')
+        scanner.request_scan.side_effect = RuntimeError('Scanner is unavailable.')
         connection = HTTPConnection(*self.server.server_address)
         try:
             connection.request('POST', '/api/machines/192.168.0.7/scan')
             response = connection.getresponse()
-            self.assertEqual(response.status, 409)
+            self.assertEqual(response.status, 503)
             response.read()
         finally:
             connection.close()
+
+    def test_scan_status_can_request_specific_outcome(self):
+        scanner = self.server.inventory_coordinator = Mock()
+        scanner.scan_status.return_value = {'scanId': 8, 'completedScanId': 7,
+                                           'running': True, 'error': 'Scan failed. Try again.'}
+        status, body = self.get('/api/scan?scanId=7')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['error'], 'Scan failed. Try again.')
+        scanner.scan_status.assert_called_once_with(7)
+        self.assertEqual(self.get('/api/scan?scanId=invalid')[0], 400)
 
     def test_scan_endpoints_return_503_without_a_worker(self):
         self.assertEqual(self.get('/api/scan')[0], 503)

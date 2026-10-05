@@ -12,9 +12,9 @@ connection and transaction layer, adapted to the `cmdb` package.
 | --- | --- |
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
-| `POST /api/applications` | Creates a named SoftwareSystem without a host or deployment; returns HTTP 201 with id and name. |
+| `POST /api/applications` | Registers a named SoftwareSystem and queues its discovery; returns HTTP 201 with id, name, and scanId. |
 | `DELETE /api/applications/<id>` | Removes one registered SoftwareSystem and its application deployments; returns HTTP 404 for a missing ID. |
-| `POST /api/applications/scan` | Queues application discovery on inventoried hosts; returns HTTP 202 with scanId, or HTTP 409 when another kind of scan is active. |
+| `POST /api/applications/scan` | Queues application discovery on inventoried hosts; returns HTTP 202 with scanId. |
 | `GET /api/backups` | Lists MariaDB user databases, model IDs, latest attempts, and last successful completion times. |
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
@@ -31,7 +31,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `POST /api/machines/environment` | Saves `DeploymentEnvironment` for a machine ID; Unclassified removes the tag. |
-| `POST /api/scan` | Signals the scanner worker and returns HTTP 202 with the scan ID; shares an active scan. |
+| `POST /api/scan` | Queues an Inventory workload and returns HTTP 202 with its scanId. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
 | `/status-messages` | Reads shared in-memory status history as JSON without querying MariaDB. |
 | `/health` | HTTP 200 JSON identifying `cmdb-server`; checks HTTP availability without querying MariaDB. |
@@ -81,14 +81,18 @@ and schema IDs; schedules remain disabled until explicitly enabled again.
 Unexpected dependent inventory prevents deletion with HTTP 409, and database or
 cron errors return HTTP 503. Beneath this
 table, an inline Application Name field and Add Application button save a
-SoftwareSystem definition and refresh the registered table. Names are trimmed and
-must contain 1–255 characters without control characters. The form reports success
-or failure. It creates no host, component, or deployment, so new definitions do
-not appear in Deployed Applications until deployed. Browser Back and Forward also switch these views.
+SoftwareSystem definition and queue discovery for that application across all
+inventoried hosts.
+The form waits for discovery and pruning before refreshing both application
+tables. Names are trimmed and must contain 1–255 characters without control
+characters. Discovery records deployments when an installation is found; an
+undeployed definition is pruned and reported in Status Messages. Browser Back
+and Forward also switch these views.
 Re-Scan Applications checks named application definitions on all inventoried hosts,
 without running Nmap. It uses the same worker and `/api/scan` progress reporting
 as inventory scans, displays progress or failure, and reloads the page after success.
-Inventory scans also include application discovery after the SSH follow-up.
+Inventory scans also check applications after collecting each host’s details
+and MariaDB inventory.
 See [application discovery]({{ site.baseurl }}{% link pages/software-deployment.md %}#application-discovery)
 for the installation convention.
 The Live Databases section groups stored databases into collapsible host sections,
@@ -120,11 +124,11 @@ its loading or error message, Re-Scan Network button, and last-refresh timestamp
 database records when the page opens. Re-Scan Network at the bottom left wakes the existing
 scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
-Requests during an active scan share that scan; scans never overlap.
+Requests enter a FIFO queue; one workload runs to completion before the next starts.
 
 Re-Scan beneath a selected machine's header runs the same discovery, OS, and SSH
 inventory steps for that host alone, then reloads with the machine selected.
-Requests for a different scan while one is active report that the scanner is busy.
+Requests made during an active workload wait in the same queue.
 Other machines' reachability results are preserved by a single-host scan.
 The app uses MyCount’s warm dark theme: brown backgrounds, cream text, orange
 links and focus outlines, and subtle brown panel and table borders. Nodes use
@@ -248,7 +252,7 @@ port syntax, optional `arguments` (default `-sV`), and a timeout in seconds
 (default `0`, unlimited). Library errors propagate to the caller. Use a separate
 instance per worker thread.
 
-The server starts `cmdb/activity/MachineScanner.py` immediately and owns its
+The server starts `cmdb/activity/InventoryCoordinator.py` immediately and owns its
 startup and shutdown. The background activity waits
 `DCMDB.SCAN_INTERVAL_SECONDS` (default `300`) after each scan before repeating.
 `SCAN_TARGET` defaults to the observed LAN, `192.168.0.0/24`;
@@ -292,13 +296,46 @@ OS classifications populate the
 Missing or inconclusive results preserve existing OS records. The service's
 stop timeout is 3900 seconds to allow the active scan and a bounded backup to finish.
 
-The scanner then runs the [SSH follow-up]({{ site.baseurl }}{% link pages/ssh.md %}#scanner-follow-up)
-to test `cmdb` access, provision it through root where possible, and retrieve
-the remote hostname. This also runs when OS detection finds no match or times
+For each responding host, the coordinator runs the [SSH follow-up]({{ site.baseurl }}{% link pages/ssh.md %}#scanner-follow-up)
+to test `cmdbagent` access, provision it through root where possible, and collect
+host details. It then collects MariaDB inventory and checks registered applications
+before moving to the next host. This also runs when OS detection finds no match or times
 out. Refresh waits for the SSH stage too; each host has bounded connection and
 command timeouts. SSH failures are isolated to that host and preserve its data.
 
 The worker prints its startup message to the journal. Scan and database failures
-are retried on the next interval without logging. It owns a database connection
-per scan and stops with the server, waiting for any active scan to finish or
-reach its timeout.
+are retried on the next interval without logging. It opens short database
+transactions to apply observations, closes connections
+before collecting more data, and stops with the server. Pending requests and
+reachability results are held in memory and are lost on restart.
+
+## Inventory coordination
+
+`InventoryCoordinator` owns triggering, the FIFO request queue, sequencing,
+persistence, status messages, and pruning. The source modules in
+`cmdb/activity/sources/` collect observations and do not schedule work or write
+inventory records:
+
+| Source | Observation |
+| --- | --- |
+| NetworkSource | Responding IPs and available MAC addresses |
+| NmapOSSource | Unambiguous Nmap OS classifications |
+| HostSource | Hostname, interface MAC address, and host-reported OS release |
+| MariaDBSource | MariaDB version, data directory, and schema names |
+| ApplicationSource | One application's installed version on one host |
+
+Startup and the five-minute timer request full Inventory. The network and
+single-machine buttons request Inventory with the corresponding host scope.
+Re-Scan Applications checks all registered application names on all stored
+machines. Add Application queues a check of that new definition on all stored
+machines, without network discovery. Every accepted request gets its own scan ID.
+`GET /api/scan?scanId=ID` reports progress with the requested workload's outcome;
+the worker keeps the most recent 100 completion outcomes in memory.
+
+Every workload ends with automatic pruning, including failed or empty scans.
+SoftwareSystems with no deployed components are removed along with their unused
+Components, tags, and inherited records. Each removal appears in Status Messages
+with the software name and version when available. A newly added definition is
+protected until its own queued discovery attempt finishes; if no deployment was
+recorded, it is then pruned. Existing deployments remain when software is not
+detected or a host cannot be read.

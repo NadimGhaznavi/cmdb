@@ -48,6 +48,57 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.machines = MachineDb(self.db)
         self.software = SoftwareDeploymentDb(self.db)
 
+    def test_pruning_old_application_release_preserves_shared_active_release(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            first = self.machines.upsert(Machine('192.0.2.7'))
+            second = self.machines.upsert(Machine('192.0.2.8'))
+            application = definitions.create_application('MyCount')
+            self.software.record_application(first, application, '/opt/prod/mycount', '0.4.1')
+            self.software.record_application(second, application, '/opt/prod/mycount', '0.4.1')
+            self.software.record_application(first, application, '/opt/prod/mycount', '1.0.0')
+            self.assertEqual(definitions.prune_unused(set()), [])
+        previous = self.db.query('SELECT c.id FROM Component c JOIN ModelElement me ON me.id=c.id '
+                                 'WHERE me.namespace=%s', (application,))[0]['id']
+        with self.db.transaction():
+            self.software.record_application(second, application, '/opt/prod/mycount', '1.0.0')
+            removed = definitions.prune_unused(set())
+        self.assertEqual([(row['name'], row['version']) for row in removed], [('MyCount', '0.4.1')])
+        self.assertEqual(len(self.inventory()), 2)
+        self.assertEqual({row['version'] for row in self.inventory()}, {'1.0.0'})
+        self.assertEqual(len(definitions.list_applications()), 1)
+        for identity in (application, previous):
+            self.assertEqual(self.db.query('SELECT id FROM ModelElement WHERE id=%s', (identity,)), [])
+
+    def test_pruning_protects_pending_additions_and_removes_unused_hierarchy_and_tags(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            identity = definitions.create_application('NotInstalled')
+            self.db.execute('INSERT INTO TaggedValue (tag, value, modelElement) VALUES (%s,%s,%s)',
+                            ('test', 'unused', identity))
+            self.assertEqual(definitions.prune_unused({identity}), [])
+            self.assertEqual(len(definitions.prune_unused(set())), 1)
+            self.assertEqual(definitions.prune_unused(set()), [])
+        for table in ('SoftwareSystem', 'Package', 'Namespace', 'ModelElement'):
+            self.assertEqual(self.db.query(f'SELECT id FROM {table} WHERE id=%s', (identity,)), [])
+        self.assertEqual(self.db.query('SELECT id FROM TaggedValue WHERE modelElement=%s', (identity,)), [])
+
+    def test_pruning_os_and_mariadb_releases_preserves_managers_schemas_and_backups(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            machine = self.machines.upsert(Machine('192.0.2.7'))
+            self.software.record_operating_system(machine, SoftwareSystem(type='linux', subtype='debian', version='13.0'))
+            self.software.record_operating_system(machine, SoftwareSystem(type='linux', subtype='debian', version='13.1'))
+            manager = DataManagerDb(self.db).record_mariadb(machine, '11.8.1-MariaDB', '/var/lib/mysql/', ['app'])
+            schema = self.db.query('SELECT id FROM `Schema`')[0]['id']
+            backup = BackupDb(self.db).start(schema, datetime(2026, 10, 4))
+            DataManagerDb(self.db).record_mariadb(machine, '11.8.2-MariaDB', '/var/lib/mysql/', ['app'])
+            removed = definitions.prune_unused(set())
+        self.assertEqual({row['version'] for row in removed}, {'13.0', '11.8.1-MariaDB'})
+        self.assertEqual(self.db.query('SELECT id FROM DataManager'), [{'id': manager}])
+        self.assertEqual(self.db.query('SELECT id FROM `Schema`'), [{'id': schema}])
+        self.assertEqual(self.db.query('SELECT id FROM Backup'), [{'id': backup}])
+
     def test_machine_environment_tag_create_update_delete_and_discovery_preservation(self):
         first = self.machines.upsert(Machine('192.0.2.7'))
         second = self.machines.upsert(Machine('192.0.2.8'))
@@ -133,6 +184,51 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 machine, application, '/opt/prod/mycount', '1.0'))
         self.assertEqual(definitions.list_software_systems(), [])
         self.assertEqual(self.software.list_deployments(), [])
+
+    def test_application_metadata_enrichment_preserves_shared_release_and_discovery(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            application = definitions.create_application('MyCount')
+            first = self.machines.upsert(Machine('192.0.2.10'))
+            second = self.machines.upsert(Machine('192.0.2.11'))
+            self.software.record_application(first, application, '/opt/prod/mycount', '1.0')
+            self.software.record_application(second, application, '/opt/prod/mycount', '1.0',
+                                             type='application', subtype='inventory',
+                                             supplier='Example Supplier', codename='Orion')
+            self.software.record_application(first, application, '/opt/prod/mycount', '1.0')
+        deployments = self.software.list_deployments()
+        self.assertEqual(len(deployments), 2)
+        for row in deployments:
+            self.assertEqual(row['softwareSystem'], application)
+            self.assertEqual((row['type'], row['subtype'], row['supplier'], row['codename']),
+                             ('application', 'inventory', 'Example Supplier', 'Orion'))
+        self.assertEqual(definitions.list_applications(), [{'id': application, 'name': 'MyCount'}])
+        with self.db.transaction():
+            self.software.record_application(first, application, '/opt/prod/mycount', '2.0',
+                                             type='application', subtype='inventory',
+                                             supplier='Example Supplier', codename='Nova')
+        deployments = self.software.list_deployments()
+        self.assertEqual(len(deployments), 2)
+        self.assertEqual([row['version'] for row in deployments], ['2.0', '1.0'])
+        self.assertEqual([row['codename'] for row in deployments], ['Nova', 'Orion'])
+        self.assertEqual(len(definitions.list_applications()), 1)
+
+    def test_conflicting_application_metadata_keeps_other_hosts_definition(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            application = definitions.create_application('MyCount')
+            first = self.machines.upsert(Machine('192.0.2.10'))
+            second = self.machines.upsert(Machine('192.0.2.11'))
+            self.software.record_application(first, application, '/opt/prod/mycount', '1.0',
+                                             type='application', supplier='Supplier A', codename='Orion')
+            self.software.record_application(second, application, '/opt/prod/mycount', '1.0',
+                                             type='service', supplier='Supplier B', codename='Nova')
+            self.software.record_application(second, application, '/opt/prod/mycount', '1.0')
+        deployments = self.software.list_deployments()
+        self.assertEqual(len(deployments), 2)
+        self.assertNotEqual(deployments[0]['softwareSystem'], deployments[1]['softwareSystem'])
+        self.assertEqual([(row['type'], row['supplier'], row['codename']) for row in deployments],
+                         [('application', 'Supplier A', 'Orion'), ('service', 'Supplier B', 'Nova')])
 
     def test_delete_application_removes_only_selected_release_and_its_deployments(self):
         definitions = SoftwareSystemDb(self.db)

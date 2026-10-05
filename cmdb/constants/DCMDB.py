@@ -4,7 +4,11 @@ from typing import Final
 
 
 class DCMDB:
-    VERSION: Final[str] = "1.0.9"
+    CMDB_TYPE: Final[str] = "application"
+    CMDB_SUBTYPE: Final[str] = "Metadata Repo"
+    CMDB_SUPPLIER: Final[str] = "Nadim-Daniel"
+    CMDB_CODENAME: Final[str] = "Insight"
+    VERSION: Final[str] = "1.1.0"
     BASE_INSTALL_DIR: Final[str] = "/opt/prod"
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
     SERVICE_USER: Final[str] = "cmdb"

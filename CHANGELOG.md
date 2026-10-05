@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-05 @ 03:34
+
 - Read optional `CMDB_TYPE`, `CMDB_SUBTYPE`, `CMDB_SUPPLIER`, and `CMDB_CODENAME`
   literal strings alongside application `VERSION` during discovery. Store them
   through CWM SoftwareSystem and TaggedValue, preserve omitted metadata, and

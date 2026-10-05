@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Standardize the release script with reusable project settings, an interactive
+  release confirmation, and colorized `[ PASSED ]`, `[ FAIL ]`, and `[ WARNING ]`
+  progress messages. Set `CMDB_CODENAME` from the supplied release message.
+
 - Sort Inventory applications alphabetically, keeping the OS first and MariaDB
   second when present.
 

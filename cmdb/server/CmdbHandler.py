@@ -9,7 +9,7 @@ import json
 import logging
 import subprocess
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pymysql
 
@@ -77,11 +77,16 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 return
             self.respond(200, b'{"status":"ready","service":"cmdb-server"}', "application/json")
         elif path == "/api/scan":
-            scanner = getattr(self.server, "machine_scanner", None)
+            scanner = getattr(self.server, "inventory_coordinator", None)
             if scanner is None or not scanner.is_alive():
                 self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
                 return
-            self.respond(200, json.dumps(scanner.scan_status()).encode("utf-8"), "application/json")
+            requested = parse_qs(urlsplit(self.path).query).get('scanId', [None])[0]
+            if requested is not None and (not requested.isdecimal() or len(requested) > 20):
+                self.respond(400, b'{"error":"Invalid scan ID."}', 'application/json')
+                return
+            status = scanner.scan_status(int(requested)) if requested is not None else scanner.scan_status()
+            self.respond(200, json.dumps(status).encode("utf-8"), "application/json")
         elif path.startswith('/api/patching/hosts/') and path.endswith('/uptime'):
             self.host_uptime(path.removeprefix('/api/patching/hosts/').removesuffix('/uptime'))
         elif path in ('/api/patching/hosts', '/api/patching/report'):
@@ -119,7 +124,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"error":"Machines are unavailable."}', "application/json")
                 return
             records = [machine_record(machine) for machine in machines]
-            scanner = getattr(self.server, "machine_scanner", None)
+            scanner = getattr(self.server, "inventory_coordinator", None)
             for record in records:
                 record["reachable"] = scanner.host_is_up(record["ipAddress"]) if scanner else None
             self.respond(200, json.dumps({"machines": records, "softwareDeployments": deployments})
@@ -184,16 +189,13 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.request_backup()
             return
         if urlsplit(self.path).path in ("/api/scan", "/api/applications/scan"):
-            scanner = getattr(self.server, "machine_scanner", None)
+            scanner = getattr(self.server, "inventory_coordinator", None)
             try:
                 if scanner is None:
                     raise RuntimeError("Scanner is unavailable.")
                 scan_id = (scanner.request_scan(applications_only=True)
                            if urlsplit(self.path).path == '/api/applications/scan'
                            else scanner.request_scan())
-            except ValueError as error:
-                self.respond(409, json.dumps({"error": str(error)}).encode(), "application/json")
-                return
             except RuntimeError:
                 self.respond(503, b'{"error":"Scanner is unavailable."}', "application/json")
                 return
@@ -293,13 +295,10 @@ class CmdbHandler(BaseHTTPRequestHandler):
             if not known:
                 self.respond(404, b'{"error":"Machine no longer exists."}', 'application/json')
                 return
-            scanner = getattr(self.server, 'machine_scanner', None)
+            scanner = getattr(self.server, 'inventory_coordinator', None)
             if scanner is None:
                 raise RuntimeError('Scanner is unavailable.')
             scan_id = scanner.request_scan(address)
-        except ValueError as error:
-            self.respond(409, json.dumps({'error': str(error)}).encode(), 'application/json')
-            return
         except (pymysql.MySQLError, RuntimeError):
             self.respond(503, b'{"error":"Could not start the machine scan. Try again."}', 'application/json')
             return
@@ -327,17 +326,18 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(408, b'{"error":"Request timed out."}', 'application/json')
             return
         try:
-            db = DbMgr()
-            try:
-                with db.transaction():
-                    identity = SoftwareSystemDb(db).create_application(name)
-            finally:
-                db.close()
+            coordinator = getattr(self.server, 'inventory_coordinator', None)
+            if coordinator is None:
+                raise RuntimeError('Scanner is unavailable.')
+            identity, scan_id = coordinator.add_application(name)
+        except RuntimeError:
+            self.respond(503, b'{"error":"Scanner is unavailable. Try again."}', 'application/json')
+            return
         except pymysql.MySQLError:
             logging.exception('Could not add application')
             self.respond(503, b'{"error":"Application could not be saved. Try again."}', 'application/json')
             return
-        self.respond(201, json.dumps({'id': identity, 'name': name}).encode(), 'application/json')
+        self.respond(201, json.dumps({'id': identity, 'name': name, 'scanId': scan_id}).encode(), 'application/json')
 
     def host_uptime(self, identity: str) -> None:
         if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:

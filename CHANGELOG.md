@@ -7,6 +7,20 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Read optional `CMDB_TYPE`, `CMDB_SUBTYPE`, `CMDB_SUPPLIER`, and `CMDB_CODENAME`
+  literal strings alongside application `VERSION` during discovery. Store them
+  through CWM SoftwareSystem and TaggedValue, preserve omitted metadata, and
+  keep classified applications discoverable on later scans.
+- Replace the combined scanner activities with InventoryCoordinator and five
+  observation sources under `cmdb/activity/sources/`. Workloads run sequentially
+  through a FIFO queue, with persistence owned by the coordinator.
+- Queue application discovery when an application is added, protecting the new
+  definition until its discovery attempt completes.
+- Automatically prune SoftwareSystems without deployed components and their
+  unused Components after every workload; report each removal in Status Messages.
+- Wait for Add Application discovery and pruning before refreshing both application tables,
+  and report the outcome of the requested scan when later requests are running.
+
 ## [1.0.9] - 2026-10-04 @ 05:47
 
 ## [1.0.7] - 2026-10-03 @ 17:43

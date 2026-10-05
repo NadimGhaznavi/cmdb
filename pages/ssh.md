@@ -53,8 +53,8 @@ new host keys are recorded automatically; changed host keys are rejected.
 
 ## Scanner follow-up
 
-After Nmap discovery and OS scanning, `cmdb/activity/MachineSSH.py` checks each
-discovered machine in turn:
+After Nmap discovery and OS scanning, `InventoryCoordinator` uses
+`cmdb/activity/sources/HostSource.py` to check each discovered machine in turn:
 
 1. Check whether TCP port 22 accepts a connection.
 2. Test a login as `cmdbagent` using `true`.
@@ -166,8 +166,8 @@ not revoke additional grants. It sets the agent's authentication to `unix_socket
 the application's existing `cmdb` database account is unaffected. SQL stays in
 the external schema folder and is copied with the installed application.
 
-After verification, `SSHDb.inventory()` reads the server version, data directory,
-and schema names using `schema/mariadb-inventory.sql`. The activity persists the
+After verification, `MariaDBSource` calls `SSHDb.inventory()` to read the server
+version, data directory, and schema names using `schema/mariadb-inventory.sql`. The activity persists the
 [MariaDB inventory]({{ site.baseurl }}{% link pages/software-deployment.md %}#mariadb-discovery)
 through DataManagerDb after completing the remote commands. `SSHDb.backup_db`
 runs a manual dump on that same host; see

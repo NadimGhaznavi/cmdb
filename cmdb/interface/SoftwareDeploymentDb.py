@@ -37,8 +37,10 @@ class SoftwareDeploymentDb:
             deployment["databases"] = databases.get(deployment["id"], [])
         return deployments
 
-    def record_application(self, machine: int, application: int, pathname: str, version: str) -> bool:
-        """Record an installation, or skip a definition deleted since discovery began."""
+    def record_application(self, machine: int, application: int, pathname: str, version: str,
+                           *, type: str | None = None, subtype: str | None = None,
+                           supplier: str | None = None, codename: str | None = None) -> bool:
+        """Reuse compatible releases, enriching missing metadata without erasing it."""
         definitions = self._db.query(
             'SELECT me.name FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
             'WHERE ss.id = %s FOR UPDATE', (application,))
@@ -46,16 +48,32 @@ class SoftwareDeploymentDb:
             return False
         name = definitions[0]['name']
         releases = self._db.query(
-            'SELECT ss.id, ss.version FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
-            'WHERE me.name = %s AND ss.type IS NULL AND (ss.version = %s OR ss.version IS NULL) '
-            'ORDER BY ss.version IS NULL, ss.id LIMIT 1', (name, version))
-        if releases:
-            release = releases[0]['id']
-            if releases[0]['version'] is None:
-                self._db.execute('UPDATE SoftwareSystem SET version = %s WHERE id = %s', (version, release))
+            'SELECT ss.id, ss.version, ss.type, ss.subtype, ss.supplier, tv.value AS codename '
+            'FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
+            "LEFT JOIN TaggedValue tv ON tv.modelElement = ss.id AND tv.tag = 'VERSION_CODENAME' "
+            'WHERE me.name = %s AND (ss.version = %s OR ss.version IS NULL) '
+            'ORDER BY ss.version IS NULL, EXISTS (SELECT 1 FROM Component c '
+            'JOIN ModelElement ce ON ce.id = c.id JOIN DeployedComponent dc ON dc.component = c.id '
+            'WHERE ce.namespace = ss.id AND dc.machine = %s AND dc.pathname = %s) DESC, ss.id',
+            (name, version, machine, pathname))
+        metadata = {'type': type, 'subtype': subtype, 'supplier': supplier, 'codename': codename}
+        compatible = next((row for row in releases if all(
+            value is None or row[field] is None or row[field] == value
+            for field, value in metadata.items())), None)
+        if compatible is not None:
+            release = compatible['id']
+            self._db.execute(
+                'UPDATE SoftwareSystem SET version = %s, type = COALESCE(type, %s), '
+                'subtype = COALESCE(subtype, %s), supplier = COALESCE(supplier, %s) WHERE id = %s',
+                (version, type, subtype, supplier, release))
         else:
             release = self._namespaces.create_package(name=name)
-            self._db.execute('INSERT INTO SoftwareSystem (id, version) VALUES (%s, %s)', (release, version))
+            self._db.execute(
+                'INSERT INTO SoftwareSystem (id, version, type, subtype, supplier) VALUES (%s, %s, %s, %s, %s)',
+                (release, version, type, subtype, supplier))
+        if codename is not None and (compatible is None or compatible['codename'] is None):
+            self._db.execute('INSERT INTO TaggedValue (tag, value, modelElement) VALUES (%s, %s, %s)',
+                             ('VERSION_CODENAME', codename, release))
         rows = self._db.query(
             'SELECT c.id FROM Component c JOIN ModelElement me ON me.id = c.id '
             'WHERE me.namespace = %s ORDER BY c.id LIMIT 1', (release,))
@@ -69,7 +87,7 @@ class SoftwareDeploymentDb:
             'JOIN Component c ON c.id = dc.component JOIN ModelElement me ON me.id = c.id '
             'JOIN SoftwareSystem ss ON ss.id = me.namespace '
             'JOIN ModelElement sme ON sme.id = ss.id '
-            'WHERE dc.machine = %s AND dc.pathname = %s AND sme.name = %s AND ss.type IS NULL '
+            'WHERE dc.machine = %s AND dc.pathname = %s AND sme.name = %s '
             'ORDER BY dc.id LIMIT 1', (machine, pathname, name))
         if rows:
             self._db.execute('UPDATE DeployedComponent SET component = %s WHERE id = %s',

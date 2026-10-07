@@ -124,6 +124,9 @@ its loading or error message, Re-Scan Network button, and last-refresh timestamp
 database records when the page opens. Re-Scan Network at the bottom left wakes the existing
 scanner worker, waits for the scan and database writes to finish, then reloads
 the page. It shows Scanning while waiting and an error if the scan fails.
+Stored inventory stays interactive during scans: machines and software can be
+selected, details expanded, environments updated, and other pages opened.
+Only the scan buttons are disabled while a browser-requested scan is pending.
 Requests enter a FIFO queue; one workload runs to completion before the next starts.
 
 Re-Scan beneath a selected machine's header runs the same discovery, OS, and SSH

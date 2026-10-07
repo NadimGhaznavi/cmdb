@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Keep inventory machine and software selection available while a scan runs,
+  so stored details can be inspected without waiting for scan completion.
+
 ## [1.1.1] - 2026-10-05 @ 17:30
 
 - Standardize the release script with reusable project settings, an interactive

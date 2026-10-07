@@ -1024,7 +1024,6 @@ async function loadMachines() {
       graph.fit(undefined, 20);
     }
     function selectMachine(node) {
-      if (refreshing) return;
       for (const graph of graphs) graph.nodes().unselect();
       node.select();
       selectedMachine = node;

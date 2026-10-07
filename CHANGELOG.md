@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-07 @ 06:16
+
 - Keep inventory machine and software selection available while a scan runs,
   so stored details can be inspected without waiting for scan completion.
 

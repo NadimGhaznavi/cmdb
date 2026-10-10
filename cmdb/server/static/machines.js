@@ -923,6 +923,7 @@ async function loadMachines() {
   const update = document.getElementById("update-machine");
   const environmentStatus = document.getElementById("machine-environment-status");
   let selectedMachine = null;
+  let selectedNode = null;
   try {
     if (typeof cytoscape !== "function") {
       throw new Error("The machine graph could not be loaded. Refresh to try again.");
@@ -987,7 +988,7 @@ async function loadMachines() {
           systems.forEach((system, offset) => {
             elements.push({ data: { ...system, id: `deployment-${system.id}`,
               parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
-              selectable: false, grabbable: false,
+              grabbable: false,
               position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * (nodeHeight + 12) } });
           });
         });
@@ -1038,6 +1039,10 @@ async function loadMachines() {
             { selector: ".machine.down:selected > .software", style: {
               "background-color": palette["software-danger"],
             } },
+            { selector: ".software:selected", style: {
+              "background-color": palette["software-selection"], "border-color": palette.selection,
+              "border-width": 3, "color": palette.text,
+            } },
           ],
           layout: { name: "preset", padding: 40 },
           selectionType: "single",
@@ -1048,14 +1053,15 @@ async function loadMachines() {
           userPanningEnabled: false,
         });
         graphs.push(graph);
-        graph.on("unselect", ".machine", event => {
-          if (selectedMachine?.id() === event.target.id()) {
+        graph.on("unselect", "node", event => {
+          if (selectedNode === event.target) {
+            selectedNode = null;
             selectedMachine = null;
             selectionDetails.hidden = true;
           }
         });
         graph.on("tap", "node", event => {
-          selectMachine(event.target.hasClass("software") ? event.target.parent() : event.target);
+          selectNode(event.target);
         });
         layoutGroup(group, graph);
       }
@@ -1081,9 +1087,17 @@ async function loadMachines() {
       graph.resize();
       graph.fit(undefined, 20);
     }
-    function selectMachine(node) {
+    function selectNode(node) {
       for (const graph of graphs) graph.nodes().unselect();
       node.select();
+      selectedNode = node;
+      selectionDetails.hidden = false;
+      details.hidden = node.hasClass("software");
+      if (details.hidden) {
+        selectedMachine = null;
+        renderSoftwareDetails([node.data()], true);
+        return;
+      }
       selectedMachine = node;
       environment.value = node.data("taggedValue")?.find(tag => tag.tag === "DeploymentEnvironment")?.value
         ?? "unclassified";
@@ -1093,15 +1107,18 @@ async function loadMachines() {
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
         document.getElementById(`detail-${field}`).textContent = value;
       }
-      selectionDetails.hidden = false;
       details.open = true;
       document.getElementById("rescan-machine").dataset.address = node.id();
       document.getElementById("machine-heading").textContent = `Machine: ${machineLabel(node.data())}`;
+      const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
+      renderSoftwareDetails(systems);
+    }
+    function renderSoftwareDetails(systems, open = false) {
       softwareDetails.replaceChildren();
       const template = document.getElementById("software-detail-template");
-      const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
       for (const system of systems) {
         const section = template.content.cloneNode(true);
+        section.querySelector("details").open = open;
         const type = system.name || system.type || "Unknown";
         const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
         section.querySelector("summary").textContent = `Software System: ${title}`;
@@ -1144,11 +1161,11 @@ async function loadMachines() {
           tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
         }
         machines.find(machine => machine.id === node.data("machineId")).taggedValue = tags;
-        const selectedId = selectedMachine?.id() ?? "";
+        const selectedId = selectedNode?.id() ?? "";
         const savedSelectedMachine = selectedMachine === node;
         renderGroups();
         const selected = graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);
-        if (selected) selectMachine(selected);
+        if (selected) selectNode(selected);
         if (savedSelectedMachine) {
           environment.value = result.environment;
           environmentStatus.textContent = "Environment saved.";
@@ -1178,7 +1195,7 @@ async function loadMachines() {
     const rescanned = sessionStorage.getItem('rescan-machine');
     sessionStorage.removeItem('rescan-machine');
     const restored = graphs.map(graph => graph.getElementById(rescanned || '')).find(node => node.length);
-    if (restored) selectMachine(restored);
+    if (restored) selectNode(restored);
     status.textContent = machines.length ? "" : "No machines discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Machines could not be loaded. Refresh to try again.";

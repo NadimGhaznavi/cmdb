@@ -164,8 +164,10 @@ Click a node to see its fields and timestamps in
 browser-local time (`YYYY-MM-DD HH:MM:SS`)
 in a key/value table left of the graph (above it on narrow screens).
 The `Machine: Sally` (or IP address) heading collapses the machine section to
-just its heading. Clicking a machine or its software expands the machine details
-and resets its software sections to collapsed.
+just its heading. Clicking a machine expands the machine details and resets its
+software sections to collapsed. Clicking a software box highlights that box and
+shows only that software system's expanded details, without the machine section.
+Deselecting the machine or software hides the details sidebar.
 An empty inventory and an unavailable database show distinct status messages.
 Detail labels come from `DLabel.ATTRIBUTES` in `cmdb/constants/DLabel.py`,
 for example `ipAddress` displays as IP Address and `hostName` as Host Name.

@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Select Inventory applications independently, highlight the selected software,
+  and show only its details. Deselecting closes the sidebar.
+
 - Hide the Inventory details sidebar when the selected machine is deselected.
 
 - Add Discovery to the right of Backups with an enabled flag, cron schedule,

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+This release is dedicated to [Louise Hay](https://en.wikipedia.org/wiki/Louise_Hay).
+
 - Add a collapsed Applications panel above Databases for declared application
   directories and databases, with per-target scheduling and Backup Now controls.
   Archive directories as gzip tarballs under `<host>/files/`, show them in the

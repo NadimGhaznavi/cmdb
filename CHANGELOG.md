@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Hide the Inventory details sidebar when the selected machine is deselected.
+
 - Add Discovery to the right of Backups with an enabled flag, cron schedule,
   Update, and Scan Now. Periodic discovery runs independently through cron;
   the web worker scans only on explicit requests, with no startup or interval scan.

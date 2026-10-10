@@ -1048,6 +1048,12 @@ async function loadMachines() {
           userPanningEnabled: false,
         });
         graphs.push(graph);
+        graph.on("unselect", ".machine", event => {
+          if (selectedMachine?.id() === event.target.id()) {
+            selectedMachine = null;
+            selectionDetails.hidden = true;
+          }
+        });
         graph.on("tap", "node", event => {
           selectMachine(event.target.hasClass("software") ? event.target.parent() : event.target);
         });
@@ -1138,7 +1144,7 @@ async function loadMachines() {
           tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
         }
         machines.find(machine => machine.id === node.data("machineId")).taggedValue = tags;
-        const selectedId = selectedMachine.id();
+        const selectedId = selectedMachine?.id() ?? "";
         const savedSelectedMachine = selectedMachine === node;
         renderGroups();
         const selected = graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);

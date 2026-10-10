@@ -81,6 +81,49 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(all(call.kwargs == {'applications_only': True}
                             for call in scanner.request_scan.call_args_list))
 
+    @patch('cmdb.server.CmdbHandler.DiscoveryScheduleDb')
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_discovery_defaults_saved_policy_and_navigation_do_not_scan(self, db, records):
+        scanner = self.server.inventory_coordinator = Mock()
+        records.return_value.get.return_value = None
+        status, body = self.get('/api/discovery')
+        self.assertEqual(status, 200)
+        policy = json.loads(body)
+        self.assertFalse(policy['schedule']['enabled'])
+        self.assertEqual(policy['schedule']['expression'], '*/5 * * * *')
+        records.return_value.get.return_value = {'id': 1, 'enabled': 1, 'expression': '0 3 * * *'}
+        self.assertEqual(json.loads(self.get('/api/discovery')[1])['schedule']['expression'], '0 3 * * *')
+        status, body = self.get('/')
+        self.assertGreater(body.index(b'id="discovery-link"'), body.index(b'id="page-link"'))
+        self.assertIn(b'id="discovery-page"', body)
+        self.assertIn(b'id="scan-discovery"', body)
+        scanner.request_scan.assert_not_called()
+        db.return_value.close.assert_called()
+        db.side_effect = pymysql.OperationalError('Unavailable')
+        self.assertEqual(self.get('/api/discovery')[0], 503)
+
+    @patch('cmdb.server.CmdbHandler.DiscoveryScheduler')
+    def test_discovery_update_validation_and_cron_failure(self, scheduler):
+        settings = {'enabled': True, 'expression': '0 3 * * *'}
+        scheduler.return_value.update.return_value = {'id': 1, **settings}
+        for content, error, expected in ((settings, None, 200),
+                                         ({'enabled': True}, None, 400),
+                                         (settings, ValueError('Invalid cron'), 400),
+                                         (settings, OSError('Permission denied'), 503)):
+            scheduler.return_value.update.side_effect = error
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('POST', '/api/discovery-schedules', json.dumps(content),
+                                   {'Content-Type': 'application/json'})
+                response = connection.getresponse()
+                self.assertEqual(response.status, expected)
+                result = json.loads(response.read())
+                if expected == 200:
+                    self.assertEqual(result['schedule']['expression'], '0 3 * * *')
+            finally:
+                connection.close()
+        scheduler.return_value.update.assert_called_with(**settings)
+
     def setUp(self):
         self.server = CmdbHTTPServer(('127.0.0.1', 0), CmdbHandler)
         self.thread = Thread(target=self.server.serve_forever)

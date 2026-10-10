@@ -7,8 +7,8 @@ class DCMDB:
     CMDB_TYPE: Final[str] = "application"
     CMDB_SUBTYPE: Final[str] = "Metadata Repo"
     CMDB_SUPPLIER: Final[str] = "Nadim-Daniel"
-    CMDB_CODENAME: Final[str] = "uakari"
-    VERSION: Final[str] = "1.1.2"
+    CMDB_CODENAME: Final[str] = "Hilda"
+    VERSION: Final[str] = "1.2.0"
     BASE_INSTALL_DIR: Final[str] = "/opt/prod"
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
     SERVICE_USER: Final[str] = "cmdb"
@@ -31,6 +31,6 @@ class DCMDB:
     PORT: Final[int] = 14444
     REQUEST_TIMEOUT: Final[int] = 10
     SCAN_TARGET: Final[str] = "192.168.0.0/24"
-    SCAN_INTERVAL_SECONDS: Final[int] = 300
+    DISCOVERY_CRON: Final[str] = "*/5 * * * *"
     SCAN_TIMEOUT_SECONDS: Final[int] = 30
     OS_SCAN_TIMEOUT_SECONDS: Final[int] = 180

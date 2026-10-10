@@ -464,7 +464,7 @@ async function loadApplications() {
     const { machines, softwareDeployments } = await response.json();
     if (request !== applicationsRequest) return;
     const hosts = new Map(machines.map(machine => [machine.id, machine]));
-    applicationRows = softwareDeployments.map(deployment => {
+    applicationRows = softwareDeployments.filter(deployment => !deployment.componentName).map(deployment => {
       const name = deployment.name || deployment.subtype || deployment.type || 'Unknown application';
       return {
         host: hosts.has(deployment.machine) ? machineLabel(hosts.get(deployment.machine)) : `Machine ${deployment.machine}`,
@@ -481,15 +481,62 @@ async function loadApplications() {
   }
 }
 
+async function loadDiscovery() {
+  const status = document.getElementById('discovery-status');
+  const enabled = document.getElementById('discovery-enabled');
+  const expression = document.getElementById('discovery-expression');
+  const update = document.getElementById('update-discovery');
+  enabled.disabled = expression.disabled = update.disabled = true;
+  status.textContent = 'Loading discovery settings…';
+  try {
+    const response = await fetch('/api/discovery', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not load discovery settings.');
+    document.getElementById('discovery-target').textContent = result.target;
+    enabled.checked = Boolean(result.schedule.enabled);
+    expression.value = result.schedule.expression;
+    enabled.disabled = expression.disabled = update.disabled = false;
+    status.textContent = '';
+  } catch (error) {
+    status.textContent = error.message || 'Could not load discovery settings. Reopen Discovery to retry.';
+  }
+}
+
+async function saveDiscoverySchedule() {
+  const button = document.getElementById('update-discovery');
+  const status = document.getElementById('discovery-status');
+  button.disabled = true;
+  status.textContent = 'Saving discovery schedule…';
+  try {
+    const response = await fetch('/api/discovery-schedules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: document.getElementById('discovery-enabled').checked,
+        expression: document.getElementById('discovery-expression').value }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save discovery schedule.');
+    document.getElementById('discovery-expression').value = result.schedule.expression;
+    status.textContent = result.schedule.enabled ? 'Discovery schedule saved.' : 'Scheduled discovery disabled.';
+  } catch (error) {
+    status.textContent = error.message || 'Could not save discovery schedule. Retry the update.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById('update-discovery').addEventListener('click', saveDiscoverySchedule);
+document.getElementById('scan-discovery').addEventListener('click', () => refreshMachines(null, false, true));
+
 function showPage() {
   clearTimeout(patchingTimer);
   ++patchingRequest;
-  const page = ['applications', 'patching', 'backups'].includes(window.location.hash.slice(1))
+  const page = ['applications', 'patching', 'backups', 'discovery'].includes(window.location.hash.slice(1))
     ? window.location.hash.slice(1) : 'inventory';
   const backups = page === 'backups';
   const patching = page === 'patching';
   initialUptimePending = patching;
-  for (const name of ['inventory', 'applications', 'patching', 'backups']) {
+  for (const name of ['inventory', 'applications', 'patching', 'backups', 'discovery']) {
     document.getElementById(`${name}-heading`).hidden = page !== name;
     document.getElementById(`${name}-page`).hidden = page !== name;
     const link = document.getElementById(name === 'backups' ? 'page-link' : `${name}-link`);
@@ -502,6 +549,7 @@ function showPage() {
     loadApplications();
     loadRegisteredApplications();
   }
+  if (page === 'discovery') loadDiscovery();
   if (patching) loadPatchingHosts();
   if (backups) {
     loadBackups();
@@ -768,17 +816,19 @@ async function waitForScan(scanId) {
   }
 }
 
-async function refreshMachines(address = null, applicationsOnly = false) {
+async function refreshMachines(address = null, applicationsOnly = false, discoveryPage = false) {
   if (refreshing) return;
   refreshing = true;
   const refresh = document.getElementById("refresh-button");
   const rescan = document.getElementById("rescan-machine");
   const applications = document.getElementById("rescan-applications");
-  const status = document.getElementById(applicationsOnly ? "application-scan-status" : "graph-status");
+  const discovery = document.getElementById("scan-discovery");
+  const status = document.getElementById(discoveryPage ? "discovery-scan-status" : applicationsOnly ? "application-scan-status" : "graph-status");
   refresh.disabled = true;
   rescan.disabled = true;
   applications.disabled = true;
-  const button = applicationsOnly ? applications : address ? rescan : refresh;
+  discovery.disabled = true;
+  const button = discoveryPage ? discovery : applicationsOnly ? applications : address ? rescan : refresh;
   button.textContent = "Scanning…";
   status.textContent = applicationsOnly ? "Scanning applications…"
     : address ? `Scanning ${address}…` : "Scanning the LAN…";
@@ -797,6 +847,8 @@ async function refreshMachines(address = null, applicationsOnly = false) {
     refreshing = false;
     refresh.disabled = false;
     rescan.disabled = false;
+    discovery.disabled = false;
+    discovery.textContent = "Scan Now";
     applications.disabled = false;
     applications.textContent = "Re-Scan Applications";
     rescan.textContent = "Re-Scan";
@@ -871,6 +923,7 @@ async function loadMachines() {
   const update = document.getElementById("update-machine");
   const environmentStatus = document.getElementById("machine-environment-status");
   let selectedMachine = null;
+  let selectedNode = null;
   try {
     if (typeof cytoscape !== "function") {
       throw new Error("The machine graph could not be loaded. Refresh to try again.");
@@ -928,14 +981,14 @@ async function loadMachines() {
         const elements = [];
         members.forEach(machine => {
           const center = { x: 0, y: 0 };
-          const systems = softwareDeployments.filter(system => system.machine === machine.id)
+          const systems = softwareDeployments.filter(system => system.machine === machine.id && !system.componentName)
             .sort(compareSoftware);
           elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
             classes: machine.reachable === false ? "machine down" : "machine", position: center });
           systems.forEach((system, offset) => {
             elements.push({ data: { ...system, id: `deployment-${system.id}`,
               parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
-              selectable: false, grabbable: false,
+              grabbable: false,
               position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * (nodeHeight + 12) } });
           });
         });
@@ -986,6 +1039,10 @@ async function loadMachines() {
             { selector: ".machine.down:selected > .software", style: {
               "background-color": palette["software-danger"],
             } },
+            { selector: ".software:selected", style: {
+              "background-color": palette["software-selection"], "border-color": palette.selection,
+              "border-width": 3, "color": palette.text,
+            } },
           ],
           layout: { name: "preset", padding: 40 },
           selectionType: "single",
@@ -996,8 +1053,15 @@ async function loadMachines() {
           userPanningEnabled: false,
         });
         graphs.push(graph);
+        graph.on("unselect", "node", event => {
+          if (selectedNode === event.target) {
+            selectedNode = null;
+            selectedMachine = null;
+            selectionDetails.hidden = true;
+          }
+        });
         graph.on("tap", "node", event => {
-          selectMachine(event.target.hasClass("software") ? event.target.parent() : event.target);
+          selectNode(event.target);
         });
         layoutGroup(group, graph);
       }
@@ -1023,9 +1087,17 @@ async function loadMachines() {
       graph.resize();
       graph.fit(undefined, 20);
     }
-    function selectMachine(node) {
+    function selectNode(node) {
       for (const graph of graphs) graph.nodes().unselect();
       node.select();
+      selectedNode = node;
+      selectionDetails.hidden = false;
+      details.hidden = node.hasClass("software");
+      if (details.hidden) {
+        selectedMachine = null;
+        renderSoftwareDetails([node.data()], true);
+        return;
+      }
       selectedMachine = node;
       environment.value = node.data("taggedValue")?.find(tag => tag.tag === "DeploymentEnvironment")?.value
         ?? "unclassified";
@@ -1035,15 +1107,18 @@ async function loadMachines() {
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
         document.getElementById(`detail-${field}`).textContent = value;
       }
-      selectionDetails.hidden = false;
       details.open = true;
       document.getElementById("rescan-machine").dataset.address = node.id();
       document.getElementById("machine-heading").textContent = `Machine: ${machineLabel(node.data())}`;
+      const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
+      renderSoftwareDetails(systems);
+    }
+    function renderSoftwareDetails(systems, open = false) {
       softwareDetails.replaceChildren();
       const template = document.getElementById("software-detail-template");
-      const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
       for (const system of systems) {
         const section = template.content.cloneNode(true);
+        section.querySelector("details").open = open;
         const type = system.name || system.type || "Unknown";
         const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
         section.querySelector("summary").textContent = `Software System: ${title}`;
@@ -1062,6 +1137,27 @@ async function loadMachines() {
             cell.textContent = cell.dataset.field === "type" && system.type === "application"
               ? "Application" : system[cell.dataset.field] ?? "—";
           }
+        }
+        const components = softwareDeployments.filter(component => component.componentName
+          && component.machine === system.machine && component.softwareSystem === system.softwareSystem);
+        const componentTable = section.querySelector("[data-components]");
+        if (components.length) {
+          const body = componentTable.querySelector("tbody");
+          for (const component of components) {
+            const row = document.createElement("tr");
+            const name = document.createElement("td");
+            name.textContent = component.componentName;
+            const path = document.createElement("td");
+            const link = document.createElement("a");
+            link.textContent = component.pathname.split("/").filter(Boolean).pop() || "/";
+            link.title = component.pathname;
+            link.href = `file://${component.pathname.split("/").map(encodeURIComponent).join("/")}`;
+            path.append(link);
+            row.append(name, path);
+            body.append(row);
+          }
+        } else {
+          componentTable.remove();
         }
         softwareDetails.append(section);
       }
@@ -1086,11 +1182,11 @@ async function loadMachines() {
           tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
         }
         machines.find(machine => machine.id === node.data("machineId")).taggedValue = tags;
-        const selectedId = selectedMachine.id();
+        const selectedId = selectedNode?.id() ?? "";
         const savedSelectedMachine = selectedMachine === node;
         renderGroups();
         const selected = graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);
-        if (selected) selectMachine(selected);
+        if (selected) selectNode(selected);
         if (savedSelectedMachine) {
           environment.value = result.environment;
           environmentStatus.textContent = "Environment saved.";
@@ -1120,7 +1216,7 @@ async function loadMachines() {
     const rescanned = sessionStorage.getItem('rescan-machine');
     sessionStorage.removeItem('rescan-machine');
     const restored = graphs.map(graph => graph.getElementById(rescanned || '')).find(node => node.length);
-    if (restored) selectMachine(restored);
+    if (restored) selectNode(restored);
     status.textContent = machines.length ? "" : "No machines discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Machines could not be loaded. Refresh to try again.";

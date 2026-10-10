@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-10 @ 07:41
+
 The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org/wiki/Hilda_Geiringer).
 
 - Show named deployed components in application details with a Component / Path

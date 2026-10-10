@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Label the application backup panel Application and show host counts in
+  parentheses, such as Wintermute (1).
+
 ## [1.4.0] - 2026-10-10 @ 09:34
 
 This release is dedicated to [Louise Hay](https://en.wikipedia.org/wiki/Louise_Hay).

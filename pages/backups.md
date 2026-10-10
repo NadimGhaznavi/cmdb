@@ -44,11 +44,12 @@ backup history. Disabling via the UI retains the policy with Enabled cleared.
 
 The title box reads CMDB Backups, with both words at the same heading size.
 The Inventory view similarly reads CMDB Inventory.
-Applications, Databases, and Backup Vault have their own bordered panels, in that order.
+Application, Databases, and Backup Vault have their own bordered panels, in that order.
 All three panels start collapsed. Click a title row or press Enter or Space while
 the row is focused to expand or collapse its contents. Databases reveals its host
 sections; Backup Vault reveals the directory, table, and Scan Filesystem button.
-Applications groups discovered declarations by host, then application. Only named
+Application groups discovered declarations by host, then application. Host headings
+show the application count in parentheses, such as `Wintermute (1)`. Only named
 directory deployments from `CMDB_COMPONENTS` and matched database connections from
 `CMDB_DATABASES` appear; installation roots, operating systems, MariaDB server
 directories, and applications without declared data are excluded. Previously

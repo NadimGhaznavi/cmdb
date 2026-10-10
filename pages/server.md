@@ -97,7 +97,7 @@ Inventory scans also check applications after collecting each host’s details
 and MariaDB inventory.
 See [application discovery]({{ site.baseurl }}{% link pages/software-deployment.md %}#application-discovery)
 for the installation convention.
-The Backups page starts with an Applications panel above Databases. It starts
+The Backups page starts with an Application panel above Databases. It starts
 collapsed and groups declared directory and database backup targets by host and
 application. Each target uses the same scheduling and manual backup controls as
 Databases. Directory archives go under `<host>/files/`; database paths stay under

@@ -103,10 +103,13 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             DataManagerDb(self.db).record_mariadb(first, '11.8', '/data/', ['mycount', 'audit', 'unrelated'])
             DataManagerDb(self.db).record_mariadb(second, '11.8', '/data/', ['other'])
             self.software.record_application(first, app, '/opt/prod/mycount', '1.0',
+                                             components=(('Screenshots', 'pages/marketing'),),
                                              databases=(('MyCount', 'mycount'), ('Audit', 'audit'),
                                                         ('Duplicate label', 'mycount')))
             self.software.record_application(second, app, '/opt/prod/mycount', '1.0')
         deployments = self.software.list_deployments()
+        self.assertEqual([row['componentName'] for row in deployments if row['componentName']], ['Screenshots'])
+        self.assertEqual(len(self.db.query('SELECT id FROM DataProvider')), 1)
         apps = {row['machine']: row for row in deployments if row['name'] == 'MyCount' and not row['componentName']}
         self.assertEqual(apps[first]['databases'], ['audit', 'mycount'])
         self.assertEqual(apps[second]['databases'], [])

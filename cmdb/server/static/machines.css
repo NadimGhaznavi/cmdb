@@ -139,6 +139,9 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 #selection-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 #selection-details details:not([open]) > summary { margin-bottom: 0; }
 .software-detail { margin-top: 1.5rem; }
+[data-components] { margin-top: 1rem; }
+[data-components] a { color: var(--accent); }
+[data-components] a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 [data-field="databases"] hr { border-top: 1px solid var(--border); margin: .5rem 0; }
 

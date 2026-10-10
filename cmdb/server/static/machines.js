@@ -464,7 +464,7 @@ async function loadApplications() {
     const { machines, softwareDeployments } = await response.json();
     if (request !== applicationsRequest) return;
     const hosts = new Map(machines.map(machine => [machine.id, machine]));
-    applicationRows = softwareDeployments.map(deployment => {
+    applicationRows = softwareDeployments.filter(deployment => !deployment.componentName).map(deployment => {
       const name = deployment.name || deployment.subtype || deployment.type || 'Unknown application';
       return {
         host: hosts.has(deployment.machine) ? machineLabel(hosts.get(deployment.machine)) : `Machine ${deployment.machine}`,
@@ -981,7 +981,7 @@ async function loadMachines() {
         const elements = [];
         members.forEach(machine => {
           const center = { x: 0, y: 0 };
-          const systems = softwareDeployments.filter(system => system.machine === machine.id)
+          const systems = softwareDeployments.filter(system => system.machine === machine.id && !system.componentName)
             .sort(compareSoftware);
           elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
             classes: machine.reachable === false ? "machine down" : "machine", position: center });
@@ -1137,6 +1137,27 @@ async function loadMachines() {
             cell.textContent = cell.dataset.field === "type" && system.type === "application"
               ? "Application" : system[cell.dataset.field] ?? "—";
           }
+        }
+        const components = softwareDeployments.filter(component => component.componentName
+          && component.machine === system.machine && component.softwareSystem === system.softwareSystem);
+        const componentTable = section.querySelector("[data-components]");
+        if (components.length) {
+          const body = componentTable.querySelector("tbody");
+          for (const component of components) {
+            const row = document.createElement("tr");
+            const name = document.createElement("td");
+            name.textContent = component.componentName;
+            const path = document.createElement("td");
+            const link = document.createElement("a");
+            link.textContent = component.pathname.split("/").filter(Boolean).pop() || "/";
+            link.title = component.pathname;
+            link.href = `file://${component.pathname.split("/").map(encodeURIComponent).join("/")}`;
+            path.append(link);
+            row.append(name, path);
+            body.append(row);
+          }
+        } else {
+          componentTable.remove();
         }
         softwareDetails.append(section);
       }

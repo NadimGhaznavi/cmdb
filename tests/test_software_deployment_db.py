@@ -201,6 +201,9 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         refreshed = {row['id']: row for row in self.software.list_deployments()}
         for row in rows:
             self.assertEqual(refreshed[row['id']]['version'], '2.0' if row['machine'] == first else '1.0')
+            self.assertEqual(refreshed[row['id']]['componentName'], row['name'])
+            self.assertEqual(refreshed[row['id']]['pathname'], row['pathname'])
+        self.assertEqual(sum(row['componentName'] is None for row in refreshed.values()), 2)
         self.assertEqual(len(refreshed), 6)
         self.assertEqual(self.db.query('SELECT COUNT(*) AS count FROM Component')[0]['count'], 6)
         with self.db.transaction():

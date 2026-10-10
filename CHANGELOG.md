@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Show named deployed components in application details with a Component / Path
+  table, linked directory names, and full paths on hover. Group components under
+  their app instead of displaying duplicate applications in Inventory.
+
 - Select Inventory applications independently, highlight the selected software,
   and show only its details. Deselecting closes the sidebar.
 

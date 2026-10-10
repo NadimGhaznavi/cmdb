@@ -168,6 +168,10 @@ just its heading. Clicking a machine expands the machine details and resets its
 software sections to collapsed. Clicking a software box highlights that box and
 shows only that software system's expanded details, without the machine section.
 Deselecting the machine or software hides the details sidebar.
+When an application has named deployed components, its details include a
+Component / Path table. Each path shows only the final directory name as a
+filesystem link; hovering over it displays the full absolute path.
+Components are grouped under their application on the same machine.
 An empty inventory and an unavailable database show distinct status messages.
 Detail labels come from `DLabel.ATTRIBUTES` in `cmdb/constants/DLabel.py`,
 for example `ipAddress` displays as IP Address and `hostName` as Host Name.

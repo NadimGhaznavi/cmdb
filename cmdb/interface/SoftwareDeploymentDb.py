@@ -18,7 +18,7 @@ class SoftwareDeploymentDb:
         """Project deployed software for the graph without changing the entity model."""
         deployments = self._db.query(
             "SELECT dc.id, dc.machine, dc.component, dc.pathname, ss.id AS softwareSystem, "
-            "sme.name, ss.type, ss.subtype, ss.supplier, ss.version, tv.value AS codename "
+            "sme.name, me.name AS componentName, ss.type, ss.subtype, ss.supplier, ss.version, tv.value AS codename "
             "FROM DeployedComponent dc JOIN Component c ON c.id = dc.component "
             "JOIN ModelElement me ON me.id = c.id "
             "JOIN SoftwareSystem ss ON ss.id = me.namespace "

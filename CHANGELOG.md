@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Rename the Backups page's Live Databases section to Databases.
+
 - Add Delete to every Backup Vault row with Cancel / Delete confirmation,
   removing the selected dump and its record, including records for missing files.
 

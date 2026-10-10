@@ -139,6 +139,8 @@ Other machines' reachability results are preserved by a single-host scan.
 When an application is selected, its Inventory detail sidebar shows a
 `Database(s):` row above the Component table if discovered databases are present.
 Multiple names are comma-separated; applications without databases omit the row.
+The Component table shows declared filesystem components; MariaDB client
+providers supply database relationships and are omitted from that table.
 
 The app uses MyCount’s warm dark theme: brown backgrounds, cream text, orange
 links and focus outlines, and subtle brown panel and table borders. Nodes use

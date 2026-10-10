@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-10 @ 08:24
+
+The **Karen** is dedicated to [Karen Uhlenbeck](https://en.wikipedia.org/wiki/Karen_Uhlenbeck).
+
+- Keep MariaDB client providers out of the Inventory Component table while
+  showing the application's database names above it.
+
 ## [1.3.0] - 2026-10-10 @ 08:15
 
 The **Julia** release is dedicated to [Julia Robinson](https://en.wikipedia.org/wiki/Julia_Robinson).

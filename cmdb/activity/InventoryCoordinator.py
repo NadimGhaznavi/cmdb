@@ -41,7 +41,6 @@ class InventoryCoordinator(Thread):
         self.status_messages = status_messages if status_messages is not None else StatusMessages()
         self._stop_requested = Event()
         self._wake = Event()
-        self._wake.set()
         self._state_lock = Lock()
         self._requests = deque()
         self._next_scan_id = 0
@@ -111,15 +110,14 @@ class InventoryCoordinator(Thread):
         self.join()
 
     def run(self) -> None:
-        print(f'Inventory coordinator started: {DCMDB.SCAN_TARGET}, '
-              f'interval {DCMDB.SCAN_INTERVAL_SECONDS}s', flush=True)
+        print(f'Inventory coordinator ready: {DCMDB.SCAN_TARGET}', flush=True)
         while not self._stop_requested.is_set():
-            self._wake.wait(DCMDB.SCAN_INTERVAL_SECONDS)
+            self._wake.wait()
             with self._state_lock:
                 if self._stop_requested.is_set():
                     break
                 if not self._requests:
-                    self._enqueue(None, False)
+                    continue
                 scan_id, target, applications_only, application = self._requests.popleft()
                 if not self._requests:
                     self._wake.clear()
@@ -242,7 +240,7 @@ class InventoryCoordinator(Thread):
             if self._stop_requested.is_set():
                 return
             name = application['name']
-            outcome, pathname, system = self._application.collect(machine.ipAddress, name)
+            outcome, pathname, system, components = self._application.collect(machine.ipAddress, name)
             if self._stop_requested.is_set():
                 return
             if outcome == 'observed':
@@ -250,7 +248,8 @@ class InventoryCoordinator(Thread):
                     recorded = SoftwareDeploymentDb(db).record_application(
                         machine.id, application['id'], pathname, system.version,
                         type=system.type, subtype=system.subtype, supplier=system.supplier,
-                        codename=system.taggedValue[0].value if system.taggedValue else None)
+                        codename=system.taggedValue[0].value if system.taggedValue else None,
+                        components=components)
                 message = f'{host}: {name} {system.version}' if recorded else f'{host}: {name} — definition removed; skipped.'
             else:
                 message = f'{host}: {name} — {outcome}.'

@@ -15,13 +15,14 @@
     <div class="header-heading">
       <div class="header-brand">
         <a class="site-logo" href="#inventory" aria-label="CMDB inventory"><img src="/pages/images/cmdb.png" alt="" width="64" height="64"></a>
-        <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="applications-heading" hidden>Applications</span><span id="patching-heading" hidden>Patching</span></h1>
+        <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="applications-heading" hidden>Applications</span><span id="patching-heading" hidden>Patching</span><span id="discovery-heading" hidden>Discovery</span></h1>
       </div>
       <nav aria-label="Main navigation">
         <a id="inventory-link" href="#inventory">Inventory</a>
         <a id="applications-link" href="#applications">Applications</a>
         <a id="patching-link" href="#patching">Patching</a>
         <a id="page-link" href="#backups">Backups</a>
+        <a id="discovery-link" href="#discovery">Discovery</a>
       </nav>
     </div>
     <p>Configuration Management Database</p>
@@ -81,6 +82,26 @@
         </footer>
       </section>
     </div>
+  </main>
+  <main id="discovery-page" aria-labelledby="discovery-heading" hidden>
+    <section class="backup-panel" aria-labelledby="network-discovery-heading">
+      <h3 id="network-discovery-heading">Network Discovery</h3>
+      <p>Schedule periodic network scans or click Scan Now.</p>
+      <p id="discovery-status" role="status">Loading discovery settings…</p>
+      <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Discovery schedule">
+        <table class="backups-table" aria-label="Discovery schedule">
+          <thead><tr><th scope="col">Network</th><th scope="col">Enabled</th><th scope="col">Cron Schedule</th><th scope="col"></th><th scope="col">Actions</th></tr></thead>
+          <tbody><tr>
+            <td id="discovery-target"></td>
+            <td><input id="discovery-enabled" type="checkbox" aria-label="Enable scheduled discovery" disabled></td>
+            <td><input id="discovery-expression" type="text" size="20" maxlength="255" aria-label="Discovery cron schedule" disabled></td>
+            <td><button id="update-discovery" type="button" disabled>Update</button></td>
+            <td><button id="scan-discovery" type="button">Scan Now</button></td>
+          </tr></tbody>
+        </table>
+      </div>
+      <p id="discovery-scan-status" role="status"></p>
+    </section>
   </main>
   <main id="backups-page" aria-labelledby="backups-heading" hidden>
     <section class="backup-panel" aria-labelledby="database-heading">

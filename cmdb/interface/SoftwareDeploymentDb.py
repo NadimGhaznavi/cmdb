@@ -1,5 +1,7 @@
 """Store OS observations through SoftwareSystem ownership and component deployment."""
 
+from pathlib import PurePosixPath
+
 from cmdb.entity.Component import Component
 from cmdb.entity.DeployedComponent import DeployedComponent
 from cmdb.entity.SoftwareSystem import SoftwareSystem
@@ -39,7 +41,8 @@ class SoftwareDeploymentDb:
 
     def record_application(self, machine: int, application: int, pathname: str, version: str,
                            *, type: str | None = None, subtype: str | None = None,
-                           supplier: str | None = None, codename: str | None = None) -> bool:
+                           supplier: str | None = None, codename: str | None = None,
+                           components: tuple[tuple[str, str], ...] = ()) -> bool:
         """Reuse compatible releases, enriching missing metadata without erasing it."""
         definitions = self._db.query(
             'SELECT me.name FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
@@ -76,7 +79,7 @@ class SoftwareDeploymentDb:
                              ('VERSION_CODENAME', codename, release))
         rows = self._db.query(
             'SELECT c.id FROM Component c JOIN ModelElement me ON me.id = c.id '
-            'WHERE me.namespace = %s ORDER BY c.id LIMIT 1', (release,))
+            'WHERE me.namespace = %s AND me.name IS NULL ORDER BY c.id LIMIT 1', (release,))
         if rows:
             component = rows[0]['id']
         else:
@@ -87,7 +90,7 @@ class SoftwareDeploymentDb:
             'JOIN Component c ON c.id = dc.component JOIN ModelElement me ON me.id = c.id '
             'JOIN SoftwareSystem ss ON ss.id = me.namespace '
             'JOIN ModelElement sme ON sme.id = ss.id '
-            'WHERE dc.machine = %s AND dc.pathname = %s AND sme.name = %s '
+            'WHERE dc.machine = %s AND dc.pathname = %s AND sme.name = %s AND me.name IS NULL '
             'ORDER BY dc.id LIMIT 1', (machine, pathname, name))
         if rows:
             self._db.execute('UPDATE DeployedComponent SET component = %s WHERE id = %s',
@@ -97,7 +100,37 @@ class SoftwareDeploymentDb:
             self._db.execute(
                 'INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)',
                 (identity, pathname, machine, component))
+        for component_name, component_path in components:
+            self._record_application_component(machine, release, name, component_name,
+                                               str(PurePosixPath(pathname) / component_path))
         return True
+
+    def _record_application_component(self, machine: int, release: int, application_name: str,
+                                      name: str, pathname: str) -> None:
+        """Reuse a named release component and a host deployment across upgrades."""
+        rows = self._db.query(
+            'SELECT c.id FROM Component c JOIN ModelElement me ON me.id = c.id '
+            'WHERE me.namespace = %s AND me.name = %s ORDER BY c.id LIMIT 1', (release, name))
+        if rows:
+            component = rows[0]['id']
+        else:
+            component = self._namespaces.create(namespace=release, name=name)
+            self._db.execute('INSERT INTO Component (id) VALUES (%s)', (component,))
+        rows = self._db.query(
+            'SELECT dc.id FROM DeployedComponent dc '
+            'JOIN ModelElement ce ON ce.id = dc.component '
+            'JOIN SoftwareSystem ss ON ss.id = ce.namespace '
+            'JOIN ModelElement sme ON sme.id = ss.id '
+            'WHERE dc.machine = %s AND dc.pathname = %s AND ce.name = %s AND sme.name = %s '
+            'ORDER BY dc.id LIMIT 1', (machine, pathname, name, application_name))
+        if rows:
+            self._db.execute('UPDATE DeployedComponent SET component = %s WHERE id = %s',
+                             (component, rows[0]['id']))
+        else:
+            identity = self._namespaces.create_package(namespace=machine, name=name)
+            self._db.execute(
+                'INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)',
+                (identity, pathname, machine, component))
 
     def debian_hosts(self) -> list[dict]:
         """List machines whose deployed operating system is identified as Debian."""

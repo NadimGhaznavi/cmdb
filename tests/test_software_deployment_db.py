@@ -172,6 +172,55 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(deployments[0]['softwareSystem'], application)
         self.assertEqual(len(self.machines.list_machines()[0].deployedComponent), 1)
 
+    def test_filesystem_components_share_definitions_and_preserve_host_identity(self):
+        definitions = SoftwareSystemDb(self.db)
+        components = (("Marketing Screenshots", "pages/marketing"), ("Uploads", "/srv/uploads"))
+        with self.db.transaction():
+            application = definitions.create_application('MyCount')
+            first = self.machines.upsert(Machine('192.0.2.7'))
+            second = self.machines.upsert(Machine('192.0.2.8'))
+            for machine in (first, first, second):
+                self.software.record_application(machine, application, '/opt/prod/mycount', '1.0',
+                                                 components=components)
+        rows = self.db.query(
+            'SELECT dc.id, dc.machine, dc.pathname, dc.component, ce.namespace, ce.name, '
+            'de.namespace AS deploymentNamespace FROM DeployedComponent dc '
+            'JOIN ModelElement ce ON ce.id=dc.component JOIN ModelElement de ON de.id=dc.id '
+            'WHERE ce.name IS NOT NULL ORDER BY dc.machine, ce.name')
+        self.assertEqual(len(rows), 4)
+        for row in rows:
+            self.assertEqual(row['namespace'], application)
+            self.assertEqual(row['deploymentNamespace'], row['machine'])
+            self.assertEqual(row['pathname'], '/opt/prod/mycount/pages/marketing'
+                             if row['name'] == 'Marketing Screenshots' else '/srv/uploads')
+        self.assertEqual(rows[0]['component'], rows[2]['component'])
+        self.assertEqual(rows[1]['component'], rows[3]['component'])
+        with self.db.transaction():
+            self.software.record_application(first, application, '/opt/prod/mycount', '2.0', components=components)
+            self.software.record_application(first, application, '/opt/prod/mycount', '2.0')
+        refreshed = {row['id']: row for row in self.software.list_deployments()}
+        for row in rows:
+            self.assertEqual(refreshed[row['id']]['version'], '2.0' if row['machine'] == first else '1.0')
+        self.assertEqual(len(refreshed), 6)
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS count FROM Component')[0]['count'], 6)
+        with self.db.transaction():
+            definitions.delete_application(application)
+        self.assertEqual(len(self.software.list_deployments()), 3)
+
+    def test_filesystem_components_and_application_writes_roll_back_together(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            application = definitions.create_application('MyCount')
+            machine = self.machines.upsert(Machine('192.0.2.7'))
+        with self.assertRaises(RuntimeError):
+            with self.db.transaction():
+                self.software.record_application(machine, application, '/opt/prod/mycount', '1.0',
+                                                 components=(("Screenshots", "pages/marketing"),))
+                raise RuntimeError('abort observation')
+        self.assertEqual(self.software.list_deployments(), [])
+        self.assertEqual(self.db.query('SELECT * FROM Component'), [])
+        self.assertIsNone(definitions.list_software_systems()[0]['version'])
+
     def test_application_deleted_during_discovery_is_skipped(self):
         definitions = SoftwareSystemDb(self.db)
         with self.db.transaction():
@@ -510,7 +559,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"PatchSchedule", "Patch", "Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"DiscoverySchedule", "PatchSchedule", "Patch", "Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
         for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}

@@ -47,6 +47,49 @@ def application_metadata(source: str) -> SoftwareSystem | None:
     return system
 
 
+def application_components(source: str) -> tuple[tuple[str, str], ...]:
+    """Read literal filesystem component declarations without executing code."""
+    try:
+        module = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return ()
+    statements = list(module.body)
+    components = []
+    for statement in statements:
+        if isinstance(statement, ast.ClassDef):
+            statements.extend(statement.body)
+        if isinstance(statement, ast.Assign):
+            targets, value = statement.targets, statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            targets, value = [statement.target], statement.value
+        else:
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == 'CMDB_COMPONENTS' for target in targets):
+            continue
+        try:
+            declarations = ast.literal_eval(value)
+        except (ValueError, TypeError, SyntaxError, RecursionError):
+            continue
+        if not isinstance(declarations, (tuple, list)):
+            continue
+        for entry in declarations:
+            if not isinstance(entry, (tuple, list)) or len(entry) != 2:
+                continue
+            if not all(isinstance(item, str) and item.strip() and not any(
+                    ord(character) < 32 or ord(character) == 127 for character in item) for item in entry):
+                continue
+            name, path = (item.strip() for item in entry)
+            if len(name) > 255 or len(path) > 4096:
+                continue
+            # Relative declarations must stay beneath the application root.
+            if '..' in PurePosixPath(path).parts or str(PurePosixPath(path)) == '.':
+                continue
+            component = (name, str(PurePosixPath(path)))
+            if component not in components:
+                components.append(component)
+    return tuple(components)
+
+
 def application_version(source: str) -> str | None:
     """Return the version from an application's literal metadata."""
     system = application_metadata(source)
@@ -57,10 +100,11 @@ class ApplicationSource:
     def __init__(self) -> None:
         self._ssh = SSH()
 
-    def collect(self, address: str, name: str) -> tuple[str, str | None, SoftwareSystem | None]:
-        """Return outcome, installation path and metadata for one host/application."""
+    def collect(self, address: str, name: str) -> tuple[
+            str, str | None, SoftwareSystem | None, tuple[tuple[str, str], ...]]:
+        """Return outcome, install path, metadata and filesystem components."""
         if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name) is None:
-            return 'unsupported name', None, None
+            return 'unsupported name', None, None, ()
         pathname = str(PurePosixPath(DCMDB.BASE_INSTALL_DIR) / name.lower())
         constants = str(PurePosixPath(pathname) / name.lower() / 'constants' / ('D' + name + '.py'))
         command = (f'if [ -d {shlex.quote(pathname)} ] && [ -f {shlex.quote(constants)} ]; '
@@ -69,6 +113,7 @@ class ApplicationSource:
             result = self._ssh.run(address, command, timeout=DCMDB.SSH_COMMAND_TIMEOUT_SECONDS,
                                    connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
         except (OSError, subprocess.SubprocessError):
-            return 'read failed', pathname, None
+            return 'read failed', pathname, None, ()
         system = application_metadata(result.stdout)
-        return ('observed' if system is not None else 'not detected'), pathname, system
+        components = application_components(result.stdout) if system is not None else ()
+        return ('observed' if system is not None else 'not detected'), pathname, system, components

@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add Discovery to the right of Backups with an enabled flag, cron schedule,
+  Update, and Scan Now. Periodic discovery runs independently through cron;
+  the web worker scans only on explicit requests, with no startup or interval scan.
+
+- Discover optional literal `CMDB_COMPONENTS` declarations in application constants
+  and store named Components with per-machine DeployedComponents for persistent
+  filesystem data. Resolve relative paths from the app installation, reuse
+  records across scans, and preserve deployment IDs across release changes.
+
 ## [1.1.2] - 2026-10-07 @ 06:16
 
 - Keep inventory machine and software selection available while a scan runs,

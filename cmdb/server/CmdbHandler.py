@@ -21,6 +21,9 @@ from cmdb.interface.BackupFiles import BackupFiles
 from cmdb.interface.Cron import Cron
 from cmdb.interface.PatchDb import PatchDb
 from cmdb.interface.SSH import SSH
+from cmdb.entity.DiscoverySchedule import DiscoverySchedule
+from cmdb.interface.DiscoveryScheduleDb import DiscoveryScheduleDb
+from cmdb.activity.DiscoveryScheduler import DiscoveryScheduler
 from cmdb.activity.Scheduler import Scheduler
 from cmdb.activity.PatchScheduler import PatchScheduler
 from cmdb.activity.DatabaseManager import DatabaseManager
@@ -76,6 +79,17 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"status":"unavailable","service":"cmdb-server"}', "application/json")
                 return
             self.respond(200, b'{"status":"ready","service":"cmdb-server"}', "application/json")
+        elif path == '/api/discovery':
+            try:
+                db = DbMgr()
+                try:
+                    schedule = DiscoveryScheduleDb(db).get() or asdict(DiscoverySchedule())
+                finally:
+                    db.close()
+            except pymysql.MySQLError:
+                self.respond(503, b'{"error":"Discovery settings are unavailable."}', 'application/json')
+                return
+            self.respond(200, json.dumps({'schedule': schedule, 'target': DCMDB.SCAN_TARGET}).encode(), 'application/json')
         elif path == "/api/scan":
             scanner = getattr(self.server, "inventory_coordinator", None)
             if scanner is None or not scanner.is_alive():
@@ -167,6 +181,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
+        if urlsplit(self.path).path == '/api/discovery-schedules':
+            self.update_discovery_schedule()
+            return
         if urlsplit(self.path).path == '/api/machines/environment':
             self.update_machine_environment()
             return
@@ -446,6 +463,30 @@ class CmdbHandler(BaseHTTPRequestHandler):
         except (OSError, RuntimeError, pymysql.MySQLError):
             logging.exception('Could not save patch schedule')
             self.respond(503, b'{"error":"Could not save the patch schedule and cron entry."}', 'application/json')
+            return
+        self.respond(200, json.dumps({'schedule': schedule}).encode(), 'application/json')
+
+    def update_discovery_schedule(self) -> None:
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError('Provide discovery schedule settings.')
+            values = json.loads(self.rfile.read(length))
+            if not isinstance(values, dict) or values.keys() != {'enabled', 'expression'}:
+                raise ValueError('Provide enabled and expression.')
+            schedule = DiscoveryScheduler().update(**values)
+        except (ValueError, UnicodeError) as error:
+            self.respond(400, json.dumps({'error': str(error)}).encode(), 'application/json')
+            return
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
+            return
+        except (OSError, RuntimeError, pymysql.MySQLError):
+            logging.exception('Could not save discovery schedule')
+            self.respond(503, b'{"error":"Could not save the discovery schedule and cron entry. Retry the update."}', 'application/json')
             return
         self.respond(200, json.dumps({'schedule': schedule}).encode(), 'application/json')
 

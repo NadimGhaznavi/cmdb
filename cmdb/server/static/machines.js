@@ -481,15 +481,62 @@ async function loadApplications() {
   }
 }
 
+async function loadDiscovery() {
+  const status = document.getElementById('discovery-status');
+  const enabled = document.getElementById('discovery-enabled');
+  const expression = document.getElementById('discovery-expression');
+  const update = document.getElementById('update-discovery');
+  enabled.disabled = expression.disabled = update.disabled = true;
+  status.textContent = 'Loading discovery settings…';
+  try {
+    const response = await fetch('/api/discovery', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not load discovery settings.');
+    document.getElementById('discovery-target').textContent = result.target;
+    enabled.checked = Boolean(result.schedule.enabled);
+    expression.value = result.schedule.expression;
+    enabled.disabled = expression.disabled = update.disabled = false;
+    status.textContent = '';
+  } catch (error) {
+    status.textContent = error.message || 'Could not load discovery settings. Reopen Discovery to retry.';
+  }
+}
+
+async function saveDiscoverySchedule() {
+  const button = document.getElementById('update-discovery');
+  const status = document.getElementById('discovery-status');
+  button.disabled = true;
+  status.textContent = 'Saving discovery schedule…';
+  try {
+    const response = await fetch('/api/discovery-schedules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: document.getElementById('discovery-enabled').checked,
+        expression: document.getElementById('discovery-expression').value }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save discovery schedule.');
+    document.getElementById('discovery-expression').value = result.schedule.expression;
+    status.textContent = result.schedule.enabled ? 'Discovery schedule saved.' : 'Scheduled discovery disabled.';
+  } catch (error) {
+    status.textContent = error.message || 'Could not save discovery schedule. Retry the update.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById('update-discovery').addEventListener('click', saveDiscoverySchedule);
+document.getElementById('scan-discovery').addEventListener('click', () => refreshMachines(null, false, true));
+
 function showPage() {
   clearTimeout(patchingTimer);
   ++patchingRequest;
-  const page = ['applications', 'patching', 'backups'].includes(window.location.hash.slice(1))
+  const page = ['applications', 'patching', 'backups', 'discovery'].includes(window.location.hash.slice(1))
     ? window.location.hash.slice(1) : 'inventory';
   const backups = page === 'backups';
   const patching = page === 'patching';
   initialUptimePending = patching;
-  for (const name of ['inventory', 'applications', 'patching', 'backups']) {
+  for (const name of ['inventory', 'applications', 'patching', 'backups', 'discovery']) {
     document.getElementById(`${name}-heading`).hidden = page !== name;
     document.getElementById(`${name}-page`).hidden = page !== name;
     const link = document.getElementById(name === 'backups' ? 'page-link' : `${name}-link`);
@@ -502,6 +549,7 @@ function showPage() {
     loadApplications();
     loadRegisteredApplications();
   }
+  if (page === 'discovery') loadDiscovery();
   if (patching) loadPatchingHosts();
   if (backups) {
     loadBackups();
@@ -768,17 +816,19 @@ async function waitForScan(scanId) {
   }
 }
 
-async function refreshMachines(address = null, applicationsOnly = false) {
+async function refreshMachines(address = null, applicationsOnly = false, discoveryPage = false) {
   if (refreshing) return;
   refreshing = true;
   const refresh = document.getElementById("refresh-button");
   const rescan = document.getElementById("rescan-machine");
   const applications = document.getElementById("rescan-applications");
-  const status = document.getElementById(applicationsOnly ? "application-scan-status" : "graph-status");
+  const discovery = document.getElementById("scan-discovery");
+  const status = document.getElementById(discoveryPage ? "discovery-scan-status" : applicationsOnly ? "application-scan-status" : "graph-status");
   refresh.disabled = true;
   rescan.disabled = true;
   applications.disabled = true;
-  const button = applicationsOnly ? applications : address ? rescan : refresh;
+  discovery.disabled = true;
+  const button = discoveryPage ? discovery : applicationsOnly ? applications : address ? rescan : refresh;
   button.textContent = "Scanning…";
   status.textContent = applicationsOnly ? "Scanning applications…"
     : address ? `Scanning ${address}…` : "Scanning the LAN…";
@@ -797,6 +847,8 @@ async function refreshMachines(address = null, applicationsOnly = false) {
     refreshing = false;
     refresh.disabled = false;
     rescan.disabled = false;
+    discovery.disabled = false;
+    discovery.textContent = "Scan Now";
     applications.disabled = false;
     applications.textContent = "Re-Scan Applications";
     rescan.textContent = "Re-Scan";

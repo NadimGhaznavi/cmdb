@@ -31,6 +31,8 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
 | `POST /api/machines/environment` | Saves `DeploymentEnvironment` for a machine ID; Unclassified removes the tag. |
+| `GET /api/discovery` | Returns the configured network and saved discovery policy, disabled by default. |
+| `POST /api/discovery-schedules` | Saves Enabled and a five-field cron expression and updates its cron entry. |
 | `POST /api/scan` | Queues an Inventory workload and returns HTTP 202 with its scanId. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
 | `/status-messages` | Reads shared in-memory status history as JSON without querying MariaDB. |
@@ -256,8 +258,10 @@ port syntax, optional `arguments` (default `-sV`), and a timeout in seconds
 instance per worker thread.
 
 The server starts `cmdb/activity/InventoryCoordinator.py` immediately and owns its
-startup and shutdown. The background activity waits
-`DCMDB.SCAN_INTERVAL_SECONDS` (default `300`) after each scan before repeating.
+startup and shutdown. The background activity waits for explicit requests;
+it does not scan at startup, on page load, or on an internal timer.
+[Discovery]({{ site.baseurl }}{% link pages/discovery.md %}) manages periodic scans
+through cron independently of the web service.
 `SCAN_TARGET` defaults to the observed LAN, `192.168.0.0/24`;
 `SCAN_TIMEOUT_SECONDS` defaults to `30`. These settings are in
 `cmdb/constants/DCMDB.py`.
@@ -307,8 +311,8 @@ out. Refresh waits for the SSH stage too; each host has bounded connection and
 command timeouts. SSH failures are isolated to that host and preserve its data.
 
 The worker prints its startup message to the journal. Scan and database failures
-are retried on the next interval without logging. It opens short database
-transactions to apply observations, closes connections
+are reported for that request; another scan requires a new request or cron run.
+It opens short database transactions to apply observations, closes connections
 before collecting more data, and stops with the server. Pending requests and
 reachability results are held in memory and are lost on restart.
 
@@ -327,7 +331,7 @@ inventory records:
 | MariaDBSource | MariaDB version, data directory, and schema names |
 | ApplicationSource | One application's installed version on one host |
 
-Startup and the five-minute timer request full Inventory. The network and
+Cron runs full Inventory in its own process. The network and
 single-machine buttons request Inventory with the corresponding host scope.
 Re-Scan Applications checks all registered application names on all stored
 machines. Add Application queues a check of that new definition on all stored

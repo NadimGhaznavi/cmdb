@@ -1126,7 +1126,9 @@ async function loadMachines() {
           if (cell.dataset.field === "codename" && system.subtype === "MariaDB") {
             cell.closest("tr").remove();
           } else if (cell.dataset.field === "databases") {
-            if (system.subtype !== "MariaDB") {
+            if (system.name && system.databases?.length) {
+              cell.textContent = system.databases.join(", ");
+            } else if (system.subtype !== "MariaDB") {
               cell.closest("tr").remove();
             } else if (system.databases?.length) {
               renderDatabases(cell, system.databases);

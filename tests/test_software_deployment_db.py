@@ -95,6 +95,25 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(self.db.query('SELECT id FROM Backup'), [{'id': backup}])
         self.assertEqual(len(BackupDb(self.db).databases()), 2)
 
+    def test_application_database_projection_uses_its_provider_and_deduplicates_names(self):
+        with self.db.transaction():
+            first = self.machines.upsert(Machine('192.0.2.7'))
+            second = self.machines.upsert(Machine('192.0.2.8'))
+            app = SoftwareSystemDb(self.db).create_application('MyCount')
+            DataManagerDb(self.db).record_mariadb(first, '11.8', '/data/', ['mycount', 'audit', 'unrelated'])
+            DataManagerDb(self.db).record_mariadb(second, '11.8', '/data/', ['other'])
+            self.software.record_application(first, app, '/opt/prod/mycount', '1.0',
+                                             databases=(('MyCount', 'mycount'), ('Audit', 'audit'),
+                                                        ('Duplicate label', 'mycount')))
+            self.software.record_application(second, app, '/opt/prod/mycount', '1.0')
+        deployments = self.software.list_deployments()
+        apps = {row['machine']: row for row in deployments if row['name'] == 'MyCount' and not row['componentName']}
+        self.assertEqual(apps[first]['databases'], ['audit', 'mycount'])
+        self.assertEqual(apps[second]['databases'], [])
+        servers = {row['machine']: row for row in deployments if row['subtype'] == 'MariaDB'}
+        self.assertEqual(servers[first]['databases'], ['audit', 'mycount', 'unrelated'])
+        self.assertEqual(servers[second]['databases'], ['other'])
+
     def test_pruning_old_application_release_preserves_shared_active_release(self):
         definitions = SoftwareSystemDb(self.db)
         with self.db.transaction():

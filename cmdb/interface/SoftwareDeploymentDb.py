@@ -33,7 +33,13 @@ class SoftwareDeploymentDb:
             "SELECT dp.dataManager, me.name FROM DataManagerDataPackage dp "
             "JOIN `Catalog` s ON s.id = dp.dataPackage "
             "JOIN ModelElement me ON me.id = s.id "
-            "WHERE me.name IS NOT NULL ORDER BY dp.dataManager, me.name"
+            "WHERE me.name IS NOT NULL "
+            "UNION "
+            "SELECT u.usingComponents AS dataManager, me.name FROM DeployedComponentsUsage u "
+            "JOIN DataProvider p ON p.id = u.usedComponents "
+            "JOIN DataManagerDataPackage dp ON dp.dataManager = p.id "
+            "JOIN Catalog c ON c.id = dp.dataPackage JOIN ModelElement me ON me.id = c.id "
+            "WHERE me.name IS NOT NULL ORDER BY dataManager, name"
         ):
             databases.setdefault(row["dataManager"], []).append(row["name"])
         for deployment in deployments:

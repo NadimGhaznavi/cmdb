@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Show an application's discovered database names above its Component table in
+  the Inventory detail sidebar, comma-separated when more than one is present.
+
 - Discover literal `CMDB_DATABASES` declarations, refresh same-machine MariaDB
   inventory, and connect matching catalogs through a MariaDB Client DataProvider
   and ProviderConnection. Reuse client identities across scans and upgrades;

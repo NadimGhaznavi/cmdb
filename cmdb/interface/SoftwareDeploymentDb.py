@@ -25,6 +25,7 @@ class SoftwareDeploymentDb:
             "JOIN SoftwareSystem ss ON ss.id = me.namespace "
             "JOIN ModelElement sme ON sme.id = ss.id "
             "LEFT JOIN TaggedValue tv ON tv.modelElement = ss.id AND tv.tag = 'VERSION_CODENAME' "
+            "WHERE NOT EXISTS (SELECT 1 FROM DataProvider p WHERE p.id = dc.id) "
             "ORDER BY dc.machine, dc.id"
         )
 

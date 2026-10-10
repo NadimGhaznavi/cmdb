@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-10 @ 09:41
+
 The **Maryam** release is dedicated to [Maryam Mirzakhani](https://en.wikipedia.org/wiki/Maryam_Mirzakhani).
 
 - Label the application backup panel Application and show host counts in

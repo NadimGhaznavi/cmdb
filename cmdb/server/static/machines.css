@@ -47,7 +47,7 @@
 .backup-vault h3 { margin: 0; }
 .backup-vault-latest { margin-left: auto; text-align: right; color: var(--muted); font-size: .85rem; }
 .backup-vault-latest time { white-space: nowrap; }
-#applications-page, #patching-page { min-width: 0; border: 0; padding: 0; gap: 1rem; }
+#applications-page, #patching-page, #discovery-page { min-width: 0; border: 0; padding: 0; gap: 1rem; }
 #applications-page .backup-panel > summary { cursor: pointer; }
 #applications-page .backup-panel > summary h3 { display: inline; margin: 0; }
 #applications-page .backup-panel > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -139,6 +139,9 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 #selection-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 #selection-details details:not([open]) > summary { margin-bottom: 0; }
 .software-detail { margin-top: 1.5rem; }
+[data-components] { margin-top: 1rem; }
+[data-components] a { color: var(--accent); }
+[data-components] a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 [data-field="databases"] hr { border-top: 1px solid var(--border); margin: .5rem 0; }
 

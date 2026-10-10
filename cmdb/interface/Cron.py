@@ -1,4 +1,4 @@
-"""Manage CMDB backup and patch entries in the service account's crontab."""
+"""Manage CMDB backup, patch, and discovery entries in the service account's crontab."""
 
 import re
 import shlex
@@ -12,6 +12,7 @@ from cmdb.constants.DCMDB import DCMDB
 class Cron:
     PREFIX = 'cmdb-backup-schedule-'
     PATCH_PREFIX = 'cmdb-patch-schedule-'
+    DISCOVERY_PREFIX = 'cmdb-discovery-schedule-'
     EDIT_LOCK = Lock()
 
     def __init__(self, user=True) -> None:
@@ -22,6 +23,9 @@ class Cron:
 
     def update_patch(self, schedule: int, enabled: bool, expression: str) -> None:
         self._update(schedule, enabled, self.PATCH_PREFIX, 'cmdb-patch.py', expression)
+
+    def update_discovery(self, schedule: int, enabled: bool, expression: str) -> None:
+        self._update(schedule, enabled, self.DISCOVERY_PREFIX, 'cmdb-discovery.py', expression)
 
     def _update(self, schedule, enabled, prefix, runner, expression):
         if type(schedule) is not int or schedule <= 0:
@@ -44,4 +48,5 @@ class Cron:
         tab = CronTab(user=self._user)
         tab.remove_all(comment=re.compile(r'^' + self.PREFIX + r'[0-9]+$'))
         tab.remove_all(comment=re.compile(r'^' + self.PATCH_PREFIX + r'[0-9]+$'))
+        tab.remove_all(comment=re.compile(r'^' + self.DISCOVERY_PREFIX + r'[0-9]+$'))
         tab.write()

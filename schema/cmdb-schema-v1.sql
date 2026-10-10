@@ -161,3 +161,13 @@ CREATE TABLE IF NOT EXISTS PatchSchedule (
     CONSTRAINT PatchSchedule_enabled_ck CHECK (enabled IN (0,1)),
     CONSTRAINT PatchSchedule_expression_ck CHECK (enabled=0 OR CHAR_LENGTH(expression)>0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Application policy for the configured network, not a CWM class.
+CREATE TABLE IF NOT EXISTS DiscoverySchedule (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    expression VARCHAR(255) NOT NULL DEFAULT '*/5 * * * *',
+    CONSTRAINT DiscoverySchedule_singleton_ck CHECK (id=1),
+    CONSTRAINT DiscoverySchedule_enabled_ck CHECK (enabled IN (0,1)),
+    CONSTRAINT DiscoverySchedule_expression_ck CHECK (CHAR_LENGTH(expression)>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

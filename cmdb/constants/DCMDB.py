@@ -31,6 +31,6 @@ class DCMDB:
     PORT: Final[int] = 14444
     REQUEST_TIMEOUT: Final[int] = 10
     SCAN_TARGET: Final[str] = "192.168.0.0/24"
-    SCAN_INTERVAL_SECONDS: Final[int] = 300
+    DISCOVERY_CRON: Final[str] = "*/5 * * * *"
     SCAN_TIMEOUT_SECONDS: Final[int] = 30
     OS_SCAN_TIMEOUT_SECONDS: Final[int] = 180

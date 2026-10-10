@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org/wiki/Hilda_Geiringer).
+
 - Show named deployed components in application details with a Component / Path
   table, linked directory names, and full paths on hover. Group components under
   their app instead of displaying duplicate applications in Inventory.

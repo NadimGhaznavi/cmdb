@@ -149,7 +149,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 try:
                     backups = BackupDb(db)
                     if path == '/api/backups':
-                        result = {'databases': backups.databases(), 'hosts': backups.hosts()}
+                        result = {'databases': backups.databases(), 'hosts': backups.hosts(),
+                                  'applications': backups.applications()}
                     elif path == '/api/backups/files':
                         result = {'files': backups.files(), 'directory': DCMDB.BACKUP_DIR}
                         for record in result['files']:

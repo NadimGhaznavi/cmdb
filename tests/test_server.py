@@ -377,9 +377,12 @@ class ServerTests(unittest.TestCase):
     def test_backup_get_serializes_timestamps_and_missing_attempt(self, db, records):
         records.return_value.databases.return_value = [{'modelElement': 7, 'lastBackup': datetime(2026, 9, 28, 14)}]
         records.return_value.hosts.return_value = []
+        records.return_value.applications.return_value = [{'modelElement': 8, 'kind': 'directory',
+                                                         'lastBackup': datetime(2026, 9, 28, 14)}]
         status, body = self.get('/api/backups')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['databases'][0]['lastBackup'], '2026-09-28T14:00:00+00:00')
+        self.assertEqual(json.loads(body)['applications'][0]['lastBackup'], '2026-09-28T14:00:00+00:00')
         records.return_value.files.return_value = [{'id': 42, 'backupTime': datetime(2026, 9, 28, 14),
                                                    'hostName': 'sally.example', 'databaseName': 'cmdb',
                                                    'pathname': 'sally/db/recorded.dump', 'sizeBytes': 1536}]

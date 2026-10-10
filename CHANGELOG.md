@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add a collapsed Applications panel above Databases for declared application
+  directories and databases, with per-target scheduling and Backup Now controls.
+  Archive directories as gzip tarballs under `<host>/files/`, show them in the
+  Backup Vault, and preserve archives and history when an application is removed.
+  Declared databases share existing policies and keep their `<host>/db/` paths.
+
 - Make the Databases panel collapsible and closed by default, matching Backup Vault.
 
 - Rename the Backups page's Live Databases section to Databases.

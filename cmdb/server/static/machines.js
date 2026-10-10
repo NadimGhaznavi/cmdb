@@ -150,15 +150,97 @@ document.getElementById('clear-backup-filters').addEventListener('click', () => 
   filterBackupFiles();
 });
 
+function backupSettingsRow(item, host, allowDatabaseDelete = false) {
+  const row = document.getElementById('backup-row-template').content.cloneNode(true).querySelector('tr');
+  const name = item.kind === 'directory' ? item.componentName : item.databaseName;
+  row.dataset.modelElement = item.modelElement;
+  row.querySelector('[data-field="database"]').textContent = name;
+  for (const [field, label] of [['enabled', 'Enable backups'], ['retention', 'Retention'], ['expression', 'Cron schedule']]) {
+    row.querySelector(`[data-field="${field}"]`).setAttribute('aria-label', `${label} for ${name} on ${host}`);
+  }
+  row.querySelector('[data-field="enabled"]').checked = Boolean(item.enabled);
+  row.querySelector('[data-field="expression"]').value = item.expression || '0 12 * * *';
+  row.querySelector('[data-field="retention"]').value = item.retention || '1-week';
+  row.querySelector('[data-action="update"]').addEventListener('click', () => updateSchedule(row, item.modelElement));
+  row.querySelector('[data-field="lastBackup"]').textContent = item.lastBackup ? localTimestamp(item.lastBackup) : '---';
+  row.querySelector('[data-action="backup"]').addEventListener('click', () => backupNow(row, item.modelElement));
+  const remove = row.querySelector('[data-action="delete-database"]');
+  if (allowDatabaseDelete) {
+    remove.disabled = name.toLowerCase() === 'cmdb';
+    if (remove.disabled) remove.title = 'The CMDB database cannot be deleted.';
+    remove.addEventListener('click', () => deleteDatabase(row, item, host));
+  } else {
+    remove.remove();
+  }
+  if (item.latestBackup) row.dataset.backupId = item.latestBackup;
+  return row;
+}
+
+function renderApplicationBackups(items) {
+  const body = document.getElementById('application-backup-hosts');
+  body.replaceChildren();
+  const hosts = new Map();
+  for (const item of items) {
+    if (!hosts.has(item.machine)) hosts.set(item.machine, { host: machineLabel(item), applications: new Map() });
+    const applications = hosts.get(item.machine).applications;
+    if (!applications.has(item.application)) applications.set(item.application, { name: item.applicationName, items: [] });
+    applications.get(item.application).items.push(item);
+  }
+  for (const { host, applications } of [...hosts.values()].sort((left, right) => left.host.localeCompare(right.host))) {
+    const hostSection = document.createElement('details');
+    hostSection.className = 'backup-host';
+    const heading = document.createElement('summary');
+    heading.textContent = `${host} - ${applications.size} Application${applications.size === 1 ? '' : 's'}`;
+    hostSection.append(heading);
+    for (const application of [...applications.values()].sort((left, right) => left.name.localeCompare(right.name))) {
+      const section = document.getElementById('backup-host-template').content.cloneNode(true);
+      section.querySelector('summary').textContent = application.name;
+      section.querySelector('.backup-empty').remove();
+      section.querySelector('table').setAttribute('aria-label', `${application.name} backups on ${host}`);
+      section.querySelector('.backup-table-scroll').setAttribute('aria-label', `${application.name} backup settings on ${host}`);
+      const headers = section.querySelector('thead tr');
+      headers.firstElementChild.textContent = 'Component';
+      const settingsHeader = headers.children[1];
+      for (const label of ['Type', 'Location']) {
+        const cell = document.createElement('th');
+        cell.scope = 'col';
+        cell.textContent = label;
+        headers.insertBefore(cell, settingsHeader);
+      }
+      for (const item of application.items.sort((left, right) =>
+        (left.componentName || left.databaseName).localeCompare(right.componentName || right.databaseName))) {
+        const row = backupSettingsRow(item, host);
+        const type = document.createElement('td');
+        type.textContent = item.kind === 'directory' ? 'Directory' : 'Database';
+        const location = document.createElement('td');
+        location.textContent = item.kind === 'directory' ? item.pathname : item.databaseName;
+        row.children[0].after(type, location);
+        section.querySelector('tbody').append(row);
+      }
+      hostSection.append(section);
+    }
+    body.append(hostSection);
+  }
+  for (const row of body.querySelectorAll('tr[data-backup-id]')) {
+    const identity = row.dataset.backupId;
+    delete row.dataset.backupId;
+    watchBackup(row, identity);
+  }
+  document.getElementById('application-backups-status').textContent = hosts.size ? '' : 'No declared application components or databases discovered yet.';
+}
+
 async function loadBackups() {
   const status = document.getElementById("backups-status");
   const body = document.getElementById("backup-hosts");
   body.replaceChildren();
+  document.getElementById("application-backup-hosts").replaceChildren();
+  document.getElementById("application-backups-status").textContent = "Loading application backups…";
   status.textContent = "Loading databases…";
   try {
     const response = await fetch("/api/backups", { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error("Databases are unavailable. Return to Inventory and try again.");
-    const { databases, hosts: databaseHosts } = await response.json();
+    const { databases, hosts: databaseHosts, applications = [] } = await response.json();
+    renderApplicationBackups(applications);
     const hosts = new Map(databaseHosts.map(host => [host.machine, host]));
     const groups = new Map(databaseHosts.map(host => [host.machine, []]));
     for (const database of databases) {
@@ -169,7 +251,6 @@ async function loadBackups() {
     const sortedHosts = [...groups.keys()].sort((left, right) =>
       machineLabel(hosts.get(left)).localeCompare(machineLabel(hosts.get(right))));
     const template = document.getElementById("backup-host-template");
-    const rowTemplate = document.getElementById("backup-row-template");
     for (const id of sortedHosts) {
       const names = groups.get(id).sort((left, right) => left.databaseName.localeCompare(right.databaseName));
       const host = machineLabel(hosts.get(id));
@@ -178,27 +259,7 @@ async function loadBackups() {
       section.querySelector("table").setAttribute("aria-label", `${host} database backups`);
       section.querySelector(".backup-table-scroll").setAttribute("aria-label", `${host} backup settings`);
       for (const database of names) {
-        const name = database.databaseName;
-        const row = rowTemplate.content.cloneNode(true);
-        row.querySelector('[data-field="database"]').textContent = name;
-        row.querySelector('[data-field="enabled"]').setAttribute("aria-label", `Enable backups for ${name} on ${host}`);
-        row.querySelector('[data-field="retention"]').setAttribute("aria-label", `Retention for ${name} on ${host}`);
-        const element = row.querySelector("tr");
-        element.querySelector('[data-field="enabled"]').checked = Boolean(database.enabled);
-        element.querySelector('[data-field="expression"]').value = database.expression || '0 12 * * *';
-        element.querySelector('[data-field="expression"]').setAttribute('aria-label', `Cron schedule for ${name} on ${host}`);
-        element.querySelector('[data-field="retention"]').value = database.retention || "1-week";
-        element.querySelector('[data-action="update"]').addEventListener("click", () => updateSchedule(element, database.modelElement));
-        element.querySelector('[data-field="lastBackup"]').textContent = database.lastBackup
-          ? localTimestamp(database.lastBackup) : "---";
-        const button = element.querySelector('[data-action="backup"]');
-        button.addEventListener("click", () => backupNow(element, database.modelElement));
-        const remove = element.querySelector('[data-action="delete-database"]');
-        remove.disabled = name.toLowerCase() === 'cmdb';
-        if (remove.disabled) remove.title = 'The CMDB database cannot be deleted.';
-        remove.addEventListener('click', () => deleteDatabase(element, database, host));
-        section.querySelector("tbody").append(row);
-        if (database.latestBackup) element.dataset.backupId = database.latestBackup;
+        section.querySelector("tbody").append(backupSettingsRow(database, host, true));
       }
       section.querySelector(".backup-empty").hidden = names.length > 0;
       section.querySelector(".backup-table-scroll").hidden = names.length === 0;
@@ -212,6 +273,7 @@ async function loadBackups() {
     status.textContent = groups.size ? "" : "No databases discovered yet.";
   } catch (error) {
     status.textContent = error.message || "Databases could not be loaded. Return to Inventory and try again.";
+    document.getElementById("application-backups-status").textContent = status.textContent;
   }
 }
 
@@ -257,6 +319,11 @@ async function updateSchedule(row, modelElement) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not save the schedule.");
+    for (const shared of document.querySelectorAll(`#backups-page tr[data-model-element="${modelElement}"]`)) {
+      shared.querySelector('[data-field="enabled"]').checked = Boolean(result.schedule.enabled);
+      shared.querySelector('[data-field="expression"]').value = result.schedule.expression;
+      shared.querySelector('[data-field="retention"]').value = result.schedule.retention;
+    }
     status.textContent = result.schedule.enabled ? "Schedule saved." : "Schedule disabled.";
   } catch (error) {
     status.textContent = `${error.message} Reopen Backups to check saved settings before retrying.`;
@@ -294,7 +361,9 @@ async function watchBackup(row, identity, refreshFiles = false) {
       const backup = await response.json();
       if (!response.ok) throw new Error(backup.error || "Could not read backup status.");
       if (backup.status === "succeeded") {
-        row.querySelector('[data-field="lastBackup"]').textContent = localTimestamp(backup.completedOn);
+        for (const shared of document.querySelectorAll(`#backups-page tr[data-model-element="${row.dataset.modelElement}"]`)) {
+          shared.querySelector('[data-field="lastBackup"]').textContent = localTimestamp(backup.completedOn);
+        }
         status.textContent = "Backup completed.";
         if (refreshFiles) loadBackupFiles();
         return;

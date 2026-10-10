@@ -44,17 +44,28 @@ backup history. Disabling via the UI retains the policy with Enabled cleared.
 
 The title box reads CMDB Backups, with both words at the same heading size.
 The Inventory view similarly reads CMDB Inventory.
-Databases and Backup Vault have their own bordered panels below it.
-Both panels start collapsed. Click a title row or press Enter or Space while
+Applications, Databases, and Backup Vault have their own bordered panels, in that order.
+All three panels start collapsed. Click a title row or press Enter or Space while
 the row is focused to expand or collapse its contents. Databases reveals its host
 sections; Backup Vault reveals the directory, table, and Scan Filesystem button.
+Applications groups discovered declarations by host, then application. Only named
+directory deployments from `CMDB_COMPONENTS` and matched database connections from
+`CMDB_DATABASES` appear; installation roots, operating systems, MariaDB server
+directories, and applications without declared data are excluded. Previously
+recorded declarations remain eligible when later scans omit them, following the
+inventory's preservation rules.
+Each application table shows Component, Type, Location, Enabled, Cron Schedule,
+Update, Retention, Last Backup, Actions, and Status. Each directory or database
+has its own policy and Backup Now button. Defaults and scheduling behavior match
+Databases; declared databases share their existing database policy and backup history.
+Saving a database policy updates its displayed settings in both panels.
 The title row keeps `Most recent backup: YYYY-MM-DD HH:MM` right aligned,
 using the newest recorded successful backup's completion time in browser-local
 time. The timestamp is blank when no backups are recorded or files cannot be loaded.
-Backup Vault lists all recorded successful database backups,
+Backup Vault lists all recorded successful database and directory backups,
 newest completion first (newest record first when times match). Its columns are
 Date (`YYYY-MM-DD`) and Time (`HH:MM:SS` in browser-local time), Elapsed Time (`HH:MM:SS`), Machine (short hostname
-or IP address), Database, Filename (the file name only), Size, Status, and Actions.
+or IP address), Database / Component, Filename (the file name only), Size, Status, and Actions.
 Size uses the recorded byte count, displayed as B, KB, MB, GB, or larger units
 in steps of 1,024, with one decimal place for KB and above. Missing values are blank.
 The filter row below the column headings filters each data column as you type.
@@ -83,6 +94,31 @@ temporary; reopening or refreshing the table hides the Status column and require
 another scan.
 
 ## Execution
+
+Directory backups run on the application's host as `cmdbagent`, archiving the
+declared directory and its contents into a gzip-compressed tarball. Relative
+declarations already resolve to absolute inventory paths during discovery.
+The agent needs read access to the source and write access to the backup directory;
+missing directories or permission failures are recorded as failed attempts.
+Symlinks within the archive remain symlinks. Backing up `/` or a directory
+containing the backup destination is refused. Archives capture files while the
+application is running; they do not provide an application-consistent snapshot.
+
+The directory backup path is:
+
+```text
+/imports/disk1/backups/<host>/files/<host>-<application>-<directory>-YYYY-MM-DD_HH:MM:SS.tgz
+```
+
+For example, MyCount's `pages/marketing` directory on Wintermute produces
+`wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz`.
+The application name is lowercased and the directory name is the final path
+segment; unsafe filename characters are percent-encoded. Timestamps use UTC.
+Directory jobs use the same timeout, temporary-file publication, shared-filesystem
+locking, byte count, SHA-256 checksum, and no-overwrite behavior as database dumps.
+The Vault supports scanning and deleting either file type. Deleting an application
+retains directory backup history and archives and disables its directory policies.
+Retention deletion remains unimplemented for both backup types.
 
 Backup Now records an attempt and queues it on the web service's worker. Duplicate
 manual requests for the same active model item return the same attempt ID.

@@ -108,8 +108,13 @@
     </section>
   </main>
   <main id="backups-page" aria-labelledby="backups-heading" hidden>
-    <section class="backup-panel" aria-labelledby="database-heading">
-      <h3 id="database-heading">Live Databases</h3>
+    <details class="backup-panel" aria-labelledby="application-backups-heading">
+      <summary><h3 id="application-backups-heading">Applications</h3></summary>
+      <p id="application-backups-status" role="status">Loading application backups…</p>
+      <div id="application-backup-hosts"></div>
+    </details>
+    <details class="backup-panel" aria-labelledby="database-heading">
+      <summary><h3 id="database-heading">Databases</h3></summary>
       <p id="backups-status" role="status">Loading databases…</p>
       <div id="backup-hosts"></div>
       <template id="backup-host-template">
@@ -157,7 +162,7 @@
           <td><p class="backup-row-status" role="status"></p></td>
         </tr>
       </template>
-    </section>
+    </details>
     <details class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
       <summary>
         <h3 id="backup-files-heading">Backup Vault</h3>
@@ -173,7 +178,7 @@
               <th scope="col">Time</th>
               <th scope="col">Elapsed Time</th>
               <th scope="col">Machine</th>
-              <th scope="col">Database</th>
+              <th scope="col">Database / Component</th>
               <th scope="col">Filename</th>
               <th scope="col">Size</th>
               <th scope="col" data-field="fileStatus">Status</th>
@@ -201,6 +206,14 @@
         </div>
       </footer>
     </details>
+    <dialog id="delete-backup-dialog" aria-labelledby="delete-backup-heading" aria-describedby="delete-backup-message">
+      <h3 id="delete-backup-heading">Delete backup</h3>
+      <p id="delete-backup-message"></p>
+      <form method="dialog" class="page-actions">
+        <button value="cancel" autofocus>Cancel</button>
+        <button value="delete">Delete</button>
+      </form>
+    </dialog>
   </main>
   <main id="applications-page" aria-labelledby="applications-heading" hidden>
     <details class="backup-panel" aria-labelledby="deployed-applications-heading">

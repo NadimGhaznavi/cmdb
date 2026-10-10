@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 import logging
 import subprocess
 from threading import Event, Lock
@@ -11,6 +12,7 @@ from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.SSH import SSH
 from cmdb.interface.SSHDb import SSHDb
+from cmdb.interface.SSHFiles import SSHFiles
 
 
 def now():
@@ -28,9 +30,9 @@ class BackupManager:
         db = DbMgr()
         try:
             inventory = BackupDb(db)
-            item = next((row for row in inventory.databases() if row['modelElement'] == target), None)
+            item = inventory.target(target)
             if item is None:
-                raise LookupError('User database not found.')
+                raise LookupError('Backup target not found.')
             started = now()
             return item, inventory.start(target, started), started
         finally:
@@ -57,10 +59,17 @@ class BackupManager:
         try:
             host = quote((item['hostName'] or item['ipAddress']).split('.')[0]
                          if item['hostName'] else item['ipAddress'], safe='-_.')
-            name = quote(item['databaseName'], safe='-_.')
-            filename = f"mariadb-{host[:63]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.dump"
-            pathname = f'{host}/db/{name}/{filename}'
-            result = SSHDb(SSH(), Event()).backup_db(item['ipAddress'], item['databaseName'], pathname)
+            if item.get('kind') == 'directory':
+                application = quote(item['applicationName'].lower(), safe='-_.')
+                name = quote(PurePosixPath(item['pathname']).name, safe='-_.')
+                filename = f"{host[:63]}-{application[:80]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.tgz"
+                pathname = f'{host}/files/{filename}'
+                result = SSHFiles(SSH()).backup_directory(item['ipAddress'], item['pathname'], pathname)
+            else:
+                name = quote(item['databaseName'], safe='-_.')
+                filename = f"mariadb-{host[:63]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.dump"
+                pathname = f'{host}/db/{name}/{filename}'
+                result = SSHDb(SSH(), Event()).backup_db(item['ipAddress'], item['databaseName'], pathname)
         except subprocess.CalledProcessError as failure:
             error = (failure.stderr or f'Backup command exited with status {failure.returncode}.')[-4000:]
         except subprocess.TimeoutExpired:

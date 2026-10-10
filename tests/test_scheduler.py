@@ -43,7 +43,7 @@ class SchedulerTests(unittest.TestCase):
                 patch('cmdb.activity.Scheduler.BackupDb') as inventory, \
                 patch('cmdb.activity.Scheduler.BackupScheduleDb') as records, \
                 patch('cmdb.activity.Scheduler.Cron') as cron:
-            inventory.return_value.databases.return_value = [{'modelElement': 4}]
+            inventory.return_value.target.return_value = {'modelElement': 4}
             records.return_value.save.return_value = {'id': 12}
             cron.return_value.update.side_effect = OSError('Permission denied')
             with self.assertRaises(OSError):

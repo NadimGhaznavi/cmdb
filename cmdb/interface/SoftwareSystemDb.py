@@ -48,7 +48,7 @@ class SoftwareSystemDb:
     def delete_application(self, identity: int) -> list[int] | None:
         """Remove one software definition in the caller's transaction.
 
-        Keep database managers and their components as standalone inventory for
+        Keep backup targets and their components as standalone inventory for
         backup history. Return their disabled schedule IDs for cron cleanup.
         """
         if not self._db.query('SELECT id FROM SoftwareSystem WHERE id = %s FOR UPDATE', (identity,)):
@@ -60,7 +60,10 @@ class SoftwareSystemDb:
         for component in components:
             retained = False
             deployments = self._db.query(
-                'SELECT dc.id, dm.id AS dataManager, p.id AS dataProvider FROM DeployedComponent dc '
+                'SELECT dc.id, dm.id AS dataManager, p.id AS dataProvider, '
+                'EXISTS (SELECT 1 FROM Backup b WHERE b.modelElement=dc.id) AS hasBackup, '
+                'EXISTS (SELECT 1 FROM BackupSchedule bs WHERE bs.modelElement=dc.id) AS hasSchedule '
+                'FROM DeployedComponent dc '
                 'LEFT JOIN DataManager dm ON dm.id = dc.id '
                 'LEFT JOIN DataProvider p ON p.id = dc.id '
                 'WHERE dc.component = %s ORDER BY dc.id FOR UPDATE', (component['id'],))
@@ -75,7 +78,7 @@ class SoftwareSystemDb:
                     self._db.execute('DELETE FROM DataManagerDataPackage WHERE dataManager=%s', (deployment['id'],))
                     self._db.execute('DELETE FROM DataProvider WHERE id=%s', (deployment['id'],))
                     self._db.execute('DELETE FROM DataManager WHERE id=%s', (deployment['id'],))
-                elif deployment['dataManager'] is not None:
+                elif deployment['dataManager'] is not None or deployment['hasBackup'] or deployment['hasSchedule']:
                     retained = True
                     policies = self._db.query(
                         'SELECT bs.id FROM BackupSchedule bs JOIN ModelElement me ON me.id = bs.modelElement '

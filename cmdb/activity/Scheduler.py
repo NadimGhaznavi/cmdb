@@ -26,8 +26,8 @@ class Scheduler:
             db = DbMgr()
             try:
                 with db.transaction():
-                    if not any(item['modelElement'] == modelElement for item in BackupDb(db).databases()):
-                        raise LookupError('User database not found.')
+                    if BackupDb(db).target(modelElement) is None:
+                        raise LookupError('Backup target not found.')
                     schedule = BackupScheduleDb(db).save(modelElement, enabled, expression, retention)
                     Cron().update(schedule['id'], enabled, expression)
                 return schedule

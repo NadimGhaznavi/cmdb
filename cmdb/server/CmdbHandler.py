@@ -149,7 +149,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 try:
                     backups = BackupDb(db)
                     if path == '/api/backups':
-                        result = {'databases': backups.databases(), 'hosts': backups.hosts()}
+                        result = {'databases': backups.databases(), 'hosts': backups.hosts(),
+                                  'applications': backups.applications()}
                     elif path == '/api/backups/files':
                         result = {'files': backups.files(), 'directory': DCMDB.BACKUP_DIR}
                         for record in result['files']:
@@ -623,15 +624,13 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 if record is None or record['status'] != 'succeeded':
                     self.respond(404, b'{"error":"Backup file record not found."}', 'application/json')
                     return
-                if BackupFiles().scan([record]) != ['Missing']:
-                    self.respond(409, b'{"error":"The backup file exists. Its record was kept."}', 'application/json')
-                    return
+                BackupFiles().delete(record)
                 backups.delete(int(identity))
             finally:
                 db.close()
         except (OSError, ValueError, subprocess.SubprocessError, pymysql.MySQLError):
-            logging.exception('Could not delete missing backup record')
-            self.respond(503, b'{"error":"Could not check the file or delete its record. Try again."}', 'application/json')
+            logging.exception('Could not delete backup')
+            self.respond(503, b'{"error":"Could not delete the backup file or its record. Refresh before retrying."}', 'application/json')
             return
         self.respond(200, b'{"status":"deleted"}', 'application/json')
 

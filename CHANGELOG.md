@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-10 @ 09:34
+
 This release is dedicated to [Louise Hay](https://en.wikipedia.org/wiki/Louise_Hay).
 
 - Add a collapsed Applications panel above Databases for declared application

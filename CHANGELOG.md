@@ -7,6 +7,23 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-10 @ 09:34
+
+This release is dedicated to [Louise Hay](https://en.wikipedia.org/wiki/Louise_Hay).
+
+- Add a collapsed Applications panel above Databases for declared application
+  directories and databases, with per-target scheduling and Backup Now controls.
+  Archive directories as gzip tarballs under `<host>/files/`, show them in the
+  Backup Vault, and preserve archives and history when an application is removed.
+  Declared databases share existing policies and keep their `<host>/db/` paths.
+
+- Make the Databases panel collapsible and closed by default, matching Backup Vault.
+
+- Rename the Backups page's Live Databases section to Databases.
+
+- Add Delete to every Backup Vault row with Cancel / Delete confirmation,
+  removing the selected dump and its record, including records for missing files.
+
 ## [1.3.1] - 2026-10-10 @ 08:24
 
 The **Karen** is dedicated to [Karen Uhlenbeck](https://en.wikipedia.org/wiki/Karen_Uhlenbeck).

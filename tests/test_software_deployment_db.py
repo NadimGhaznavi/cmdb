@@ -16,6 +16,7 @@ import pymysql
 from cmdb.entity.Machine import Machine
 from cmdb.entity.Backup import Backup
 from cmdb.interface.BackupDb import BackupDb
+from cmdb.interface.BackupScheduleDb import BackupScheduleDb
 from cmdb.activity.Scheduler import Scheduler
 from crontab import CronTab
 from cmdb.entity.SoftwareSystem import SoftwareSystem
@@ -47,6 +48,91 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 self.db.execute(statement)
         self.machines = MachineDb(self.db)
         self.software = SoftwareDeploymentDb(self.db)
+
+    def test_application_backup_targets_include_only_declarations_and_share_database_policy(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='wintermute'))
+        other = self.machines.upsert(Machine('192.0.2.8'))
+        DataManagerDb(self.db).record_mariadb(machine, '11.8', '/data/', ['mycount', 'unrelated', 'mysql'])
+        DataManagerDb(self.db).record_mariadb(other, '11.8', '/data/', ['mycount'])
+        app = SoftwareSystemDb(self.db).create_application('MyCount')
+        plain = SoftwareSystemDb(self.db).create_application('Plain')
+        self.software.record_application(machine, plain, '/opt/prod/plain', '1.0')
+        self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                         components=(('Marketing', 'pages/marketing'),),
+                                         databases=(('MyCount', 'mycount'),))
+        inventory = BackupDb(self.db)
+        rows = inventory.applications()
+        self.assertEqual({row['kind'] for row in rows}, {'directory', 'database'})
+        self.assertEqual({row['applicationName'] for row in rows}, {'MyCount'})
+        self.assertEqual({row['machine'] for row in rows}, {machine})
+        component = next(row for row in rows if row['kind'] == 'directory')
+        catalog = next(row for row in rows if row['kind'] == 'database')
+        self.assertEqual(component['pathname'], '/opt/prod/mycount/pages/marketing')
+        self.assertEqual(catalog['databaseName'], 'mycount')
+        self.assertEqual(inventory.target(component['modelElement'])['kind'], 'directory')
+        self.assertEqual(inventory.target(catalog['modelElement'])['databaseName'], 'mycount')
+        self.assertIsNone(inventory.target(plain))
+        started = datetime(2026, 10, 7, 15, 53, 1)
+        relative = 'wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz'
+        identity = inventory.start(component['modelElement'], started)
+        inventory.finish(identity, started, result=dict(pathname=relative, sizeBytes=123, checksum='a' * 64))
+        policy = BackupScheduleDb(self.db).save(component['modelElement'], True, '0 12 * * *', '1-week')
+        BackupScheduleDb(self.db).save(catalog['modelElement'], True, '5 12 * * *', '2-weeks')
+        rows = inventory.applications()
+        self.assertEqual(next(row for row in rows if row['kind'] == 'directory')['lastBackup'], started)
+        declared_db = next(row for row in rows if row['kind'] == 'database')
+        standalone_db = next(row for row in inventory.databases() if row['modelElement'] == catalog['modelElement'])
+        self.assertEqual(declared_db['scheduleId'], standalone_db['scheduleId'])
+        self.assertEqual(declared_db['retention'], '2-weeks')
+        self.assertEqual(inventory.files()[0]['pathname'], relative)
+        self.software.record_application(machine, app, '/opt/prod/mycount', '2.0',
+                                         components=(('Marketing', 'pages/marketing'),),
+                                         databases=(('MyCount', 'mycount'),))
+        rows = inventory.applications()
+        self.assertEqual(next(row for row in rows if row['kind'] == 'directory')['modelElement'], component['modelElement'])
+        release = next(row for row in rows if row['kind'] == 'directory')['application']
+        with self.db.transaction():
+            disabled = SoftwareSystemDb(self.db).delete_application(release)
+        self.assertIn(policy['id'], disabled)
+        self.assertFalse(BackupScheduleDb(self.db).get(policy['id'])['enabled'])
+        self.assertEqual(inventory.applications(), [])
+        self.assertEqual(inventory.files()[0]['pathname'], relative)
+        self.assertIsNotNone(inventory.get(identity))
+
+    def test_scheduled_directory_backup_dispatches_and_persists_archive(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='wintermute'))
+        app = SoftwareSystemDb(self.db).create_application('MyCount')
+        self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                         components=(('Marketing', 'pages/marketing'),))
+        target = BackupDb(self.db).components()[0]['modelElement']
+        def connection():
+            db = DbMgr.__new__(DbMgr)
+            db._connection = pymysql.connect(
+                unix_socket=os.environ['CMDB_TEST_DB_SOCKET'], user='root', database=self.database,
+                autocommit=True, cursorclass=pymysql.cursors.DictCursor)
+            return db
+        tab = CronTab(tab='')
+        with patch('cmdb.activity.Scheduler.DbMgr', side_effect=connection), \
+                patch('cmdb.activity.BackupManager.DbMgr', side_effect=connection), \
+                patch('cmdb.interface.Cron.CronTab', return_value=tab), \
+                patch('cmdb.activity.BackupManager.SSHFiles') as remote:
+            remote.return_value.backup_directory.return_value = dict(
+                pathname='wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz',
+                sizeBytes=42, checksum='a' * 64)
+            scheduler = Scheduler()
+            policy = scheduler.update(target, True, '15 3 * * 0', '2-weeks')
+            self.assertEqual(len(tab), 1)
+            self.assertTrue(scheduler.run(policy['id']))
+            remote.return_value.backup_directory.assert_called_once()
+            archive = BackupDb(self.db).files()[0]
+            self.assertEqual(archive['sizeBytes'], 42)
+            self.assertTrue(archive['pathname'].startswith('wintermute/files/'))
+            self.assertIsNotNone(BackupDb(self.db).components()[0]['lastBackup'])
+            scheduler.update(target, False, '15 3 * * 0', '2-weeks')
+            self.assertEqual(len(tab), 0)
+            remote.reset_mock()
+            self.assertTrue(scheduler.run(policy['id']))
+            remote.assert_not_called()
 
     def test_application_database_clients_match_same_machine_and_survive_upgrade(self):
         with self.db.transaction():

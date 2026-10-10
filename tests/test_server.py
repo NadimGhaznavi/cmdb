@@ -377,9 +377,12 @@ class ServerTests(unittest.TestCase):
     def test_backup_get_serializes_timestamps_and_missing_attempt(self, db, records):
         records.return_value.databases.return_value = [{'modelElement': 7, 'lastBackup': datetime(2026, 9, 28, 14)}]
         records.return_value.hosts.return_value = []
+        records.return_value.applications.return_value = [{'modelElement': 8, 'kind': 'directory',
+                                                         'lastBackup': datetime(2026, 9, 28, 14)}]
         status, body = self.get('/api/backups')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['databases'][0]['lastBackup'], '2026-09-28T14:00:00+00:00')
+        self.assertEqual(json.loads(body)['applications'][0]['lastBackup'], '2026-09-28T14:00:00+00:00')
         records.return_value.files.return_value = [{'id': 42, 'backupTime': datetime(2026, 9, 28, 14),
                                                    'hostName': 'sally.example', 'databaseName': 'cmdb',
                                                    'pathname': 'sally/db/recorded.dump', 'sizeBytes': 1536}]
@@ -398,16 +401,15 @@ class ServerTests(unittest.TestCase):
     @patch('cmdb.server.CmdbHandler.BackupFiles')
     @patch('cmdb.server.CmdbHandler.BackupDb')
     @patch('cmdb.server.CmdbHandler.DbMgr')
-    def test_vault_scan_and_delete_only_missing_records(self, db, records, files):
+    def test_vault_scan_and_delete_files_before_records(self, db, records, files):
         records.return_value.files.return_value = [{'id': 42, 'pathname': 'host/db/db/file.dump'}]
         records.return_value.get.return_value = dict(id=42, status='succeeded', pathname='host/db/db/file.dump')
         for method, path, statuses, expected in [
             ('POST', '/api/backups/files/scan', ['Missing'], 200),
-            ('DELETE', '/api/backups/files/42', ['Found'], 409),
             ('DELETE', '/api/backups/files/42', PermissionError('denied'), 503),
-            ('DELETE', '/api/backups/files/42', ['Missing'], 200),
+            ('DELETE', '/api/backups/files/42', None, 200),
         ]:
-            files.return_value.scan.side_effect = statuses if isinstance(statuses, Exception) else None
+            files.return_value.delete.side_effect = statuses if isinstance(statuses, Exception) else None
             files.return_value.scan.return_value = statuses
             connection = HTTPConnection(*self.server.server_address)
             try:
@@ -422,6 +424,21 @@ class ServerTests(unittest.TestCase):
             finally:
                 connection.close()
         records.return_value.delete.assert_called_once_with(42)
+        files.return_value.delete.assert_called_with(records.return_value.get.return_value)
+        records.return_value.delete.reset_mock()
+        files.return_value.delete.reset_mock()
+        for record in (None, dict(id=42, status='running'), dict(id=42, status='failed')):
+            records.return_value.get.return_value = record
+            connection = HTTPConnection(*self.server.server_address)
+            try:
+                connection.request('DELETE', '/api/backups/files/42')
+                response = connection.getresponse()
+                self.assertEqual(response.status, 404)
+                response.read()
+            finally:
+                connection.close()
+        files.return_value.delete.assert_not_called()
+        records.return_value.delete.assert_not_called()
 
     @patch('cmdb.server.CmdbHandler.Scheduler')
     def test_schedule_update_and_delete(self, scheduler):

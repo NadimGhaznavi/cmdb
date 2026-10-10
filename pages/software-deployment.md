@@ -204,8 +204,9 @@ Repeated scans reuse records, and version changes relink observed deployments
 while preserving their IDs and other hosts' release references. Changed paths
 create additional deployments. Omitted, removed, or invalid declarations retain
 previously recorded deployments. The application and its filesystem components
-are written in the same transaction. This increment records inventory only;
-filesystem backup execution is outside its scope.
+are written in the same transaction. Declared directory deployments are eligible
+for scheduled or manual tarball backups in the Backups page's Applications panel;
+see [backups]({{ site.baseurl }}{% link pages/backups.md %}#execution).
 
 The constants file may declare databases used by the application:
 

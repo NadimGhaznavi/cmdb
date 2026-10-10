@@ -15,7 +15,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/applications` | Registers a named SoftwareSystem and queues its discovery; returns HTTP 201 with id, name, and scanId. |
 | `DELETE /api/applications/<id>` | Removes one registered SoftwareSystem and its application deployments; returns HTTP 404 for a missing ID. |
 | `POST /api/applications/scan` | Queues application discovery on inventoried hosts; returns HTTP 202 with scanId. |
-| `GET /api/backups` | Lists MariaDB user databases, model IDs, latest attempts, and last successful completion times. |
+| `GET /api/backups` | Lists MariaDB user databases and declared application directory/database targets, policies, latest attempts, and last successful completion times. |
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
 | `GET /api/patching/report` | Lists the most recent 100 patch jobs, newest first, with elapsed time and results. |
@@ -24,9 +24,9 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/patch-schedules` | Saves a machine's enabled flag and five-field cron expression. |
 | `POST /api/patching` | Queues a patch-and-reboot job for a machine ID; returns HTTP 202 and jobId. |
 | `DELETE /api/databases/<id>` | Drops an inventoried user database after exact-name confirmation; protects cmdb and system databases. |
-| `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
+| `GET /api/backups/files` | Lists successful database dumps and directory tarballs newest first with completion time and inventory names. |
 | `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |
-| `DELETE /api/backups/files/<id>` | Rechecks a missing file and deletes its Backup record only. |
+| `DELETE /api/backups/files/<id>` | Deletes a successful backup's dump file and then its Backup record; also cleans up records for missing files. |
 | `POST /api/backup-schedules` | Saves modelElement, enabled, cron expression, and retention; creates or removes the schedule's cron entry. |
 | `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |
@@ -97,7 +97,13 @@ Inventory scans also check applications after collecting each host’s details
 and MariaDB inventory.
 See [application discovery]({{ site.baseurl }}{% link pages/software-deployment.md %}#application-discovery)
 for the installation convention.
-The Live Databases section groups stored databases into collapsible host sections,
+The Backups page starts with an Applications panel above Databases. It starts
+collapsed and groups declared directory and database backup targets by host and
+application. Each target uses the same scheduling and manual backup controls as
+Databases. Directory archives go under `<host>/files/`; database paths stay under
+`<host>/db/`. Declared database rows share their existing database policy and history.
+The Databases panel starts collapsed; click its heading to expand or collapse it.
+It groups stored databases into collapsible host sections,
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
 as the inventory graph, or the IP address when unnamed. Each section contains

@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 import nmap
 
-from cmdb.activity.sources.ApplicationSource import ApplicationSource, application_components, application_metadata, application_version
+from cmdb.activity.sources.ApplicationSource import ApplicationSource, application_databases, application_components, application_metadata, application_version
 from cmdb.activity.sources.HostSource import HostSource
 from cmdb.activity.sources.MariaDBSource import MariaDBSource
 from cmdb.activity.sources.NetworkSource import NetworkSource
@@ -65,6 +65,22 @@ class ApplicationSourceTests(TestCase):
         self.assertEqual(application_components('CMDB_COMPONENTS = [("good", "path"), ("bad", 3)]'),
                          (("good", "path"),))
 
+    def test_databases_are_literal_validated_and_case_preserving(self):
+        source = ('raise RuntimeError("never run")\nclass App:\n'
+                  '    CMDB_DATABASES: tuple = (("MyCount", "mycount"), '
+                  '("MyCount", "mycount"), ("Other", "MyCount"))')
+        self.assertEqual(application_databases(source), (("MyCount", "mycount"), ("Other", "MyCount")))
+        for declaration in ('get_databases()', 'None', '"mycount"', '(("name",),)',
+                            '(("", "db"),)', '((3, "db"),)', '(("name", "a\\nb"),)',
+                            repr((("name", "x" * 65),))):
+            with self.subTest(declaration=declaration):
+                self.assertEqual(application_databases('CMDB_DATABASES = ' + declaration), ())
+        self.assertEqual(application_databases('def f():\n    CMDB_DATABASES = (("x", "db"),)'), ())
+        source = ApplicationSource()
+        source._ssh = Mock()
+        source._ssh.run.return_value = result('VERSION = "1.0"\nCMDB_DATABASES = (("MyCount", "mycount"),)')
+        self.assertEqual(source.collect('192.0.2.7', 'MyCount')[-1], (("MyCount", "mycount"),))
+
     def test_literal_versions_are_parsed_without_execution(self):
         for source in ('VERSION = "1.2.3"', 'class App:\n    VERSION: Final[str] = "1.2.3"',
                        'raise RuntimeError("never run")\nVERSION = "1.2.3"'):
@@ -86,13 +102,13 @@ class ApplicationSourceTests(TestCase):
             self.assertEqual(source.collect('192.0.2.7', 'MyCount')[0], 'not detected')
             constants.write_text('class App:\n    VERSION = "1.2.3"\n    CMDB_COMPONENTS = (("Screenshots", "pages/marketing"),)')
             self.assertEqual(source.collect('192.0.2.7', 'MyCount'),
-                             ('observed', str(Path(root) / 'mycount'), SoftwareSystem(version='1.2.3'), (('Screenshots', 'pages/marketing'),)))
+                             ('observed', str(Path(root) / 'mycount'), SoftwareSystem(version='1.2.3'), (('Screenshots', 'pages/marketing'),), ()))
 
     def test_cmdb_convention_and_failed_read(self):
         source = ApplicationSource()
         source._ssh = Mock()
         source._ssh.run.return_value = result(Path('cmdb/constants/DCMDB.py').read_text())
-        outcome, pathname, system, components = source.collect('192.0.2.7', 'CMDB')
+        outcome, pathname, system, components, databases = source.collect('192.0.2.7', 'CMDB')
         self.assertEqual((outcome, pathname), ('observed', '/opt/prod/cmdb'))
         self.assertEqual(system.version, DCMDB.VERSION)
         self.assertEqual(system.type, DCMDB.CMDB_TYPE)
@@ -108,7 +124,7 @@ class ApplicationSourceTests(TestCase):
         source = ApplicationSource()
         source._ssh = Mock()
         for name in ('../escape', 'My Count'):
-            self.assertEqual(source.collect('192.0.2.7', name), ('unsupported name', None, None, ()))
+            self.assertEqual(source.collect('192.0.2.7', name), ('unsupported name', None, None, (), ()))
         source._ssh.run.assert_not_called()
 
 

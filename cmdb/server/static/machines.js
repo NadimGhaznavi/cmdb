@@ -190,7 +190,7 @@ function renderApplicationBackups(items) {
     const hostSection = document.createElement('details');
     hostSection.className = 'backup-host';
     const heading = document.createElement('summary');
-    heading.textContent = `${host} - ${applications.size} Application${applications.size === 1 ? '' : 's'}`;
+    heading.textContent = `${host} (${applications.size})`;
     hostSection.append(heading);
     for (const application of [...applications.values()].sort((left, right) => left.name.localeCompare(right.name))) {
       const section = document.getElementById('backup-host-template').content.cloneNode(true);

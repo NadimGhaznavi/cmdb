@@ -201,6 +201,14 @@
         </div>
       </footer>
     </details>
+    <dialog id="delete-backup-dialog" aria-labelledby="delete-backup-heading" aria-describedby="delete-backup-message">
+      <h3 id="delete-backup-heading">Delete backup</h3>
+      <p id="delete-backup-message"></p>
+      <form method="dialog" class="page-actions">
+        <button value="cancel" autofocus>Cancel</button>
+        <button value="delete">Delete</button>
+      </form>
+    </dialog>
   </main>
   <main id="applications-page" aria-labelledby="applications-heading" hidden>
     <details class="backup-panel" aria-labelledby="deployed-applications-heading">

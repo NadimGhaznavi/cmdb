@@ -67,9 +67,8 @@ async function loadBackupFiles() {
       const actions = document.createElement('td');
       const remove = document.createElement('button');
       remove.type = 'button';
-      remove.textContent = 'Delete Record';
-      remove.hidden = true;
-      remove.addEventListener('click', () => deleteBackupRecord(row, file.id));
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', () => deleteBackupRecord(row, file));
       actions.append(remove);
       row.append(state, actions);
       body.append(row);
@@ -95,7 +94,6 @@ async function scanBackupFiles() {
   status.textContent = 'Scanning backup files…';
   for (const row of document.querySelectorAll('#backup-files-rows tr')) {
     row.querySelector('[data-field="fileStatus"]').textContent = '';
-    row.querySelector('button').hidden = true;
   }
   filterBackupFiles();
   try {
@@ -107,7 +105,6 @@ async function scanBackupFiles() {
     for (const row of document.querySelectorAll('#backup-files-rows tr')) {
       const state = statuses.get(row.dataset.backupId) || '';
       row.querySelector('[data-field="fileStatus"]').textContent = state;
-      row.querySelector('button').hidden = state !== 'Missing';
     }
     filterBackupFiles();
     status.textContent = 'Filesystem scan complete.';
@@ -118,16 +115,24 @@ async function scanBackupFiles() {
   }
 }
 
-async function deleteBackupRecord(row, identity) {
+async function deleteBackupRecord(row, file) {
+  const dialog = document.getElementById('delete-backup-dialog');
+  document.getElementById('delete-backup-message').textContent = `Delete backup ${file.filename}? This removes the backup file and its record.`;
+  dialog.returnValue = 'cancel';
+  const confirmed = new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'delete'), { once: true });
+  });
+  dialog.showModal();
+  if (!await confirmed) return;
   const button = row.querySelector('button');
   const status = document.getElementById('backup-files-status');
   button.disabled = true;
   try {
-    const response = await fetch(`/api/backups/files/${identity}`, { method: 'DELETE', signal: AbortSignal.timeout(45000) });
+    const response = await fetch(`/api/backups/files/${file.id}`, { method: 'DELETE', signal: AbortSignal.timeout(45000) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not delete the backup record.');
     row.remove();
-    status.textContent = 'Backup record deleted.';
+    status.textContent = 'Backup deleted.';
     loadBackups();
     loadBackupFiles();
   } catch (error) {

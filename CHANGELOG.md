@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add Delete to every Backup Vault row with Cancel / Delete confirmation,
+  removing the selected dump and its record, including records for missing files.
+
 ## [1.3.1] - 2026-10-10 @ 08:24
 
 The **Karen** is dedicated to [Karen Uhlenbeck](https://en.wikipedia.org/wiki/Karen_Uhlenbeck).

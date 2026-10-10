@@ -26,7 +26,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `DELETE /api/databases/<id>` | Drops an inventoried user database after exact-name confirmation; protects cmdb and system databases. |
 | `GET /api/backups/files` | Lists successful database backups newest first with completion time and inventory names. |
 | `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |
-| `DELETE /api/backups/files/<id>` | Rechecks a missing file and deletes its Backup record only. |
+| `DELETE /api/backups/files/<id>` | Deletes a successful backup's dump file and then its Backup record; also cleans up records for missing files. |
 | `POST /api/backup-schedules` | Saves modelElement, enabled, cron expression, and retention; creates or removes the schedule's cron entry. |
 | `DELETE /api/backup-schedules/<id>` | Removes a policy and its cron entry, retaining backup history. |
 | `POST /api/machines/hostname` | Saves `hostName` for an existing `ipAddress` and returns the updated machine. |

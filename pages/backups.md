@@ -72,9 +72,12 @@ Filesystem is clicked. It checks each recorded path through the local backup age
 displaying Found or Missing.
 This checks filesystem metadata only, without reading dump contents or checking checksums.
 Access errors report a failed scan rather than marking files missing.
-Each Missing row offers Delete Record to clean up after manual file deletion.
-Deletion rechecks the path, removes only that Backup record, and never deletes a file,
-inventory item, or schedule. Deleted records stay gone on refresh. Scan status is
+Every row offers Delete with a simple Cancel / Delete confirmation naming the file.
+Deletion removes the recorded dump file through the local backup agent, then its
+Backup record. A missing file still allows record cleanup. File access failures
+keep the record; refresh before retrying after an error. Deletion is confined to
+regular files inside the backup directory and preserves inventory and schedules.
+Deleted records stay gone on refresh. Scan status is
 temporary; reopening or refreshing the table hides the Status column and requires
 another scan.
 
@@ -136,7 +139,8 @@ recovered or retried. If completion cannot be saved, the manager logs the error;
 the standalone runner exits unsuccessfully.
 
 Mirroring is provided by the storage system outside CMDB. Existing dump files
-are never overwritten or removed by this workflow.
+are never overwritten by backup creation. Vault deletion explicitly removes a
+selected dump.
 
 ## Delete a database
 

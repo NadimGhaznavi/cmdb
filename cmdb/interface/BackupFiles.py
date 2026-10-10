@@ -9,6 +9,14 @@ from cmdb.interface.SSH import SSH
 
 
 class BackupFiles:
+    def delete(self, record: dict) -> None:
+        path = PurePosixPath(record['pathname'])
+        if path.is_absolute() or '..' in path.parts or not path.parts:
+            raise ValueError('Invalid backup pathname.')
+        script = (Path(__file__).parent / 'scripts/delete-backup.py').read_text()
+        SSH().run('127.0.0.1', shlex.join(['python3', '-c', script]),
+                  input=json.dumps({'directory': DCMDB.BACKUP_DIR, 'pathname': str(path)}))
+
     def scan(self, records: list[dict]) -> list[str]:
         paths = []
         for record in records:

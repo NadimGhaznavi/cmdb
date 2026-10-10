@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-10 @ 08:15
+
 The **Julia** release is dedicated to [Julia Robinson](https://en.wikipedia.org/wiki/Julia_Robinson).
 
 - Show an application's discovered database names above its Component table in

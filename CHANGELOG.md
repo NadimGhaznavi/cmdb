@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+The **Julia** release is dedicated to [Julia Robinson](https://en.wikipedia.org/wiki/Julia_Robinson).
+
 - Show an application's discovered database names above its Component table in
   the Inventory detail sidebar, comma-separated when more than one is present.
 

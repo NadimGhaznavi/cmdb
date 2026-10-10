@@ -48,6 +48,53 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.machines = MachineDb(self.db)
         self.software = SoftwareDeploymentDb(self.db)
 
+    def test_application_database_clients_match_same_machine_and_survive_upgrade(self):
+        with self.db.transaction():
+            machine = self.machines.upsert(Machine('192.0.2.7'))
+            other = self.machines.upsert(Machine('192.0.2.8'))
+            app = SoftwareSystemDb(self.db).create_application('MyCount')
+            remote = DataManagerDb(self.db).record_mariadb(other, '11.8', '/data/', ['mycount'])
+            self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                             databases=(('MyCount', 'mycount'),))
+            self.assertEqual(self.db.query('SELECT id FROM DataProvider'), [])
+            server = DataManagerDb(self.db).record_mariadb(machine, '11.8', '/data/', ['mycount'])
+            self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                             databases=(('MyCount', 'MyCount'), ('Missing', 'absent')))
+            self.assertEqual(self.db.query('SELECT id FROM DataProvider'), [])
+            self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                             databases=(('MyCount', 'mycount'),))
+        provider = self.db.query('SELECT id FROM DataProvider')[0]['id']
+        connection = self.db.query('SELECT * FROM ProviderConnection')[0]
+        self.assertEqual((connection['dataProvider'], connection['dataManager']), (provider, server))
+        self.assertEqual(self.db.query('SELECT namespace, name FROM ModelElement WHERE id=%s',
+                                      (connection['id'],)), [{'namespace': provider, 'name': 'MyCount'}])
+        catalog = self.db.query('SELECT dp.dataPackage FROM DataManagerDataPackage dp WHERE dp.dataManager=%s',
+                               (server,))[0]['dataPackage']
+        self.assertEqual(self.db.query('SELECT dataPackage FROM DataManagerDataPackage WHERE dataManager=%s',
+                                      (provider,)), [{'dataPackage': catalog}])
+        backup = BackupDb(self.db).start(catalog, datetime(2026, 10, 10))
+        with self.db.transaction():
+            self.software.record_application(machine, app, '/opt/prod/mycount', '1.0', databases=(('MyCount', 'mycount'),))
+            self.software.record_application(machine, app, '/opt/prod/mycount', '2.0', databases=(('MyCount', 'mycount'),))
+            SoftwareSystemDb(self.db).prune_unused(set())
+        self.assertEqual(self.db.query('SELECT id FROM DataProvider'), [{'id': provider}])
+        self.assertEqual(self.db.query('SELECT * FROM ProviderConnection'), [connection])
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DeployedComponentsUsage'), [{'n': 1}])
+        self.assertEqual(self.db.query('SELECT ss.version FROM DeployedComponent dc '
+                                      'JOIN ModelElement me ON me.id=dc.component '
+                                      'JOIN SoftwareSystem ss ON ss.id=me.namespace WHERE dc.id=%s',
+                                      (provider,)), [{'version': '2.0'}])
+        release = self.db.query('SELECT me.namespace FROM ModelElement me JOIN DeployedComponent dc '
+                                'ON dc.component=me.id WHERE dc.id=%s', (provider,))[0]['namespace']
+        with self.db.transaction():
+            SoftwareSystemDb(self.db).delete_application(release)
+        self.assertEqual(self.db.query('SELECT id FROM DataProvider'), [])
+        self.assertEqual(self.db.query('SELECT id FROM ProviderConnection'), [])
+        self.assertEqual(self.db.query('SELECT * FROM DeployedComponentsUsage'), [])
+        self.assertEqual({row['id'] for row in self.db.query('SELECT id FROM DataManager')}, {server, remote})
+        self.assertEqual(self.db.query('SELECT id FROM Backup'), [{'id': backup}])
+        self.assertEqual(len(BackupDb(self.db).databases()), 2)
+
     def test_pruning_old_application_release_preserves_shared_active_release(self):
         definitions = SoftwareSystemDb(self.db)
         with self.db.transaction():
@@ -90,13 +137,13 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             self.software.record_operating_system(machine, SoftwareSystem(type='linux', subtype='debian', version='13.0'))
             self.software.record_operating_system(machine, SoftwareSystem(type='linux', subtype='debian', version='13.1'))
             manager = DataManagerDb(self.db).record_mariadb(machine, '11.8.1-MariaDB', '/var/lib/mysql/', ['app'])
-            schema = self.db.query('SELECT id FROM `Schema`')[0]['id']
+            schema = self.db.query('SELECT id FROM `Catalog`')[0]['id']
             backup = BackupDb(self.db).start(schema, datetime(2026, 10, 4))
             DataManagerDb(self.db).record_mariadb(machine, '11.8.2-MariaDB', '/var/lib/mysql/', ['app'])
             removed = definitions.prune_unused(set())
         self.assertEqual({row['version'] for row in removed}, {'13.0', '11.8.1-MariaDB'})
         self.assertEqual(self.db.query('SELECT id FROM DataManager'), [{'id': manager}])
-        self.assertEqual(self.db.query('SELECT id FROM `Schema`'), [{'id': schema}])
+        self.assertEqual(self.db.query('SELECT id FROM `Catalog`'), [{'id': schema}])
         self.assertEqual(self.db.query('SELECT id FROM Backup'), [{'id': backup}])
 
     def test_machine_environment_tag_create_update_delete_and_discovery_preservation(self):
@@ -562,9 +609,9 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
 
     def test_schema_uses_exact_class_names_and_keeps_inherited_fields_on_parents(self):
         tables = {next(iter(row.values())) for row in self.db.query("SHOW TABLES")}
-        self.assertEqual(tables, {"DiscoverySchedule", "PatchSchedule", "Patch", "Backup", "BackupSchedule", "Package", "Schema", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
+        self.assertEqual(tables, {"DataProvider", "ProviderConnection", "DeployedComponentsUsage", "Schema", "DiscoverySchedule", "PatchSchedule", "Patch", "Backup", "BackupSchedule", "Package", "Catalog", "DataManager", "DataManagerDataPackage", "TaggedValue", "ModelElement", "Namespace", "Machine", "SoftwareSystem", "Component", "DeployedComponent"})
         self.assertIn('name', {row['Field'] for row in self.db.query('SHOW COLUMNS FROM ModelElement')})
-        for table in ("Package", "Schema", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
+        for table in ("Package", "Catalog", "DataManager", "Component", "SoftwareSystem", "Machine", "DeployedComponent"):
             columns = {row["Field"] for row in self.db.query(f"SHOW COLUMNS FROM `{table}`")}
             self.assertNotIn("namespace", columns)
             self.assertNotIn("ownedElement", columns)
@@ -573,7 +620,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
     def test_backup_schedule_references_databases_and_deployments_with_independent_identity(self):
         machine = self.machines.upsert(Machine('192.168.0.7'))
         manager = DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
-        schema = self.db.query('SELECT id FROM `Schema`')[0]['id']
+        schema = self.db.query('SELECT id FROM `Catalog`')[0]['id']
         for target in (schema, manager):
             self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
         rows = self.db.query('SELECT * FROM BackupSchedule ORDER BY id')
@@ -776,13 +823,13 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         b = record(second)
         self.assertEqual(record(first), a)
         self.assertNotEqual(a, b)
-        schemas = self.db.query('SELECT s.id, me.name, me.namespace FROM `Schema` s '
+        schemas = self.db.query('SELECT s.id, me.name, me.namespace FROM `Catalog` s '
                                 'JOIN ModelElement me ON me.id=s.id ORDER BY s.id')
         self.assertEqual(len(schemas), 8)
         self.assertEqual({row['namespace'] for row in schemas}, {a, b})
         self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DataManagerDataPackage')[0]['n'], 8)
         self.assertEqual(record(first, '11.8.4-MariaDB', ['newdb']), a)
-        self.assertEqual(len(self.db.query('SELECT id FROM `Schema`')), 9)
+        self.assertEqual(len(self.db.query('SELECT id FROM `Catalog`')), 9)
         versions = self.db.query('SELECT dc.id, ss.version FROM DataManager dm '
             'JOIN DeployedComponent dc ON dc.id=dm.id JOIN Component c ON c.id=dc.component '
             'JOIN ModelElement me ON me.id=c.id JOIN SoftwareSystem ss ON ss.id=me.namespace ORDER BY dc.id')
@@ -797,7 +844,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
     def test_mariadb_failure_rolls_back_its_whole_observation(self):
         with self.assertRaises(pymysql.IntegrityError), self.db.transaction():
             DataManagerDb(self.db).record_mariadb(999999, '11.8.3-MariaDB', '/data/', ['cmdb'])
-        for table in ('SoftwareSystem', 'Component', 'DeployedComponent', 'DataManager', 'Schema'):
+        for table in ('SoftwareSystem', 'Component', 'DeployedComponent', 'DataManager', 'Catalog'):
             self.assertEqual(self.db.query(f'SELECT COUNT(*) AS n FROM `{table}`')[0]['n'], 0)
 
     def test_data_packages_preserve_many_to_many_and_parent_identity(self):
@@ -811,20 +858,20 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         packages = []
         for name in ('cmdb', 'reporting'):
             identity = NamespaceDb(self.db).create_package(name=name)
-            self.db.execute('INSERT INTO `Schema` (id) VALUES (%s)', (identity,))
+            self.db.execute('INSERT INTO `Catalog` (id) VALUES (%s)', (identity,))
             packages.append(identity)
         for manager in managers:
             for package in packages:
                 self.db.execute('INSERT INTO DataManagerDataPackage (dataManager, dataPackage) VALUES (%s, %s)',
                                 (manager, package))
         self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DataManagerDataPackage')[0]['n'], 4)
-        names = self.db.query('SELECT me.name FROM `Schema` s JOIN ModelElement me ON me.id = s.id ORDER BY s.id')
+        names = self.db.query('SELECT me.name FROM `Catalog` s JOIN ModelElement me ON me.id = s.id ORDER BY s.id')
         self.assertEqual([row['name'] for row in names], ['cmdb', 'reporting'])
         for pair in ((managers[0], packages[0]), (packages[0], packages[1]), (managers[0], 999999)):
             with self.assertRaises(pymysql.IntegrityError):
                 self.db.execute('INSERT INTO DataManagerDataPackage (dataManager, dataPackage) VALUES (%s, %s)', pair)
         with self.assertRaises(pymysql.IntegrityError):
-            self.db.execute('INSERT INTO `Schema` (id) VALUES (%s)',
+            self.db.execute('INSERT INTO `Catalog` (id) VALUES (%s)',
                             (NamespaceDb(self.db).create(name='not a package'),))
         with self.assertRaises(pymysql.IntegrityError):
             self.db.execute('INSERT INTO DataManager (id) VALUES (%s)', (packages[0],))

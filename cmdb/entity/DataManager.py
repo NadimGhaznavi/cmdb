@@ -6,4 +6,5 @@ from dataclasses import dataclass, field
 
 @dataclass
 class DataManager(DeployedComponent):
+    clientConnection: list[int] = field(default_factory=list, kw_only=True)
     dataPackage: list[int] = field(default_factory=list)

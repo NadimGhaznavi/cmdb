@@ -47,8 +47,8 @@ def application_metadata(source: str) -> SoftwareSystem | None:
     return system
 
 
-def application_components(source: str) -> tuple[tuple[str, str], ...]:
-    """Read literal filesystem component declarations without executing code."""
+def application_pairs(source: str, field: str, limit: int) -> tuple[tuple[str, str], ...]:
+    """Read validated literal name/value pairs without executing code."""
     try:
         module = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -64,7 +64,7 @@ def application_components(source: str) -> tuple[tuple[str, str], ...]:
             targets, value = [statement.target], statement.value
         else:
             continue
-        if not any(isinstance(target, ast.Name) and target.id == 'CMDB_COMPONENTS' for target in targets):
+        if not any(isinstance(target, ast.Name) and target.id == field for target in targets):
             continue
         try:
             declarations = ast.literal_eval(value)
@@ -79,15 +79,24 @@ def application_components(source: str) -> tuple[tuple[str, str], ...]:
                     ord(character) < 32 or ord(character) == 127 for character in item) for item in entry):
                 continue
             name, path = (item.strip() for item in entry)
-            if len(name) > 255 or len(path) > 4096:
+            if len(name) > 255 or len(path) > limit:
                 continue
-            # Relative declarations must stay beneath the application root.
-            if '..' in PurePosixPath(path).parts or str(PurePosixPath(path)) == '.':
-                continue
-            component = (name, str(PurePosixPath(path)))
+            component = (name, path)
             if component not in components:
                 components.append(component)
     return tuple(components)
+
+
+def application_components(source: str) -> tuple[tuple[str, str], ...]:
+    """Read filesystem components whose paths stay beneath the application root."""
+    return tuple(dict.fromkeys((name, str(PurePosixPath(path)))
+                 for name, path in application_pairs(source, 'CMDB_COMPONENTS', 4096)
+                 if '..' not in PurePosixPath(path).parts and str(PurePosixPath(path)) != '.'))
+
+
+def application_databases(source: str) -> tuple[tuple[str, str], ...]:
+    """Read application labels and exact MariaDB catalog names."""
+    return application_pairs(source, 'CMDB_DATABASES', 64)
 
 
 def application_version(source: str) -> str | None:
@@ -101,10 +110,10 @@ class ApplicationSource:
         self._ssh = SSH()
 
     def collect(self, address: str, name: str) -> tuple[
-            str, str | None, SoftwareSystem | None, tuple[tuple[str, str], ...]]:
-        """Return outcome, install path, metadata and filesystem components."""
+            str, str | None, SoftwareSystem | None, tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
+        """Return outcome, install path, metadata, filesystem components and database declarations."""
         if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name) is None:
-            return 'unsupported name', None, None, ()
+            return 'unsupported name', None, None, (), ()
         pathname = str(PurePosixPath(DCMDB.BASE_INSTALL_DIR) / name.lower())
         constants = str(PurePosixPath(pathname) / name.lower() / 'constants' / ('D' + name + '.py'))
         command = (f'if [ -d {shlex.quote(pathname)} ] && [ -f {shlex.quote(constants)} ]; '
@@ -113,7 +122,8 @@ class ApplicationSource:
             result = self._ssh.run(address, command, timeout=DCMDB.SSH_COMMAND_TIMEOUT_SECONDS,
                                    connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
         except (OSError, subprocess.SubprocessError):
-            return 'read failed', pathname, None, ()
+            return 'read failed', pathname, None, (), ()
         system = application_metadata(result.stdout)
         components = application_components(result.stdout) if system is not None else ()
-        return ('observed' if system is not None else 'not detected'), pathname, system, components
+        databases = application_databases(result.stdout) if system is not None else ()
+        return ('observed' if system is not None else 'not detected'), pathname, system, components, databases

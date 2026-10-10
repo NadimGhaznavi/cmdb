@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cmdb.entity.DataProvider import DataProvider
+from cmdb.entity.ModelElement import ModelElement
 
 
 @dataclass
-class ProviderConnection:
-    dataProvider: DataProvider
+class ProviderConnection(ModelElement):
+    dataProvider: int
+    dataManager: int

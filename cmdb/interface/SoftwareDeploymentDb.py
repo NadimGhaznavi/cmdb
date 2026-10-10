@@ -6,6 +6,7 @@ from cmdb.entity.Component import Component
 from cmdb.entity.DeployedComponent import DeployedComponent
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.DataProviderDb import DataProviderDb
 from cmdb.interface.NamespaceDb import NamespaceDb
 
 
@@ -30,7 +31,7 @@ class SoftwareDeploymentDb:
         databases = {}
         for row in self._db.query(
             "SELECT dp.dataManager, me.name FROM DataManagerDataPackage dp "
-            "JOIN `Schema` s ON s.id = dp.dataPackage "
+            "JOIN `Catalog` s ON s.id = dp.dataPackage "
             "JOIN ModelElement me ON me.id = s.id "
             "WHERE me.name IS NOT NULL ORDER BY dp.dataManager, me.name"
         ):
@@ -42,7 +43,8 @@ class SoftwareDeploymentDb:
     def record_application(self, machine: int, application: int, pathname: str, version: str,
                            *, type: str | None = None, subtype: str | None = None,
                            supplier: str | None = None, codename: str | None = None,
-                           components: tuple[tuple[str, str], ...] = ()) -> bool:
+                           components: tuple[tuple[str, str], ...] = (),
+                           databases: tuple[tuple[str, str], ...] = ()) -> bool:
         """Reuse compatible releases, enriching missing metadata without erasing it."""
         definitions = self._db.query(
             'SELECT me.name FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
@@ -93,8 +95,9 @@ class SoftwareDeploymentDb:
             'WHERE dc.machine = %s AND dc.pathname = %s AND sme.name = %s AND me.name IS NULL '
             'ORDER BY dc.id LIMIT 1', (machine, pathname, name))
         if rows:
+            identity = rows[0]['id']
             self._db.execute('UPDATE DeployedComponent SET component = %s WHERE id = %s',
-                             (component, rows[0]['id']))
+                             (component, identity))
         else:
             identity = self._namespaces.create_package(namespace=machine)
             self._db.execute(
@@ -103,6 +106,8 @@ class SoftwareDeploymentDb:
         for component_name, component_path in components:
             self._record_application_component(machine, release, name, component_name,
                                                str(PurePosixPath(pathname) / component_path))
+        if databases:
+            DataProviderDb(self._db).record_databases(machine, identity, release, pathname, databases)
         return True
 
     def _record_application_component(self, machine: int, release: int, application_name: str,

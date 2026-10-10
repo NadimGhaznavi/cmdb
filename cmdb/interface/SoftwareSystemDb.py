@@ -60,11 +60,22 @@ class SoftwareSystemDb:
         for component in components:
             retained = False
             deployments = self._db.query(
-                'SELECT dc.id, dm.id AS dataManager FROM DeployedComponent dc '
+                'SELECT dc.id, dm.id AS dataManager, p.id AS dataProvider FROM DeployedComponent dc '
                 'LEFT JOIN DataManager dm ON dm.id = dc.id '
+                'LEFT JOIN DataProvider p ON p.id = dc.id '
                 'WHERE dc.component = %s ORDER BY dc.id FOR UPDATE', (component['id'],))
             for deployment in deployments:
-                if deployment['dataManager'] is not None:
+                if deployment['dataProvider'] is not None:
+                    connections = self._db.query('SELECT id FROM ProviderConnection WHERE dataProvider=%s',
+                                                 (deployment['id'],))
+                    self._db.execute('DELETE FROM ProviderConnection WHERE dataProvider=%s', (deployment['id'],))
+                    for connection in connections:
+                        self._db.execute('DELETE FROM TaggedValue WHERE modelElement=%s', (connection['id'],))
+                        self._db.execute('DELETE FROM ModelElement WHERE id=%s', (connection['id'],))
+                    self._db.execute('DELETE FROM DataManagerDataPackage WHERE dataManager=%s', (deployment['id'],))
+                    self._db.execute('DELETE FROM DataProvider WHERE id=%s', (deployment['id'],))
+                    self._db.execute('DELETE FROM DataManager WHERE id=%s', (deployment['id'],))
+                elif deployment['dataManager'] is not None:
                     retained = True
                     policies = self._db.query(
                         'SELECT bs.id FROM BackupSchedule bs JOIN ModelElement me ON me.id = bs.modelElement '
@@ -74,6 +85,8 @@ class SoftwareSystemDb:
                         self._db.execute('UPDATE BackupSchedule SET enabled = 0 WHERE id = %s', (policy['id'],))
                         schedules.append(policy['id'])
                     continue
+                self._db.execute('DELETE FROM DeployedComponentsUsage WHERE usingComponents=%s OR usedComponents=%s',
+                                 (deployment['id'], deployment['id']))
                 self._db.execute('DELETE FROM DeployedComponent WHERE id = %s', (deployment['id'],))
                 self._delete_parents(deployment['id'])
             if retained:

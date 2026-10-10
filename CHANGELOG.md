@@ -7,6 +7,17 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+The **Julia** release is dedicated to [Julia Robinson](https://en.wikipedia.org/wiki/Julia_Robinson).
+
+- Show an application's discovered database names above its Component table in
+  the Inventory detail sidebar, comma-separated when more than one is present.
+
+- Discover literal `CMDB_DATABASES` declarations, refresh same-machine MariaDB
+  inventory, and connect matching catalogs through a MariaDB Client DataProvider
+  and ProviderConnection. Reuse client identities across scans and upgrades;
+  application deletion preserves the server and backup history.
+- Store MariaDB database inventory as relational Catalogs in the fresh schema.
+
 ## [1.2.0] - 2026-10-10 @ 07:41
 
 The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org/wiki/Hilda_Geiringer).

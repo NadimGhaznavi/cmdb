@@ -20,8 +20,10 @@ use those IDs rather than IP addresses.
 | SoftwareSystem | Shared Package identity; `type`, `subtype`, `supplier`, `version` |
 | Component | Shared Namespace identity; inherited `namespace` identifies its owning SoftwareSystem when present; `deployment` is the inverse of `DeployedComponent.component` |
 | DeployedComponent | Shared Package identity; `pathname`, required `machine` and `component` references |
+| DataProvider | Shared DataManager identity; client deployment |
+| ProviderConnection | Shared ModelElement identity; provider owner and server reference |
 | DataManager | Shared DeployedComponent identity; `dataPackage` references through DataManagerDataPackage |
-| Schema | Shared Package identity; database name inherited from ModelElement |
+| Catalog | Shared Package identity; database name inherited from ModelElement |
 | Machine | Shared Namespace identity; `deployedComponent` is the collection of deployments referencing the machine |
 
 The stored path is `SoftwareSystem → Component → DeployedComponent → Machine`.
@@ -42,7 +44,7 @@ Subsystem, remain omitted; entities inherit from their nearest implemented
 ancestor. The newly needed `name` attribute stays on ModelElement.
 There is no DeployedSoftwareSystem entity or association table in this subset.
 
-MariaDB discovery creates a deployed DataManager linked to relational Schema
+MariaDB discovery creates a deployed DataManager linked to relational Catalog
 objects through `DataManagerDataPackage`. DataProvider describes
 client software, rather than the MariaDB server itself. See
 [Schema Notes]({{ site.baseurl }}{% link pages/schema-notes.md %}) for association
@@ -205,6 +207,30 @@ previously recorded deployments. The application and its filesystem components
 are written in the same transaction. This increment records inventory only;
 filesystem backup execution is outside its scope.
 
+The constants file may declare databases used by the application:
+
+```python
+CMDB_DATABASES = (("MyCount", "mycount"),)
+```
+
+Each literal tuple or list entry contains an application connection label and an
+exact MariaDB catalog name. Names are case-sensitive; catalog names are limited
+to 64 characters. Invalid entries are ignored and constants are never executed.
+Application discovery refreshes MariaDB inventory on that same machine using
+its default local socket, including during Re-Scan Applications and Add Application.
+Only catalogs observed in that refresh are eligible for a new connection.
+Missing catalogs and failed reads preserve previously recorded connections.
+
+When a catalog matches, discovery creates a named `MariaDB Client` Component
+within the application release and a DataProvider deployment on its machine.
+`DeployedComponentsUsage` links the application deployment to that provider.
+ProviderConnection is owned by the provider and references the MariaDB server's
+DataManager; its inherited name records the connection label. The provider's
+`dataPackage` references the matching Catalog through DataManagerDataPackage.
+Repeated scans reuse these identities; upgrades rebind the client deployment
+to the new release. Deleting the application removes its provider and connections
+while preserving the MariaDB server, catalogs, and backup history.
+
 Inventory workloads check applications on each responding host after its host
 details and MariaDB inventory are collected.
 Re-Scan Applications checks all inventoried hosts without running network or OS
@@ -239,14 +265,14 @@ DataManager inherits `pathname`, populated with the reported data directory.
 Machine ID and that path identify the observed instance across version changes.
 Only the default socket instance is queried in this increment.
 
-Each database, including system databases, becomes a Schema with its exact name
+Each database, including system databases, becomes a Catalog with its exact name
 on ModelElement. Its namespace is the DataManager, which keeps identical names
 on different instances distinct. DataManagerDataPackage links the manager to
-each schema. Repeated observations reuse identities; new releases share a new
+each catalog. Repeated observations reuse identities; new releases share a new
 software definition without changing another machine's release. Existing
-schemas absent from a later observation are retained for now.
+catalogs absent from a later observation are retained for now.
 
 Commands finish before opening the inventory write connection. A complete
 observation is saved in one transaction; failed or invalid reads leave prior
 records untouched. The existing software graph also displays the new MariaDB
-deployment; database schemas are stored for reporting.
+deployment; database catalogs are stored for reporting.

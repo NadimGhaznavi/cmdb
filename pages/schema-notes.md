@@ -10,7 +10,7 @@ This page records non-obvious database constraints and implementation decisions.
 
 `BackupSchedule` is an application-specific entity, outside CWM, with its own
 auto-increment ID. Its required, unique `modelElement` foreign key references
-`ModelElement.id`, allowing one policy per inventory item: a database Schema
+`ModelElement.id`, allowing one policy per inventory item: a database Catalog
 today or a DeployedComponent later. It does not inherit from ModelElement.
 
 | Column | Type | Default / constraint |
@@ -59,12 +59,12 @@ records and displays the latest successful completion time. See
 ## Data packages and inherited names
 
 Database names are stored in `ModelElement.name`, inherited by relational
-`Schema`. Names use a binary collation to preserve case distinctions, and are
+`Catalog`. Names use a binary collation to preserve case distinctions, and are
 not globally unique: different server instances can host the same database name.
 The column is nullable for existing object kinds whose names are not collected.
 
 `Package` now has a shared-identity table because it is the declared target of
-`DataManager.dataPackage` and the parent of Schema. DeployedComponent also
+`DataManager.dataPackage` and the parent of Catalog. DeployedComponent also
 inherits Package; SoftwareSystem uses Package as its nearest implemented
 ancestor. Existing OS writes create the required Package rows.
 
@@ -75,7 +75,7 @@ This is an association table, not a new entity class or a replacement for
 namespace ownership. A package can exist without links, and a manager can
 have no packages. Duplicate links and dangling references are rejected.
 
-DataManager shares its DeployedComponent ID; Schema shares its Package ID.
+DataManager shares its DeployedComponent ID; Catalog shares its Package ID.
 No attributes are copied down to either child. Catalog and unneeded attributes such as `isCaseSensitive` are deferred.
 
 ## Deployment owner consistency
@@ -130,9 +130,21 @@ as OS deployments at `/`, so successive observations update the same deployment.
 ## Discovered database identity
 
 MariaDB instances are matched by Machine ID and reported data-directory path.
-Schema names are scoped through ModelElement.namespace to that DataManager;
+Catalog names are scoped through ModelElement.namespace to that DataManager;
 DataManagerDataPackage separately records the access relationship. This keeps
 names on their inherited owner and preserves the association's many-to-many
 structure. Discovery writes are serialized by the existing scanner worker.
-A version change reuses the deployed instance and schemas while selecting a
-new SoftwareSystem/Component definition. Missing schemas are retained for now.
+A version change reuses the deployed instance and catalogs while selecting a
+new SoftwareSystem/Component definition. Missing catalogs are retained for now.
+
+## Application database clients
+
+DataProvider shares its DataManager and DeployedComponent identity.
+ProviderConnection shares a ModelElement identity, with its namespace equal to
+its required `dataProvider` owner. Its required `dataManager` reference identifies
+the server, and a check constraint prohibits connecting a provider to itself.
+DeployedComponentsUsage stores the many-valued application/client deployment
+relationship using the CWM end names `usingComponents` and `usedComponents`.
+Database names discovered from MariaDB are now stored as relational Catalogs;
+Schema remains a separate adopted class for future schema detail. These changes
+apply to fresh installations, following the model mapping policy.

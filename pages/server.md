@@ -135,6 +135,11 @@ Re-Scan beneath a selected machine's header runs the same discovery, OS, and SSH
 inventory steps for that host alone, then reloads with the machine selected.
 Requests made during an active workload wait in the same queue.
 Other machines' reachability results are preserved by a single-host scan.
+
+When an application is selected, its Inventory detail sidebar shows a
+`Database(s):` row above the Component table if discovered databases are present.
+Multiple names are comma-separated; applications without databases omit the row.
+
 The app uses MyCount’s warm dark theme: brown backgrounds, cream text, orange
 links and focus outlines, and subtle brown panel and table borders. Nodes use
 bold 24px labels with contrasting text.

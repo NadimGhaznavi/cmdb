@@ -16,6 +16,11 @@ CREATE TABLE IF NOT EXISTS Package (
     CONSTRAINT Package_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS Catalog (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+    CONSTRAINT Catalog_Package_fk FOREIGN KEY (id) REFERENCES Package (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `Schema` (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT Schema_Package_fk FOREIGN KEY (id) REFERENCES Package (id)
@@ -85,6 +90,31 @@ CREATE TABLE IF NOT EXISTS DataManagerDataPackage (
     PRIMARY KEY (dataManager, dataPackage),
     CONSTRAINT DataManagerDataPackage_manager_fk FOREIGN KEY (dataManager) REFERENCES DataManager (id),
     CONSTRAINT DataManagerDataPackage_package_fk FOREIGN KEY (dataPackage) REFERENCES Package (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS DataProvider (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+    CONSTRAINT DataProvider_DataManager_fk FOREIGN KEY (id) REFERENCES DataManager (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ProviderConnection (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+    dataProvider BIGINT UNSIGNED NOT NULL,
+    dataManager BIGINT UNSIGNED NOT NULL,
+    UNIQUE KEY ProviderConnection_id_owner_uq (id, dataProvider),
+    CONSTRAINT ProviderConnection_ModelElement_fk FOREIGN KEY (id) REFERENCES ModelElement (id),
+    CONSTRAINT ProviderConnection_owner_fk FOREIGN KEY (id, dataProvider) REFERENCES ModelElement (id, namespace),
+    CONSTRAINT ProviderConnection_provider_fk FOREIGN KEY (dataProvider) REFERENCES DataProvider (id),
+    CONSTRAINT ProviderConnection_manager_fk FOREIGN KEY (dataManager) REFERENCES DataManager (id),
+    CONSTRAINT ProviderConnection_self_ck CHECK (dataProvider <> dataManager)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS DeployedComponentsUsage (
+    usingComponents BIGINT UNSIGNED NOT NULL,
+    usedComponents BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (usingComponents, usedComponents),
+    CONSTRAINT DeployedComponentsUsage_using_fk FOREIGN KEY (usingComponents) REFERENCES DeployedComponent (id),
+    CONSTRAINT DeployedComponentsUsage_used_fk FOREIGN KEY (usedComponents) REFERENCES DeployedComponent (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Application policy referencing inventory, not a CWM class or subclass.

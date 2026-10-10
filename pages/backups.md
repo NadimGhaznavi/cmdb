@@ -45,8 +45,9 @@ backup history. Disabling via the UI retains the policy with Enabled cleared.
 The title box reads CMDB Backups, with both words at the same heading size.
 The Inventory view similarly reads CMDB Inventory.
 Databases and Backup Vault have their own bordered panels below it.
-Backup Vault starts collapsed. Click its title row or press Enter or Space while
-the row is focused to show or hide the directory, table, and Scan Filesystem button.
+Both panels start collapsed. Click a title row or press Enter or Space while
+the row is focused to expand or collapse its contents. Databases reveals its host
+sections; Backup Vault reveals the directory, table, and Scan Filesystem button.
 The title row keeps `Most recent backup: YYYY-MM-DD HH:MM` right aligned,
 using the newest recorded successful backup's completion time in browser-local
 time. The timestamp is blank when no backups are recorded or files cannot be loaded.

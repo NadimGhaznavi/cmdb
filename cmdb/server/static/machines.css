@@ -39,12 +39,12 @@
 .backup-panel { min-width: 0; border: 1px solid var(--border); border-radius: .4rem; padding: 1rem 1.5rem; }
 .backup-panel > h3 { margin: 0 0 1rem; }
 .backup-vault[open] { flex: 1; }
-.backup-vault > summary { display: flex; align-items: center; gap: .75rem; cursor: pointer; list-style: none; }
-.backup-vault > summary::-webkit-details-marker { display: none; }
-.backup-vault > summary::before { content: '▶'; font-size: .75rem; }
-.backup-vault[open] > summary::before { content: '▼'; }
-.backup-vault > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.backup-vault h3 { margin: 0; }
+#backups-page > .backup-panel > summary { display: flex; align-items: center; gap: .75rem; cursor: pointer; list-style: none; }
+#backups-page > .backup-panel > summary::-webkit-details-marker { display: none; }
+#backups-page > .backup-panel > summary::before { content: '▶'; font-size: .75rem; }
+#backups-page > .backup-panel[open] > summary::before { content: '▼'; }
+#backups-page > .backup-panel > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+#backups-page > .backup-panel > summary h3 { margin: 0; }
 .backup-vault-latest { margin-left: auto; text-align: right; color: var(--muted); font-size: .85rem; }
 .backup-vault-latest time { white-space: nowrap; }
 #applications-page, #patching-page, #discovery-page { min-width: 0; border: 0; padding: 0; gap: 1rem; }

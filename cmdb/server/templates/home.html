@@ -108,8 +108,8 @@
     </section>
   </main>
   <main id="backups-page" aria-labelledby="backups-heading" hidden>
-    <section class="backup-panel" aria-labelledby="database-heading">
-      <h3 id="database-heading">Databases</h3>
+    <details class="backup-panel" aria-labelledby="database-heading">
+      <summary><h3 id="database-heading">Databases</h3></summary>
       <p id="backups-status" role="status">Loading databases…</p>
       <div id="backup-hosts"></div>
       <template id="backup-host-template">
@@ -157,7 +157,7 @@
           <td><p class="backup-row-status" role="status"></p></td>
         </tr>
       </template>
-    </section>
+    </details>
     <details class="backup-panel backup-vault" aria-labelledby="backup-files-heading">
       <summary>
         <h3 id="backup-files-heading">Backup Vault</h3>

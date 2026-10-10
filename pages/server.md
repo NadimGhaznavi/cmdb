@@ -97,7 +97,8 @@ Inventory scans also check applications after collecting each host’s details
 and MariaDB inventory.
 See [application discovery]({{ site.baseurl }}{% link pages/software-deployment.md %}#application-discovery)
 for the installation convention.
-The Databases section groups stored databases into collapsible host sections,
+The Databases panel starts collapsed; click its heading to expand or collapse it.
+It groups stored databases into collapsible host sections,
 initially collapsed, with headings such as `Islands - 1 DB` or
 `Neuromancer - 2 DBs`. Host headings use the same short, capitalized hostname
 as the inventory graph, or the IP address when unnamed. Each section contains

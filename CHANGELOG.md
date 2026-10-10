@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Make the Databases panel collapsible and closed by default, matching Backup Vault.
+
 - Rename the Backups page's Live Databases section to Databases.
 
 - Add Delete to every Backup Vault row with Cancel / Delete confirmation,

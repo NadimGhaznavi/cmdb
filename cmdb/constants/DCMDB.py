@@ -7,10 +7,15 @@ class DCMDB:
     CMDB_TYPE: Final[str] = "application"
     CMDB_SUBTYPE: Final[str] = "Metadata Repo"
     CMDB_SUPPLIER: Final[str] = "Nadim-Daniel"
-    CMDB_CODENAME: Final[str] = "Maryam"
-    VERSION: Final[str] = "1.4.1"
+    CMDB_CODENAME: Final[str] = "XMM-Newton"
+    VERSION: Final[str] = "1.5.0"
+    CMDB_DATABASES: Final[tuple[tuple[str, str], ...]] = (("CMDB", "cmdb"),)
+    CMDB_NETWORK: Final[tuple[tuple[str, str, int], ...]] = (
+        ("http", "0.0.0.0", 14444),
+    )
     BASE_INSTALL_DIR: Final[str] = "/opt/prod"
     BASE_DIR: Final[str] = "/opt/prod/cmdb"
+    CONFIG_FILE: Final[str] = "conf/cmdb.json"
     SERVICE_USER: Final[str] = "cmdb"
     AGENT_USER: Final[str] = "cmdbagent"
     AGENT_HOME: Final[str] = "/var/lib/cmdbagent"
@@ -27,8 +32,6 @@ class DCMDB:
     DATABASE_ENV: Final[str] = "/etc/cmdb/database.env"
     DATABASE_NAME: Final[str] = "cmdb"
     DATABASE_USER: Final[str] = "cmdb"
-    HOST: Final[str] = "0.0.0.0"
-    PORT: Final[int] = 14444
     REQUEST_TIMEOUT: Final[int] = 10
     SCAN_TARGET: Final[str] = "192.168.0.0/24"
     DISCOVERY_CRON: Final[str] = "*/5 * * * *"

@@ -252,6 +252,15 @@ discovery attempt ends. An application that has never been deployed is then
 pruned if discovery records no deployment.
 
 
+## Network declarations (coming)
+
+Apps can prepare for future network inventory by declaring literal
+`CMDB_NETWORK` entries and using them as runtime listener defaults. See the
+[CMDB_NETWORK app developer guide]({{ site.baseurl }}{% link pages/cmdb-network.md %})
+for the tuple format, configuration overrides, consumer wiring, and verification
+checklist. Network declarations are not yet collected, stored, or displayed by
+CMDB; the application discovery behavior above remains unchanged.
+
 ## MariaDB discovery
 
 After host inventory, SSHDb verifies or provisions agent access and executes

@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Add a `CMDB_NETWORK` app developer guide covering literal declarations,
+  runtime wiring, production overrides, and checks, with network discovery
+  explicitly marked as coming.
+
 ## [1.5.0] - 2026-10-20 @ 17:59
 
 The **XMM-Newton** release is named for the *ESA X-ray space observatory*.

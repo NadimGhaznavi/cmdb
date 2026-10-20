@@ -2,7 +2,7 @@
 title: CMDB_NETWORK App Developer Guide
 ---
 
-[Documentation index]({{ site.baseurl }}{% link index.md %})
+[App discovery settings]({{ site.baseurl }}{% link pages/app-discovery.md %})
 
 ## Status and purpose
 
@@ -23,7 +23,7 @@ Put `CMDB_NETWORK` in the app's existing constants file beside its literal
 `VERSION` and other `CMDB_*` metadata. The application discovery convention is
 `/opt/prod/<lowercase-name>/<lowercase-name>/constants/D<Name>.py`; for example,
 CMDB uses `/opt/prod/cmdb/cmdb/constants/DCMDB.py`. See
-[application discovery]({{ site.baseurl }}{% link pages/software-deployment.md %}#application-discovery)
+[App discovery settings]({{ site.baseurl }}{% link pages/app-discovery.md %}#registration-and-constants-file)
 for the existing registration and constants-file convention.
 
 This fictional Example app declares two listeners:
@@ -61,7 +61,7 @@ sockets, and transport-specific extensions are outside this documented pattern.
 Outbound dependencies such as MariaDB and GeoIP retain their own connection
 settings. Declare database references separately with `CMDB_DATABASES`, as
 described in the
-[software deployment guide]({{ site.baseurl }}{% link pages/software-deployment.md %}).
+[CMDB_DATABASES guide]({{ site.baseurl }}{% link pages/cmdb-databases.md %}).
 Never place credentials in `CMDB_NETWORK` or the network JSON file.
 
 ## Wire the app to the declaration

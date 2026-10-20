@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Extract application discovery settings into individual `CMDB_*` developer
+  references, linked from an App discovery settings guide.
+
 - Add a `CMDB_NETWORK` app developer guide covering literal declarations,
   runtime wiring, production overrides, and checks, with network discovery
   explicitly marked as coming.

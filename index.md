@@ -12,6 +12,7 @@ title: Configuration Management Database
 
 * [Server installation]({{ site.baseurl }}{% link pages/installation.md %})
 * [Network discovery]({{ site.baseurl }}{% link pages/discovery.md %})
+* [App discovery settings]({{ site.baseurl }}{% link pages/app-discovery.md %})
 * [CMDB_NETWORK app developer guide]({{ site.baseurl }}{% link pages/cmdb-network.md %})
 * [Debian patching]({{ site.baseurl }}{% link pages/patching.md %})
 * [CMDB server]({{ site.baseurl }}{% link pages/server.md %})

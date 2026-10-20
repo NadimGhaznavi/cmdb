@@ -124,50 +124,9 @@ WHERE ss.type IN ('OS', 'linux');
 
 ## Application discovery
 
-Named SoftwareSystems created through Add Application are discovery targets.
-For `MyCount`, the scanner checks `/opt/prod/mycount`, using
-`DCMDB.BASE_INSTALL_DIR` and the lowercase application name. If that directory
-exists, it reads `/opt/prod/mycount/mycount/constants/DMyCount.py` through the
-inventory agent's SSH interface, or directly for the local host.
-For `CMDB`, it reads `/opt/prod/cmdb/cmdb/constants/DCMDB.py` and the literal
-`DCMDB.VERSION`. Register `CMDB` through Add Application to enable discovery
-on inventoried hosts. Development checkouts under `/opt/dev` are not installed
-application targets.
-
-A nonempty literal string assigned to `VERSION` at module or class scope
-confirms an installation. Annotated assignments such as
-`VERSION: Final[str] = "1.2.3"` are supported. The constants file is parsed,
-never imported or executed; computed versions are not evaluated.
-The same file may declare optional application metadata as literal strings,
-at module or class scope, alongside `VERSION`:
-
-```python
-VERSION = "1.2.3"
-CMDB_TYPE = "application"
-CMDB_SUBTYPE = "inventory"
-CMDB_SUPPLIER = "Example Supplier"
-CMDB_CODENAME = "Orion"
-```
-
-| Constant | CWM storage |
-| --- | --- |
-| `CMDB_TYPE` | `SoftwareSystem.type` |
-| `CMDB_SUBTYPE` | `SoftwareSystem.subtype` |
-| `CMDB_SUPPLIER` | `SoftwareSystem.supplier` |
-| `CMDB_CODENAME` | `TaggedValue` on SoftwareSystem, tagged `VERSION_CODENAME` |
-
-Values are trimmed and must be nonempty strings of at most 255 characters,
-without control characters. Missing, computed, or invalid optional values are
-ignored and do not erase metadata already stored for a matching release.
-`VERSION` remains required for detection. Metadata fills missing fields on a
-compatible release; conflicting values select or create a separate definition,
-preserving definitions used by other hosts. When optional fields are omitted,
-discovery prefers the host's existing compatible release. A new version stores
-only the metadata supplied by that observation.
-Named applications remain discovery targets after their type is populated.
-
-Names must match `[A-Za-z_][A-Za-z0-9_]*` for this discovery convention.
-Definitions with other names can still be saved but are skipped by discovery.
+For the constants-file convention, registration steps, and individual `CMDB_*`
+references, see [App discovery settings]({{ site.baseurl }}{% link pages/app-discovery.md %}).
+That guide is the starting point for developers updating an app.
 
 The discovered version belongs to SoftwareSystem; its Component is linked to
 a DeployedComponent on the host with `pathname="/opt/prod/mycount"`.
@@ -176,61 +135,6 @@ the same application release can be shared across hosts, while hosts with
 different versions retain distinct release references. The manually created
 unversioned definition is populated on the first successful discovery.
 Application names supply labels in Inventory and the Applications table.
-
-The constants file may also declare persistent filesystem data components:
-
-```python
-CMDB_COMPONENTS = (
-    ("Marketing Screenshots", "pages/marketing"),
-    ("Uploads", "/srv/mycount/uploads"),
-)
-```
-
-`CMDB_COMPONENTS` is an optional literal tuple or list of `(name, path)` pairs
-at module or class scope; annotated assignments are supported. Each valid pair
-creates a named Component owned by the discovered SoftwareSystem release and a
-DeployedComponent whose namespace and `machine` identify the host. Relative
-paths resolve from the installation directory: `pages/marketing` for MyCount
-becomes `/opt/prod/mycount/pages/marketing`. Absolute paths stay absolute. Redundant slashes and `.` segments are normalized.
-Discovery records declarations without checking whether their paths exist.
-
-Names and paths are trimmed, nonempty strings without control characters;
-names are limited to 255 characters and paths to 4096. Parent traversal (`..`)
-and the relative path `.` are ignored. Computed declarations and malformed
-entries are ignored; duplicate pairs are recorded once. `VERSION` is still
-required. Components with the same name share a definition within a release;
-deployments are identified by host, application name, component name, and path.
-Repeated scans reuse records, and version changes relink observed deployments
-while preserving their IDs and other hosts' release references. Changed paths
-create additional deployments. Omitted, removed, or invalid declarations retain
-previously recorded deployments. The application and its filesystem components
-are written in the same transaction. Declared directory deployments are eligible
-for scheduled or manual tarball backups in the Backups page's Application panel;
-see [backups]({{ site.baseurl }}{% link pages/backups.md %}#execution).
-
-The constants file may declare databases used by the application:
-
-```python
-CMDB_DATABASES = (("MyCount", "mycount"),)
-```
-
-Each literal tuple or list entry contains an application connection label and an
-exact MariaDB catalog name. Names are case-sensitive; catalog names are limited
-to 64 characters. Invalid entries are ignored and constants are never executed.
-Application discovery refreshes MariaDB inventory on that same machine using
-its default local socket, including during Re-Scan Applications and Add Application.
-Only catalogs observed in that refresh are eligible for a new connection.
-Missing catalogs and failed reads preserve previously recorded connections.
-
-When a catalog matches, discovery creates a named `MariaDB Client` Component
-within the application release and a DataProvider deployment on its machine.
-`DeployedComponentsUsage` links the application deployment to that provider.
-ProviderConnection is owned by the provider and references the MariaDB server's
-DataManager; its inherited name records the connection label. The provider's
-`dataPackage` references the matching Catalog through DataManagerDataPackage.
-Repeated scans reuse these identities; upgrades rebind the client deployment
-to the new release. Deleting the application removes its provider and connections
-while preserving the MariaDB server, catalogs, and backup history.
 
 Inventory workloads check applications on each responding host after its host
 details and MariaDB inventory are collected.
@@ -251,15 +155,11 @@ Newly added definitions survive earlier workloads until their own queued
 discovery attempt ends. An application that has never been deployed is then
 pruned if discovery records no deployment.
 
-
 ## Network declarations (coming)
 
-Apps can prepare for future network inventory by declaring literal
-`CMDB_NETWORK` entries and using them as runtime listener defaults. See the
-[CMDB_NETWORK app developer guide]({{ site.baseurl }}{% link pages/cmdb-network.md %})
-for the tuple format, configuration overrides, consumer wiring, and verification
-checklist. Network declarations are not yet collected, stored, or displayed by
-CMDB; the application discovery behavior above remains unchanged.
+The [CMDB_NETWORK app developer guide]({{ site.baseurl }}{% link pages/cmdb-network.md %})
+covers the application-side listener standard. Network declarations are not yet
+collected, stored, or displayed by CMDB.
 
 ## MariaDB discovery
 

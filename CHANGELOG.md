@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-20 @ 17:59
+
 The **XMM-Newton** release is named for the *ESA X-ray space observatory*.
 
 - Declare CMDB's `cmdb` database in `DCMDB.CMDB_DATABASES`.

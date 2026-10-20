@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+The **XMM-Newton** release is named for the *ESA X-ray space observatory*.
+
 - Declare CMDB's `cmdb` database in `DCMDB.CMDB_DATABASES`.
 - Declare the HTTP listener in `DCMDB.CMDB_NETWORK` and use it for server
   defaults and installation health checks.

@@ -10,6 +10,7 @@ from pathlib import Path
 import stat
 import grp
 from cmdb.constants.DCMDB import DCMDB
+from cmdb.interface.Configuration import Configuration
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 
 installation = Path(DCMDB.BASE_DIR)
@@ -23,6 +24,7 @@ if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_m
 values = DatabaseEnvironment.read(path)
 if values['DB_NAME'] != DCMDB.DATABASE_NAME or values['DB_USER'] != DCMDB.DATABASE_USER:
     raise SystemExit('Credentials do not belong to CMDB; run install.sh first.')
+Configuration.install()
 print(DCMDB.BASE_DIR)
 print(DCMDB.SERVICE_USER)
 print(DCMDB.SERVICE_UNIT)
@@ -107,6 +109,8 @@ shutil.copytree('schema', destination / 'schema', dirs_exist_ok=True)
 shutil.copytree('pages/images', destination / 'pages/images', dirs_exist_ok=True)
 for name in ('cmdb-server.py', 'cmdb-backup.py', 'cmdb-patch.py', 'cmdb-discovery.py', 'requirements.txt'):
     shutil.copy2(name, destination / name)
+(destination / 'scripts').mkdir(exist_ok=True)
+shutil.copy2('scripts/restart.sh', destination / 'scripts/restart.sh')
 template = Path('systemd', DCMDB.SERVICE_UNIT).read_text()
 unit = template.replace('@APP@', DCMDB.BASE_DIR).replace('@USER@', DCMDB.SERVICE_USER)
 unit = unit.replace('@DATABASE_ENV@', DCMDB.DATABASE_ENV)
@@ -154,12 +158,14 @@ import time
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
 from cmdb.constants.DCMDB import DCMDB
+from cmdb.interface.Network import Network
 
 opener = build_opener(ProxyHandler({}))
+host, port = Network.destination('http')
 for endpoint, expected in (('health', 'ok'), ('ready', 'ready')):
     for attempt in range(30):
         try:
-            with opener.open(f'http://127.0.0.1:{DCMDB.PORT}/{endpoint}', timeout=1) as response:
+            with opener.open(f'http://{host}:{port}/{endpoint}', timeout=1) as response:
                 body = json.load(response)
                 if response.status == 200 and body == {'status': expected, 'service': 'cmdb-server'}:
                     break
@@ -168,5 +174,6 @@ for endpoint, expected in (('health', 'ok'), ('ready', 'ready')):
         time.sleep(1)
     else:
         raise SystemExit('Health check failed; inspect journalctl -u ' + DCMDB.SERVICE_UNIT)
-print(f'CMDB server listening on port: {DCMDB.PORT}')
+interface, port = Network.binding('http')
+print(f'CMDB server listening on: http://{interface}:{port}/')
 PY

@@ -5,17 +5,18 @@ from cmdb.server.CmdbHTTPServer import CmdbHTTPServer
 import os
 import signal
 
-from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
+from cmdb.interface.Network import Network
 from cmdb.server.CmdbHandler import CmdbHandler
 from cmdb.activity.InventoryCoordinator import InventoryCoordinator
 from cmdb.activity.BackupManager import BackupManager
 
 
 def main() -> None:
+    interface, port = Network.binding("http")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default=DCMDB.HOST)
-    parser.add_argument("--port", type=int, default=DCMDB.PORT)
+    parser.add_argument("--host", default=interface)
+    parser.add_argument("--port", type=int, default=port)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535.")

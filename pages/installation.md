@@ -143,12 +143,50 @@ the service remains stopped and the application files remain in place.
 ## Runtime configuration
 
 Paths, account names, and the default listener `0.0.0.0:14444` are defined in
-`cmdb/constants/DCMDB.py`. The service is intended for a trusted LAN. It has no
-authentication and installation does not add a public proxy or router mapping.
+`cmdb/constants/DCMDB.py`. `DCMDB.CMDB_NETWORK` declares the listener as a literal
+`("http", "0.0.0.0", 14444)` tuple of use, interface, and port. The service is
+intended for a trusted LAN. It has no authentication and installation does not
+add a public proxy or router mapping.
+
+Installation creates `/opt/prod/cmdb/conf/cmdb.json` from these defaults.
+Reinstall and upgrade preserve existing configuration. To override the HTTP
+listener, edit the production file, for example:
+
+```json
+{
+  "network": {
+    "http": {
+      "interface": "127.0.0.1",
+      "port": 14445
+    }
+  }
+}
+```
+
+The interface must be an IPv4 address and the port an integer from 1 to 65535.
+Omitted uses and fields inherit `CMDB_NETWORK` defaults; a missing file uses
+all defaults. Unknown settings and invalid values fail validation. The constants
+declare default inventory; JSON and command-line overrides do not change that
+declaration. Network discovery support is deferred.
+
+Apply edits with the installed restart command:
+
+```sh
+sudoedit /opt/prod/cmdb/conf/cmdb.json
+cd /opt/prod/cmdb
+sudo ./scripts/restart.sh
+```
+
+The command validates configuration before restarting the web server. Each
+process loads settings once, so edits take effect on restart. The server's
+`--host` and `--port` arguments override the resolved settings for an individual
+invocation. Installation health checks use the resolved binding, substituting
+loopback for `0.0.0.0`. Uninstall removes this configuration with the application.
 
 Systemd reads `/etc/cmdb/database.env` before starting the unprivileged process.
 The file contains `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`.
-Keep it private and out of this repository.
+These outbound database settings remain separate from listener configuration.
+Keep the credentials private and out of this repository.
 
 See [CMDB server]({{ site.baseurl }}{% link pages/server.md %}) for endpoints,
 status commands, and development startup.

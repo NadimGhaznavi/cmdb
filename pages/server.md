@@ -4,7 +4,7 @@ title: CMDB Server
 
 [Documentation index]({{ site.baseurl }}{% link index.md %})
 
-`cmdb-server.py` starts the CMDB HTTP server on `0.0.0.0:14444`. It follows
+`cmdb-server.py` starts the CMDB HTTP server on `0.0.0.0:14444` by default. It follows
 MyCount's standalone control-server pattern and uses the same MariaDB
 connection and transaction layer, adapted to the `cmdb` package.
 
@@ -243,6 +243,11 @@ To start manually, provide `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 ```sh
 .venv/bin/python -B cmdb-server.py --host 127.0.0.1 --port 14444
 ```
+
+Listener defaults come from `DCMDB.CMDB_NETWORK`, with production overrides in
+`/opt/prod/cmdb/conf/cmdb.json`. Explicit `--host` and `--port` arguments take
+precedence. See [runtime configuration]({{ site.baseurl }}{% link pages/installation.md %}#runtime-configuration)
+for the file format and restart command.
 
 The server validates the database environment at startup. `/ready` verifies
 the actual connection. `DbMgr` owns connections, cursors, bound SQL execution,

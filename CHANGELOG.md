@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Declare CMDB's `cmdb` database in `DCMDB.CMDB_DATABASES`.
+- Declare the HTTP listener in `DCMDB.CMDB_NETWORK` and use it for server
+  defaults and installation health checks.
+- Create `conf/cmdb.json` for production network overrides, preserve it during
+  upgrades, and add `scripts/restart.sh` to validate and apply changes.
+
 ## [1.4.1] - 2026-10-10 @ 09:41
 
 The **Maryam** release is dedicated to [Maryam Mirzakhani](https://en.wikipedia.org/wiki/Maryam_Mirzakhani).

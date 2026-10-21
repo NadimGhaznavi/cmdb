@@ -95,7 +95,7 @@ without running Nmap. It uses the same worker and `/api/scan` progress reporting
 as inventory scans, displays progress or failure, and reloads the page after success.
 Inventory scans also check applications after collecting each host’s details
 and MariaDB inventory.
-See [application discovery]({{ site.baseurl }}{% link pages/software-deployment.md %}#application-discovery)
+See [App discovery settings]({{ site.baseurl }}{% link pages/app-discovery.md %})
 for the installation convention.
 The Backups page starts with an Application panel above Databases. It starts
 collapsed and groups declared directory and database backup targets by host and

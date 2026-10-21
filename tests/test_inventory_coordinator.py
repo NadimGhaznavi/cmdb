@@ -17,6 +17,9 @@ from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 
 class InventoryCoordinatorTests(TestCase):
     def setUp(self):
+        gateway = patch('cmdb.activity.InventoryCoordinator.Network.default_gateway', return_value=None)
+        self.gateway = gateway.start()
+        self.addCleanup(gateway.stop)
         for name in ('DbMgr', 'MachineDb', 'SoftwareDeploymentDb', 'SoftwareSystemDb', 'DataManagerDb'):
             patcher = patch('cmdb.activity.InventoryCoordinator.' + name)
             setattr(self, name, patcher.start())
@@ -35,6 +38,33 @@ class InventoryCoordinatorTests(TestCase):
             'hostname': 'SALLY.Example.COM', 'mac_address': None, 'system': None}
         self.worker._mariadb.collect.return_value = None
         self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), ())
+
+    def test_gateway_fallback_and_production_survive_failed_ssh_and_repeat_scans(self):
+        self.gateway.return_value = '192.0.2.7'
+        self.worker._host.ensure_access.side_effect = subprocess.CalledProcessError(255, ['ssh'])
+        for _ in range(2):
+            self.worker.scan_inventory()
+            self.MachineDb.return_value.update_discovered_hostname.assert_called_with(7, 'GATEWAY')
+            self.MachineDb.return_value.update_environment.assert_called_with(7, 'prod')
+            self.assertEqual(self.worker._network.collect.return_value[0].hostName, 'GATEWAY')
+        self.worker._host.collect.assert_not_called()
+
+    def test_gateway_uses_hostname_when_ssh_succeeds(self):
+        self.gateway.return_value = '192.0.2.7'
+        self.worker.scan_inventory('192.0.2.7')
+        inventory = self.MachineDb.return_value
+        self.assertEqual([call.args for call in inventory.update_discovered_hostname.call_args_list],
+                         [(7, 'GATEWAY'), (7, 'SALLY.Example.COM')])
+        inventory.update_environment.assert_called_once_with(7, 'prod')
+        self.assertEqual(self.worker._network.collect.return_value[0].hostName, 'SALLY.Example.COM')
+
+    def test_missing_or_unscanned_gateway_does_not_classify_other_hosts(self):
+        for gateway in (None, '192.0.2.1'):
+            self.gateway.return_value = gateway
+            self.worker.scan_inventory()
+        self.MachineDb.return_value.update_environment.assert_not_called()
+        self.assertTrue(all(call.args == (7, 'SALLY.Example.COM') for call in
+                            self.MachineDb.return_value.update_discovered_hostname.call_args_list))
 
     def test_inventory_collects_and_saves_in_sequence_without_open_remote_transaction(self):
         order = []

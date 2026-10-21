@@ -7,6 +7,12 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+This release is named for the element **Carbon (C)**. Carbon can form both diamond, one of the hardest natural materials, and graphite, which is soft enough to write with.
+
+- Identify the default gateway during network discovery, assign it the uppercase
+  fallback hostname `GATEWAY`, and classify it as Production. Successful SSH
+  discovery replaces the fallback with the reported hostname.
+
 - Extract application discovery settings into individual `CMDB_*` developer
   references, linked from an App discovery settings guide.
 

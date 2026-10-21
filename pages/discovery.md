@@ -21,6 +21,14 @@ Scan Now queues a full inventory scan on the web worker regardless of whether
 the schedule is enabled or saved. The button shows progress, reports failures,
 and reloads stored data after completion.
 
+When a responding host matches the scanner's active IPv4 default gateway,
+the scan assigns it the hostname `GATEWAY` and the Production environment.
+Successful SSH hostname discovery replaces this fallback name. The gateway is
+read from the scanner's Linux routing table on each network or single-machine scan; if
+multiple default routes exist, the active gateway with the lowest metric is
+used. Without a default gateway, or when it is absent from the scan results,
+no machine receives these assignments.
+
 ## Independent cron execution
 
 The Cron interface preserves unrelated, backup, and patch jobs. Discovery uses

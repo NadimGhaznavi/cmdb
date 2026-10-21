@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-21 @ 04:56
+
 This release is named for the element **Carbon (C)**. Carbon can form both diamond, one of the hardest natural materials, and graphite, which is soft enough to write with.
 
 - Identify the default gateway during network discovery, assign it the uppercase

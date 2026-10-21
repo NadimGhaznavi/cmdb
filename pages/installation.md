@@ -169,6 +169,9 @@ all defaults. Unknown settings and invalid values fail validation. The constants
 declare default inventory; JSON and command-line overrides do not change that
 declaration. Network discovery support is deferred.
 
+For applying this standard to another app, see the
+[CMDB_NETWORK app developer guide]({{ site.baseurl }}{% link pages/cmdb-network.md %}).
+
 Apply edits with the installed restart command:
 
 ```sh

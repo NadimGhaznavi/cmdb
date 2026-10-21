@@ -20,6 +20,7 @@ from cmdb.activity.sources.NmapOSSource import NmapOSSource
 from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.MachineDb import MachineDb
+from cmdb.interface.Network import Network
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 
@@ -164,13 +165,17 @@ class InventoryCoordinator(Thread):
                 self._host_results[target] = target in up_hosts
         if not machines:
             return
+        gateway = Network.default_gateway()
         with inventory_database() as db:
             inventory = MachineDb(db)
             for machine in machines:
                 machine.id = inventory.upsert(machine)
+                if machine.ipAddress == gateway:
+                    inventory.update_discovered_hostname(machine.id, 'GATEWAY')
+                    inventory.update_environment(machine.id, 'prod')
             hostnames = {machine.id: machine.hostName for machine in inventory.list_machines()}
             for machine in machines:
-                machine.hostName = hostnames.get(machine.id)
+                machine.hostName = 'GATEWAY' if machine.ipAddress == gateway else hostnames.get(machine.id)
         if self._stop_requested.is_set():
             return
         scan_error = None

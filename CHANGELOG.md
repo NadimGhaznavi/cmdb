@@ -7,6 +7,21 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-21 @ 04:56
+
+This release is named for the element **Carbon (C)**. Carbon can form both diamond, one of the hardest natural materials, and graphite, which is soft enough to write with.
+
+- Identify the default gateway during network discovery, assign it the uppercase
+  fallback hostname `GATEWAY`, and classify it as Production. Successful SSH
+  discovery replaces the fallback with the reported hostname.
+
+- Extract application discovery settings into individual `CMDB_*` developer
+  references, linked from an App discovery settings guide.
+
+- Add a `CMDB_NETWORK` app developer guide covering literal declarations,
+  runtime wiring, production overrides, and checks, with network discovery
+  explicitly marked as coming.
+
 ## [1.5.0] - 2026-10-20 @ 17:59
 
 The **XMM-Newton** release is named for the *ESA X-ray space observatory*.

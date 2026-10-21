@@ -50,8 +50,9 @@ the row is focused to expand or collapse its contents. Databases reveals its hos
 sections; Backup Vault reveals the directory, table, and Scan Filesystem button.
 Application groups discovered declarations by host, then application. Host headings
 show the application count in parentheses, such as `Wintermute (1)`. Only named
-directory deployments from `CMDB_COMPONENTS` and matched database connections from
-`CMDB_DATABASES` appear; installation roots, operating systems, MariaDB server
+directory deployments from [CMDB_COMPONENTS]({{ site.baseurl }}{% link pages/cmdb-components.md %})
+and matched database connections from [CMDB_DATABASES]({{ site.baseurl }}{% link pages/cmdb-databases.md %})
+appear; installation roots, operating systems, MariaDB server
 directories, and applications without declared data are excluded. Previously
 recorded declarations remain eligible when later scans omit them, following the
 inventory's preservation rules.

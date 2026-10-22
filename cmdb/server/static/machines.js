@@ -735,7 +735,7 @@ async function loadPatchingHosts() {
       if (!row.dataset.scheduleDirty && !row.dataset.scheduleSaving) {
         const enabled = row.querySelector('[data-field="scheduleEnabled"]');
         enabled.checked = Boolean(host.schedule?.enabled);
-        setCronExpression(row, host.schedule?.expression || '');
+        setCronExpression(row, host.schedule?.expression ?? '0 13 * * 1');
       }
       const button = row.querySelector('[data-action="patch"]');
       const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);

@@ -7,6 +7,13 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-22 @ 05:11
+
+This release is named for the element **Fluorine**. Fluorine is the most electronegative element, meaning it attracts shared electrons more strongly than any other.
+
+- Prefill Patching's Cron Schedule with Mondays at 1 p.m. when no schedule is
+  saved, preserving saved values and leaving scheduling disabled by default.
+
 ## [1.8.0] - 2026-10-22 @ 04:40
 
 This release is named for the element **Oxygen**. Oxygen makes up nearly half of Earth's crust by mass, mostly bound into minerals.

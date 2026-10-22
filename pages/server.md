@@ -201,8 +201,12 @@ The controls show save progress and results; discovery preserves the tag.
 A successful save moves the machine to its environment box and updates both
 group counts immediately, retaining the selected machine and each box’s collapsed state.
 
-Other machine details are read-only. Successful SSH discovery populates the hostname
-reported by the machine.
+Host Name is editable, including for devices that cannot be reached over SSH.
+The Update button below the machine values saves a changed hostname through
+`POST /api/machines/hostname`, then saves the environment. A blank hostname clears
+the value. Save results report when the hostname was saved but the environment
+could not be saved. Successful SSH discovery replaces a manually entered hostname
+with the hostname reported by the machine. Other machine values are read-only.
 
 [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 and its MIT license are bundled
 under `cmdb/server/static/vendor/`, so the graph needs no CDN connection.

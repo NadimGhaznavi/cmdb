@@ -117,6 +117,8 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 #selection-details table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .9rem; }
 #selection-details th, #selection-details td { text-align: left; vertical-align: top; padding: .6rem .25rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 #selection-details th { width: 45%; color: var(--muted); font-weight: normal; }
+#detail-hostName { box-sizing: border-box; width: 100%; min-width: 0; background: var(--background); color: var(--text); border: 1px solid var(--border); padding: .4rem; font: inherit; }
+#detail-hostName:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .page-actions { margin: 0; }
 #delete-backup-dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: .5rem; max-width: min(32rem, 80vw); overflow-wrap: anywhere; }
 #delete-backup-dialog::backdrop { background: rgb(0 0 0 / 60%); }

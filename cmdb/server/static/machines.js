@@ -994,6 +994,7 @@ async function loadMachines() {
   const selectionDetails = document.getElementById("selection-details");
   const softwareDetails = document.getElementById("software-details");
   const environment = document.getElementById("machine-environment");
+  const hostname = document.getElementById("detail-hostName");
   const update = document.getElementById("update-machine");
   const environmentStatus = document.getElementById("machine-environment-status");
   let selectedMachine = null;
@@ -1176,7 +1177,8 @@ async function loadMachines() {
       environment.value = node.data("taggedValue")?.find(tag => tag.tag === "DeploymentEnvironment")?.value
         ?? "unclassified";
       environmentStatus.textContent = "";
-      for (const field of ["ipAddress", "macAddress", "hostName", "createdOn", "updatedOn"]) {
+      hostname.value = node.data("hostName") ?? "";
+      for (const field of ["ipAddress", "macAddress", "createdOn", "updatedOn"]) {
         const value = field === "createdOn" || field === "updatedOn"
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
         document.getElementById(`detail-${field}`).textContent = value;
@@ -1242,10 +1244,28 @@ async function loadMachines() {
       if (!selectedMachine || update.disabled) return;
       const node = selectedMachine;
       const value = environment.value;
+      const hostName = hostname.value.trim();
+      const machine = machines.find(machine => machine.id === node.data("machineId"));
+      let hostnameSaved = false;
+      let saved = false;
+      let message;
       update.disabled = true;
       environment.disabled = true;
+      hostname.disabled = true;
       environmentStatus.textContent = "Saving…";
       try {
+        if (hostName !== (machine.hostName ?? "")) {
+          const response = await fetch("/api/machines/hostname", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ipAddress: machine.ipAddress, hostName }),
+            signal: AbortSignal.timeout(15000),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Could not save the hostname. Try again.");
+          machine.hostName = result.machine.hostName;
+          machine.updatedOn = result.machine.updatedOn;
+          hostnameSaved = true;
+        }
         const response = await fetch("/api/machines/environment", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ machine: node.data("machineId"), environment: value }),
@@ -1257,23 +1277,28 @@ async function loadMachines() {
         if (result.environment !== "unclassified") {
           tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
         }
-        machines.find(machine => machine.id === node.data("machineId")).taggedValue = tags;
+        machine.taggedValue = tags;
+        saved = true;
+        message = "Machine details saved.";
+      } catch (error) {
+        message = (hostnameSaved ? "Host name saved. " : "")
+          + (error.message || "Could not save the machine details. Try again.");
+      } finally {
         const selectedId = selectedNode?.id() ?? "";
         const savedSelectedMachine = selectedMachine === node;
-        renderGroups();
-        const selected = graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);
-        if (selected) selectNode(selected);
+        if (hostnameSaved || saved) {
+          renderGroups();
+          const selected = graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);
+          if (selected) selectNode(selected);
+        }
         if (savedSelectedMachine) {
-          environment.value = result.environment;
-          environmentStatus.textContent = "Environment saved.";
+          environment.value = value;
+          hostname.value = saved ? machine.hostName ?? "" : hostName;
+          environmentStatus.textContent = message;
         }
-      } catch (error) {
-        if (selectedMachine === node) {
-          environmentStatus.textContent = error.message || "Could not save the environment. Try again.";
-        }
-      } finally {
         update.disabled = false;
         environment.disabled = false;
+        hostname.disabled = false;
       }
     });
     renderGroups();

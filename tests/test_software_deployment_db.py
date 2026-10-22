@@ -752,40 +752,54 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         target = NamespaceDb(self.db).create(name='cmdb')
         started = datetime(2026, 9, 28, 13, 29)
         completed = datetime(2026, 9, 28, 13, 30)
-        identity = self.db.insert('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)',
-                                  (target, started))
+        identity = self.db.insert(
+            'INSERT INTO Backup (modelElement, startedOn, kind, ipAddress, sourcePathname, databaseName) '
+            "VALUES (%s, %s, 'database', '192.0.2.7', '/data/', 'cmdb')", (target, started))
         running = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
-        self.assertEqual(running, Backup(modelElement=target, startedOn=started, id=identity))
+        self.assertEqual(running, Backup(modelElement=target, startedOn=started, kind='database',
+                                         ipAddress='192.0.2.7', sourcePathname='/data/', databaseName='cmdb',
+                                         id=identity))
         self.db.execute('UPDATE Backup SET status=%s, completedOn=%s, pathname=%s, sizeBytes=%s, '
                         'checksum=%s WHERE id=%s',
                         ('succeeded', completed, 'sally/cmdb/example.dump', 123, 'a' * 64, identity))
         success = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
         self.assertEqual((success.status, success.sizeBytes, success.checksum), ('succeeded', 123, 'a' * 64))
-        self.db.execute('INSERT INTO Backup (modelElement, startedOn, completedOn, status, error) '
-                        'VALUES (%s, %s, %s, %s, %s)', (target, completed, completed, 'failed', 'Dump failed'))
+        self.db.execute(
+            'INSERT INTO Backup (modelElement, startedOn, completedOn, status, error, '
+            'kind, ipAddress, sourcePathname, databaseName) '
+            "VALUES (%s, %s, %s, 'failed', 'Dump failed', 'database', '192.0.2.7', '/data/', 'cmdb')",
+            (target, completed, completed))
         self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
         self.db.execute('DELETE FROM BackupSchedule WHERE modelElement=%s', (target,))
         self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM Backup')[0]['n'], 2)
+        self.db.execute('DELETE FROM Namespace WHERE id=%s', (target,))
+        self.db.execute('DELETE FROM ModelElement WHERE id=%s', (target,))
+        self.assertEqual(self.db.query('SELECT modelElement FROM Backup'), [{'modelElement': None}] * 2)
+        self.assertEqual(self.db.query('SELECT databaseName FROM Backup'), [{'databaseName': 'cmdb'}] * 2)
         with self.assertRaises(pymysql.IntegrityError):
-            self.db.execute('DELETE FROM ModelElement WHERE id=%s', (target,))
-        with self.assertRaises(pymysql.IntegrityError):
-            self.db.execute('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)', (999999, started))
+            self.db.execute(
+                'INSERT INTO Backup (modelElement, startedOn, kind, ipAddress, sourcePathname, databaseName) '
+                "VALUES (%s, %s, 'database', '192.0.2.7', '/data/', 'cmdb')", (999999, started))
 
     def test_backup_rejects_inconsistent_results_and_invalid_checksums(self):
         target = NamespaceDb(self.db).create(name='cmdb')
         started = datetime(2026, 9, 28, 13, 29)
         valid = dict(modelElement=target, startedOn=started, completedOn=started,
                      status='succeeded', pathname='sally/cmdb/example.dump', sizeBytes=123,
-                     checksum='0123456789abcdef' * 4, error=None)
+                     checksum='0123456789abcdef' * 4, error=None, kind='database',
+                     ipAddress='192.0.2.7', sourcePathname='/data/', databaseName='cmdb')
         for field, value in (('status', 'unknown'), ('status', 'running'), ('completedOn', None),
                              ('completedOn', datetime(2026, 9, 27)), ('pathname', None),
                              ('pathname', ''), ('sizeBytes', None), ('sizeBytes', -1),
                              ('checksum', None), ('checksum', 'a' * 63), ('checksum', 'g' * 64),
-                             ('checksum', 'a' * 63 + '\n'), ('error', 'Unexpected error')):
+                             ('checksum', 'a' * 63 + '\n'), ('error', 'Unexpected error'),
+                             ('kind', 'unknown'), ('kind', None), ('kind', 'directory'),
+                             ('ipAddress', None), ('ipAddress', ''), ('sourcePathname', None),
+                             ('sourcePathname', ''), ('databaseName', None), ('databaseName', '')):
             values = valid | {field: value}
             with self.subTest(field=field, value=value), self.assertRaises(pymysql.MySQLError):
-                self.db.execute('INSERT INTO Backup (modelElement, startedOn, completedOn, status, '
-                                'pathname, sizeBytes, checksum, error) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+                self.db.execute('INSERT INTO Backup (' + ', '.join(values) + ') VALUES ('
+                                + ', '.join(['%s'] * len(values)) + ')',
                                 tuple(values.values()))
 
     def test_host_dump_restores_real_mariadb_data_and_checksum(self):
@@ -909,6 +923,133 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                                        hostName='sally.example', ipAddress='192.0.2.7',
                                        pathname=f'host/db/{identities[2]}.dump', sizeBytes=1))
         self.assertEqual(files[-1]['elapsedSeconds'], 0)
+
+    def test_database_backup_captures_source_and_later_attempts_use_current_inventory(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='original.example',
+                                              macAddress='02:00:00:00:00:07', site='Original site'))
+        self.machines.update_environment(machine, 'prod')
+        managers = DataManagerDb(self.db)
+        managers.record_mariadb(machine, '11.8.3', '/data/', ['MixedCase'])
+        backups = BackupDb(self.db)
+        target = backups.databases()[0]['modelElement']
+        started = datetime(2026, 10, 21, 12)
+        with self.db.transaction():
+            identity = backups.start(target, started)
+        original = backups.get(identity)
+        expected = dict(kind='database', hostName='original.example', ipAddress='192.0.2.7',
+                        macAddress='02:00:00:00:00:07', site='Original site', environment='prod',
+                        databaseName='MixedCase', sourcePathname='/data/', softwareName='MariaDB',
+                        softwareVersion='11.8.3', applicationName=None, componentName=None)
+        self.assertEqual({field: original[field] for field in expected}, expected)
+        self.db.execute('UPDATE Machine SET hostName=%s, ipAddress=%s, macAddress=%s, site=%s WHERE id=%s',
+                        ('renamed.example', '192.0.2.8', '02:00:00:00:00:08', 'New site', machine))
+        self.machines.update_environment(machine, 'qa')
+        managers.record_mariadb(machine, '11.9', '/data/', ['MixedCase'])
+        self.db.execute('UPDATE ModelElement SET name=%s WHERE id=%s', ('NewName', target))
+        with self.db.transaction():
+            newer = backups.start(target, started)
+        current = backups.get(newer)
+        self.assertEqual({field: current[field] for field in expected}, expected | dict(
+            hostName='renamed.example', ipAddress='192.0.2.8', macAddress='02:00:00:00:00:08',
+            site='New site', environment='qa', softwareVersion='11.9', databaseName='NewName'))
+        backups.finish(identity, started, error='Dump failed')
+        failed = backups.get(identity)
+        self.assertEqual({field: failed[field] for field in expected}, expected)
+        self.assertEqual((failed['status'], failed['error']), ('failed', 'Dump failed'))
+
+    def test_directory_backup_captures_names_version_and_source_path_separately_from_artifact(self):
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        app = SoftwareSystemDb(self.db).create_application('MyCount')
+        self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                         components=(('Marketing', 'pages/marketing'),))
+        backups = BackupDb(self.db)
+        item = backups.components()[0]
+        started = datetime(2026, 10, 21, 12)
+        with self.db.transaction():
+            identity = backups.start(item['modelElement'], started)
+        original = backups.get(identity)
+        expected = dict(kind='directory', hostName=None, ipAddress='192.0.2.7', macAddress=None,
+                        site=None, environment=None, databaseName=None, applicationName='MyCount',
+                        componentName='Marketing', sourcePathname='/opt/prod/mycount/pages/marketing',
+                        softwareName='MyCount', softwareVersion='1.0')
+        self.assertEqual({field: original[field] for field in expected}, expected)
+        self.assertIsNone(original['pathname'])
+        self.db.execute('UPDATE SoftwareSystem SET version=%s WHERE id=%s', ('2.0', item['application']))
+        self.db.execute('UPDATE ModelElement SET name=%s WHERE id=%s', ('New application', item['application']))
+        self.db.execute('UPDATE ModelElement me JOIN DeployedComponent dc ON dc.component=me.id '
+                        'SET me.name=%s WHERE dc.id=%s', ('New component', item['modelElement']))
+        self.db.execute('UPDATE DeployedComponent SET pathname=%s WHERE id=%s',
+                        ('/srv/new-source', item['modelElement']))
+        with self.db.transaction():
+            newer = backups.start(item['modelElement'], started)
+        current = backups.get(newer)
+        self.assertEqual({field: current[field] for field in expected}, expected | dict(
+            applicationName='New application', componentName='New component', softwareName='New application',
+            softwareVersion='2.0', sourcePathname='/srv/new-source'))
+        backups.finish(identity, started, result=dict(pathname='host/files/original.tgz',
+                                                     sizeBytes=42, checksum='a' * 64))
+        saved = backups.get(identity)
+        self.assertEqual({field: saved[field] for field in expected}, expected)
+        self.assertEqual(saved['pathname'], 'host/files/original.tgz')
+        self.assertEqual(backups.files()[0]['databaseName'], 'Marketing')
+
+    def test_backup_vault_survives_complete_inventory_removal(self):
+        machine = self.machines.upsert(Machine('192.0.2.7', hostName='original.example'))
+        DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
+        app = SoftwareSystemDb(self.db).create_application('MyCount')
+        self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                         components=(('Marketing', 'pages/marketing'),))
+        backups = BackupDb(self.db)
+        started = datetime(2026, 10, 21, 12)
+        identities = []
+        for item in backups.databases() + backups.components():
+            with self.db.transaction():
+                identity = backups.start(item['modelElement'], started)
+            backups.finish(identity, started, result=dict(pathname=f'host/{identity}.backup',
+                                                         sizeBytes=42, checksum='a' * 64))
+            BackupScheduleDb(self.db).save(item['modelElement'], False, '0 12 * * *', 'forever')
+            identities.append(identity)
+        records = [backups.get(identity) for identity in identities]
+        files = backups.files()
+        # Simulate removal in FK order without introducing a machine-delete feature.
+        with self.db.transaction():
+            for table in ('BackupSchedule', 'TaggedValue', 'DataManagerDataPackage', 'Catalog',
+                          'DataManager', 'DeployedComponent', 'Component', 'SoftwareSystem', 'Machine', 'Package'):
+                self.db.execute(f'DELETE FROM `{table}`')
+            self.db.execute('UPDATE ModelElement SET namespace=NULL')
+            self.db.execute('DELETE FROM Namespace')
+            self.db.execute('DELETE FROM ModelElement')
+        self.assertEqual(backups.files(), files)
+        self.assertEqual([backups.get(identity) for identity in identities],
+                         [record | {'modelElement': None} for record in records])
+        self.assertEqual(self.db.query('SELECT id FROM ModelElement'), [])
+        self.assertEqual(backups.databases(), [])
+        self.assertEqual(backups.components(), [])
+        self.assertEqual(self.db.query('SELECT id FROM BackupSchedule'), [])
+        # Reusing the address must not reconnect historical backups to new inventory.
+        replacement = self.machines.upsert(Machine('192.0.2.7', hostName='replacement.example'))
+        DataManagerDb(self.db).record_mariadb(replacement, '12.0', '/data/', ['cmdb'])
+        self.assertEqual(backups.files(), files)
+        self.assertIsNone(backups.databases()[0]['lastBackup'])
+        backups.delete(identities[0])
+        self.assertIsNone(backups.get(identities[0]))
+        self.assertEqual(len(backups.files()), 1)
+
+    def test_backup_snapshot_and_attempt_roll_back_together_and_missing_targets_leave_no_attempt(self):
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
+        backups = BackupDb(self.db)
+        target = backups.databases()[0]['modelElement']
+        started = datetime(2026, 10, 21, 12)
+        with self.assertRaisesRegex(RuntimeError, 'Abort preparation'):
+            with self.db.transaction():
+                backups.start(target, started)
+                raise RuntimeError('Abort preparation')
+        for missing in (999999, machine):
+            with self.subTest(target=missing), self.assertRaises(LookupError):
+                with self.db.transaction():
+                    backups.start(missing, started)
+        self.assertEqual(self.db.query('SELECT id FROM Backup'), [])
 
     def test_backup_schedule_rejects_invalid_policy_values(self):
         target = NamespaceDb(self.db).create(name='backup target')

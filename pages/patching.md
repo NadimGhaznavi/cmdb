@@ -30,6 +30,10 @@ job polling but not stored in the database or refreshed by those polls.
 
 Each host has Enabled and a 20-character-wide Cron Schedule text box. Enter five
 standard cron fields: minute, hour, day-of-month, month, and day-of-week.
+When no schedule is saved, the field defaults to `0 13 * * 1` (Mondays at
+1 p.m. in the server's local time). This only prefills the form; saving still
+requires Update, and scheduling requires Enabled. Saved expressions, including
+an empty field, are preserved.
 Ranges, lists, steps, and month/weekday names are accepted; shortcuts such as
 `@reboot` are not. For example, `0 12 * * 0` queues a patch on Sundays at noon
 in the server's local time. The field can hold expressions longer than its visible

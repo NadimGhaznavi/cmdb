@@ -70,6 +70,8 @@ Date (`YYYY-MM-DD`) and Time (`HH:MM:SS` in browser-local time), Elapsed Time (`
 or IP address), Database / Component, Filename (the file name only), Size, Status, and Actions.
 Size uses the recorded byte count, displayed as B, KB, MB, GB, or larger units
 in steps of 1,024, with one decimal place for KB and above. Missing values are blank.
+Machine and source labels come from a snapshot saved when the attempt starts.
+Later inventory edits or removal do not change those labels or hide backup files.
 The filter row below the column headings filters each data column as you type.
 Filters match part of the displayed text, ignoring case, and combine across columns.
 Clear filters restores all rows. Filters stay in place when the table refreshes;
@@ -126,6 +128,12 @@ Backup Now records an attempt and queues it on the web service's worker. Duplica
 manual requests for the same active model item return the same attempt ID.
 The cron runner executes synchronously in its own process. Both use BackupManager
 for bookkeeping and close their CMDB connections before remote work.
+Preparation saves the machine identity, environment/site, source names and path,
+and known software name/version together with the attempt in a transaction.
+Execution uses those saved values. The source path is separate from the resulting
+backup file's pathname. See
+[backup attempts]({{ site.baseurl }}{% link pages/schema-notes.md %}#backup-attempts)
+for the snapshot fields and inventory reference.
 SSHDb runs `mariadb-dump` as `cmdbagent` on the database host, using the local
 MariaDB socket. Neuromancer uses the existing local command path without SSH.
 

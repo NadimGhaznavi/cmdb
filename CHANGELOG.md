@@ -7,6 +7,10 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Capture machine, source, and software details on each backup attempt. Backup
+  Vault uses these historical values and retains records when their inventory
+  targets are deleted, without changing the core CWM schema.
+
 ## [1.6.0] - 2026-10-21 @ 04:56
 
 This release is named for the element **Carbon (C)**. Carbon can form both diamond, one of the hardest natural materials, and graphite, which is soft enough to write with.

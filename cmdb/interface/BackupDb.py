@@ -9,7 +9,9 @@ class BackupDb:
 
     def databases(self) -> list[dict]:
         return self._db.query(
-            "SELECT s.id AS modelElement, me.name AS databaseName, m.hostName, m.ipAddress, "
+            "SELECT s.id AS modelElement, 'database' AS kind, me.name AS databaseName, m.hostName, m.ipAddress, "
+            "m.macAddress, m.site, env.value AS environment, dc.pathname AS sourcePathname, "
+            "cm.name AS componentName, ss.subtype AS softwareName, ss.version AS softwareVersion, "
             "m.id AS machine, bs.id AS scheduleId, COALESCE(bs.enabled, 0) AS enabled, "
             "COALESCE(bs.expression, '0 12 * * *') AS expression, COALESCE(bs.retention, '1-week') AS retention, "
             "(SELECT MAX(b.completedOn) FROM Backup b WHERE b.modelElement=s.id "
@@ -20,6 +22,7 @@ class BackupDb:
             "JOIN DataManagerDataPackage dp ON dp.dataManager=dm.id AND dp.dataPackage=s.id "
             "JOIN Machine m ON m.id=dc.machine JOIN Component c ON c.id=dc.component "
             "JOIN ModelElement cm ON cm.id=c.id JOIN SoftwareSystem ss ON ss.id=cm.namespace "
+            "LEFT JOIN TaggedValue env ON env.modelElement=m.id AND env.tag='DeploymentEnvironment' "
             "LEFT JOIN BackupSchedule bs ON bs.modelElement=s.id "
             "WHERE ss.type='DBMS' AND ss.subtype='MariaDB' "
             "AND LOWER(me.name) NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') "
@@ -36,7 +39,9 @@ class BackupDb:
         """Declared filesystem deployments, excluding install roots and DB clients."""
         return self._db.query(
             "SELECT dc.id AS modelElement, 'directory' AS kind, ce.name AS componentName, "
-            "ae.name AS applicationName, ss.id AS application, dc.pathname, m.id AS machine, "
+            "ae.name AS applicationName, ss.id AS application, dc.pathname, dc.pathname AS sourcePathname, "
+            "m.macAddress, m.site, env.value AS environment, "
+            "ae.name AS softwareName, ss.version AS softwareVersion, m.id AS machine, "
             "m.hostName, m.ipAddress, bs.id AS scheduleId, COALESCE(bs.enabled, 0) AS enabled, "
             "COALESCE(bs.expression, '0 12 * * *') AS expression, "
             "COALESCE(bs.retention, '1-week') AS retention, "
@@ -46,6 +51,7 @@ class BackupDb:
             "FROM DeployedComponent dc JOIN Component c ON c.id=dc.component "
             "JOIN ModelElement ce ON ce.id=c.id JOIN SoftwareSystem ss ON ss.id=ce.namespace "
             "JOIN ModelElement ae ON ae.id=ss.id JOIN Machine m ON m.id=dc.machine "
+            "LEFT JOIN TaggedValue env ON env.modelElement=m.id AND env.tag='DeploymentEnvironment' "
             "LEFT JOIN BackupSchedule bs ON bs.modelElement=dc.id "
             "WHERE ce.name IS NOT NULL AND NOT EXISTS (SELECT 1 FROM DataManager dm WHERE dm.id=dc.id) "
             "ORDER BY m.id, ae.name, ce.name, dc.pathname")
@@ -82,17 +88,27 @@ class BackupDb:
         """Successful database dumps and directory archives, newest first."""
         return self._db.query(
             "SELECT b.id, b.completedOn AS backupTime, "
-            "TIMESTAMPDIFF(SECOND, b.startedOn, b.completedOn) AS elapsedSeconds, me.name AS databaseName, "
-            "m.hostName, m.ipAddress, b.pathname, b.sizeBytes FROM Backup b "
-            "JOIN ModelElement target ON target.id=b.modelElement "
-            "LEFT JOIN `Catalog` s ON s.id=target.id "
-            "JOIN DeployedComponent dc ON dc.id=CASE WHEN s.id IS NOT NULL THEN target.namespace ELSE target.id END "
-            "JOIN ModelElement me ON me.id=CASE WHEN s.id IS NOT NULL THEN s.id ELSE dc.component END "
-            "JOIN Machine m ON m.id=dc.machine WHERE b.status='succeeded' "
+            "TIMESTAMPDIFF(SECOND, b.startedOn, b.completedOn) AS elapsedSeconds, "
+            "CASE WHEN b.kind='database' THEN b.databaseName ELSE b.componentName END AS databaseName, "
+            "b.hostName, b.ipAddress, b.pathname, b.sizeBytes FROM Backup b WHERE b.status='succeeded' "
             "ORDER BY b.completedOn DESC, b.id DESC")
 
     def start(self, target: int, started) -> int:
-        return self._db.insert('INSERT INTO Backup (modelElement, startedOn) VALUES (%s, %s)', (target, started))
+        """Lock the source and capture an attempt inside the caller's transaction."""
+        self._db.query(
+            'SELECT m.id FROM ModelElement target '
+            'JOIN DeployedComponent dc ON dc.id=target.id OR dc.id=target.namespace '
+            'JOIN Machine m ON m.id=dc.machine WHERE target.id=%s FOR UPDATE', (target,))
+        item = self.target(target)
+        if item is None:
+            raise LookupError('Backup target not found.')
+        columns = ('modelElement', 'kind', 'hostName', 'ipAddress', 'macAddress', 'environment', 'site',
+                   'databaseName', 'applicationName', 'componentName', 'sourcePathname',
+                   'softwareName', 'softwareVersion')
+        return self._db.insert(
+            'INSERT INTO Backup (' + ', '.join(columns) + ', startedOn) VALUES ('
+            + ', '.join(['%s'] * (len(columns) + 1)) + ')',
+            tuple(item.get(column) for column in columns) + (started,))
 
     def is_running(self, target: int) -> bool:
         return bool(self._db.query("SELECT id FROM Backup WHERE modelElement=%s AND status='running' LIMIT 1", (target,)))

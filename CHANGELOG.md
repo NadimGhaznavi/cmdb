@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-22 @ 05:11
+
 This release is named for the element **Fluorine**. Fluorine is the most electronegative element, meaning it attracts shared electrons more strongly than any other.
 
 - Prefill Patching's Cron Schedule with Mondays at 1 p.m. when no schedule is

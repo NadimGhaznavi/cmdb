@@ -30,11 +30,11 @@ class BackupManager:
         db = DbMgr()
         try:
             inventory = BackupDb(db)
-            item = inventory.target(target)
-            if item is None:
-                raise LookupError('Backup target not found.')
-            started = now()
-            return item, inventory.start(target, started), started
+            with db.transaction():
+                started = now()
+                identity = inventory.start(target, started)
+                item = inventory.get(identity)
+            return item, identity, started
         finally:
             db.close()
 
@@ -61,10 +61,10 @@ class BackupManager:
                          if item['hostName'] else item['ipAddress'], safe='-_.')
             if item.get('kind') == 'directory':
                 application = quote(item['applicationName'].lower(), safe='-_.')
-                name = quote(PurePosixPath(item['pathname']).name, safe='-_.')
+                name = quote(PurePosixPath(item['sourcePathname']).name, safe='-_.')
                 filename = f"{host[:63]}-{application[:80]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.tgz"
                 pathname = f'{host}/files/{filename}'
-                result = SSHFiles(SSH()).backup_directory(item['ipAddress'], item['pathname'], pathname)
+                result = SSHFiles(SSH()).backup_directory(item['ipAddress'], item['sourcePathname'], pathname)
             else:
                 name = quote(item['databaseName'], safe='-_.')
                 filename = f"mariadb-{host[:63]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.dump"

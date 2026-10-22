@@ -24,7 +24,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/patch-schedules` | Saves a machine's enabled flag and five-field cron expression. |
 | `POST /api/patching` | Queues a patch-and-reboot job for a machine ID; returns HTTP 202 and jobId. |
 | `DELETE /api/databases/<id>` | Drops an inventoried user database after exact-name confirmation; protects cmdb and system databases. |
-| `GET /api/backups/files` | Lists successful database dumps and directory tarballs newest first with completion time and inventory names. |
+| `GET /api/backups/files` | Lists successful database dumps and directory tarballs newest first with completion time and names captured at backup creation. |
 | `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |
 | `DELETE /api/backups/files/<id>` | Deletes a successful backup's dump file and then its Backup record; also cleans up records for missing files. |
 | `POST /api/backup-schedules` | Saves modelElement, enabled, cron expression, and retention; creates or removes the schedule's cron entry. |

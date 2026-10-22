@@ -132,10 +132,22 @@ CREATE TABLE IF NOT EXISTS BackupSchedule (
     CONSTRAINT BackupSchedule_retention_ck CHECK (retention IN ('1-week', '2-weeks', '1-month', 'forever'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Individual attempts have independent identities and outlive schedule changes.
+-- Application-owned source snapshots and outcomes outlive inventory and schedules.
 CREATE TABLE IF NOT EXISTS Backup (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    modelElement BIGINT UNSIGNED NOT NULL,
+    modelElement BIGINT UNSIGNED NULL,
+    kind VARCHAR(16) COLLATE utf8mb4_bin NOT NULL,
+    hostName VARCHAR(255) NULL,
+    ipAddress VARCHAR(45) NOT NULL,
+    macAddress VARCHAR(17) NULL,
+    environment VARCHAR(255) NULL,
+    site VARCHAR(255) NULL,
+    databaseName VARCHAR(255) COLLATE utf8mb4_bin NULL,
+    applicationName VARCHAR(255) COLLATE utf8mb4_bin NULL,
+    componentName VARCHAR(255) COLLATE utf8mb4_bin NULL,
+    sourcePathname TEXT NOT NULL,
+    softwareName VARCHAR(255) NULL,
+    softwareVersion VARCHAR(255) NULL,
     startedOn DATETIME(6) NOT NULL,
     completedOn DATETIME(6) NULL,
     status VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'running',
@@ -144,7 +156,12 @@ CREATE TABLE IF NOT EXISTS Backup (
     checksum VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     error TEXT NULL,
     KEY Backup_latest_success_idx (modelElement, status, completedOn),
-    CONSTRAINT Backup_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id),
+    CONSTRAINT Backup_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id) ON DELETE SET NULL,
+    CONSTRAINT Backup_kind_ck CHECK (kind IN ('database', 'directory')),
+    CONSTRAINT Backup_source_ck CHECK (
+        CHAR_LENGTH(ipAddress) > 0 AND CHAR_LENGTH(sourcePathname) > 0 AND
+        ((kind = 'database' AND databaseName IS NOT NULL AND CHAR_LENGTH(databaseName) > 0) OR
+         (kind = 'directory' AND componentName IS NOT NULL AND CHAR_LENGTH(componentName) > 0))),
     CONSTRAINT Backup_status_ck CHECK (status IN ('running', 'succeeded', 'failed')),
     CONSTRAINT Backup_completion_ck CHECK (
         (status = 'running' AND completedOn IS NULL) OR

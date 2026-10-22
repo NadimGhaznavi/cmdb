@@ -30,16 +30,24 @@ The table is included in the install schema; no record migration is added.
 
 ## Backup attempts
 
-`Backup` is an application entity with its own ID and a required reference to
-`ModelElement.id`. Multiple attempts may reference the same item. There is no
+`Backup` is an application entity with its own ID and a source snapshot captured
+when each attempt starts. Its optional `modelElement` reference connects history
+to current inventory; `ON DELETE SET NULL` detaches history when that inventory
+item is removed. Multiple attempts may reference the same item. There is no
 dependency on BackupSchedule, so manual attempts need no schedule and changing
-or removing a schedule preserves history. Referenced inventory items cannot be
-deleted while backup records remain.
+or removing a schedule preserves history. Core CWM tables are unchanged.
 
 | Column | Purpose |
 | --- | --- |
 | `id` | Auto-increment primary key |
-| `modelElement` | Required foreign key to the item backed up |
+| `modelElement` | Nullable foreign key to the item backed up; cleared on target deletion |
+| `kind` | Required `database` or `directory` |
+| `hostName`, `ipAddress`, `macAddress` | Machine values at attempt creation; IP is required |
+| `environment`, `site` | Machine classification at attempt creation; null when unknown |
+| `databaseName` | Required source name for a database backup; preserves case |
+| `applicationName`, `componentName` | Directory source labels; component name is required for directory backups |
+| `sourcePathname` | Required source directory, or the database server's data directory |
+| `softwareName`, `softwareVersion` | Source software at attempt creation, where known |
 | `startedOn` | Required UTC start time, stored as DATETIME(6) |
 | `completedOn` | UTC completion time; null while running |
 | `status` | `running` (default), `succeeded`, or `failed` |
@@ -52,8 +60,30 @@ Completed attempts require a completion time no earlier than their start.
 Success requires a nonempty pathname, size, checksum, and no error. Running and
 failed attempts have no completed-file size or checksum. The latest-success
 index supports looking up Last Backup by model item and completion time.
-BackupManager creates attempts and records SSHDb results. Backup Now polls those
-records and displays the latest successful completion time. See
+IP, source pathname, and the applicable database/component name must be nonempty.
+Unknown optional values remain null. A database snapshot describes its database
+server, with `softwareName` set to its DBMS subtype (`MariaDB`); it does not select
+one consuming application when a database may have several consumers.
+
+BackupManager opens a transaction before preparation. `BackupDb.start()` locks
+the target, deployment, and machine and captures the inventory values in the new
+attempt within that caller-owned transaction. The worker executes from the saved
+snapshot after committing and closing its connection. Completion updates only
+outcome fields, leaving source details unchanged. The snapshot describes CMDB's
+known inventory at preparation time, not a fresh discovery or a consistency
+guarantee for the remote data.
+
+Backup Vault reads names, machine details, and artifact metadata directly from
+Backup without inventory joins. Renames, rescans, inventory deletion, and later
+reuse of an IP address do not relabel or hide old backups. Deleting a backup still
+removes its file and history record through the existing Vault workflow.
+BackupSchedule continues to require live inventory; removing a target requires
+explicit policy and cron cleanup.
+
+These changes target fresh schemas through the existing install workflow; no
+migration or historical snapshot backfill is supplied.
+Backup Now polls attempt records and displays the latest successful completion
+time. See
 [manual backups]({{ site.baseurl }}{% link pages/backups.md %}) for execution and failure handling.
 
 ## Data packages and inherited names

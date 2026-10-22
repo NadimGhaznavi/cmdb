@@ -40,18 +40,20 @@
               <option value="qa">QA</option>
               <option value="dev">DEV</option>
             </select>
-            <button id="update-machine" type="button">Update</button>
           </div>
-          <p id="machine-environment-status" role="status"></p>
           <table aria-label="Machine details">
             <tbody>
               <tr><th scope="row">{{label.ipAddress}}:</th><td id="detail-ipAddress"></td></tr>
               <tr><th scope="row">{{label.macAddress}}:</th><td id="detail-macAddress"></td></tr>
-              <tr><th scope="row">{{label.hostName}}:</th><td id="detail-hostName"></td></tr>
+              <tr><th scope="row"><label for="detail-hostName">{{label.hostName}}:</label></th><td><input id="detail-hostName" type="text" maxlength="255" autocomplete="off"></td></tr>
               <tr><th scope="row">{{label.createdOn}}:</th><td id="detail-createdOn"></td></tr>
               <tr><th scope="row">{{label.updatedOn}}:</th><td id="detail-updatedOn"></td></tr>
             </tbody>
           </table>
+          <div class="page-actions machine-actions">
+            <button id="update-machine" type="button">Update</button>
+          </div>
+          <p id="machine-environment-status" role="status"></p>
         </details>
         <div id="software-details"></div>
         <template id="software-detail-template">

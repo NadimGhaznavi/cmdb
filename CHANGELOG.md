@@ -7,7 +7,17 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-22 @ 04:40
+
+This release is named for the element **Oxygen**. Oxygen makes up nearly half of Earth's crust by mass, mostly bound into minerals.
+
+- Make Host Name editable in machine details and save it alongside the environment
+  with Update, now below the values table. Successful SSH discovery continues to
+  replace the saved hostname with the host-reported value.
+
 ## [1.7.0] - 2026-10-22 @ 03:19
+
+This release is named for the element **Nitrogen (N)**. Nitrogen makes up about 78% of Earth's atmosphere, yet most organisms cannot use it directly from the air.
 
 - Capture machine, source, and software details on each backup attempt. Backup
   Vault uses these historical values and retains records when their inventory

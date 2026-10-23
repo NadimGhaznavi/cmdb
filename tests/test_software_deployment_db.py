@@ -25,6 +25,7 @@ from cmdb.interface.DbMgr import DbMgr
 from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.NamespaceDb import NamespaceDb
+from cmdb.interface.NetworkDb import NetworkDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 from cmdb.interface.HostOperatingSystem import operating_system
@@ -513,6 +514,46 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 raise RuntimeError('abort refresh')
         self.assertEqual(self.db.query('SELECT * FROM TaggedValue'), before)
         self.assertEqual(self.db.query('SELECT version FROM SoftwareSystem'), [{'version': '1.0'}])
+
+    def test_network_report_follows_deployment_links_and_refreshes_without_deduplicating_ports(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            first = self.machines.upsert(Machine('192.0.2.7', hostName='wintermute.example'))
+            second = self.machines.upsert(Machine('192.0.2.8'))
+            mycount = definitions.create_application('MyCount')
+            cmdb = definitions.create_application('CMDB')
+            self.software.record_application(first, mycount, '/opt/prod/mycount', '1.0',
+                                             network=(('http', '0.0.0.0', 80), ('backend', '127.0.0.1', 9)))
+            self.software.record_application(second, mycount, '/opt/prod/mycount', '1.0',
+                                             network=(('http', '0.0.0.0', 443),))
+            self.software.record_application(first, cmdb, '/opt/prod/cmdb', '1.0',
+                                             network=(('http', '0.0.0.0', 80),))
+            # Only listener tags reached through deployment usage belong in the report.
+            self.db.execute('INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s,%s,%s)',
+                             (mycount, 'CMDB_NETWORK.unrelated', 'not a listener tuple'))
+            listener = self.db.query('SELECT usedComponents FROM DeployedComponentsUsage ORDER BY usedComponents')[0]
+            self.db.execute('INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s,%s,%s)',
+                             (listener['usedComponents'], 'Owner', 'Operations'))
+        report = NetworkDb(self.db)
+        self.assertEqual(report.ports(), [
+            {'hostName': 'wintermute.example', 'ipAddress': '192.0.2.7', 'application': 'CMDB',
+             'serviceName': 'http', 'portNumber': 80},
+            {'hostName': 'wintermute.example', 'ipAddress': '192.0.2.7', 'application': 'MyCount',
+             'serviceName': 'backend', 'portNumber': 9},
+            {'hostName': 'wintermute.example', 'ipAddress': '192.0.2.7', 'application': 'MyCount',
+             'serviceName': 'http', 'portNumber': 80},
+            {'hostName': None, 'ipAddress': '192.0.2.8', 'application': 'MyCount',
+             'serviceName': 'http', 'portNumber': 443}])
+        with self.db.transaction():
+            self.software.record_application(first, mycount, '/opt/prod/mycount', '2.0',
+                                             network=(('http', '127.0.0.1', 8080),))
+            self.software.record_application(first, cmdb, '/opt/prod/cmdb', '1.0', network=())
+        ports = report.ports()
+        self.assertEqual([row['portNumber'] for row in ports], [8080, 443])
+        self.assertTrue(all(row['application'] == 'MyCount' for row in ports))
+        with self.db.transaction():
+            definitions.delete_application(mycount)
+        self.assertEqual([row['portNumber'] for row in report.ports()], [8080])
 
     def test_application_deleted_during_discovery_is_skipped(self):
         definitions = SoftwareSystemDb(self.db)

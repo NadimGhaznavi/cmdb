@@ -701,6 +701,38 @@ class ServerTests(unittest.TestCase):
         factory.return_value.close.assert_called_once()
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_network_ports_report_returns_listener_fields_and_closes_database(self, factory):
+        factory.return_value.query.return_value = [
+            {'hostName': 'wintermute.example', 'ipAddress': '192.0.2.7', 'application': 'MyCount',
+             'value': '["http","0.0.0.0",18080]'},
+            {'hostName': None, 'ipAddress': '192.0.2.8', 'application': 'CMDB',
+             'value': '["backend","127.0.0.1",9]'}]
+        status, body = self.get('/api/network/ports')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'ports': [
+            {'hostName': 'wintermute.example', 'ipAddress': '192.0.2.7', 'application': 'MyCount',
+             'serviceName': 'http', 'portNumber': 18080},
+            {'hostName': None, 'ipAddress': '192.0.2.8', 'application': 'CMDB',
+             'serviceName': 'backend', 'portNumber': 9}]})
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_network_ports_empty_inventory_and_database_failure(self, factory):
+        factory.return_value.query.return_value = []
+        self.assertEqual(self.get('/api/network/ports'), (200, b'{"ports": []}'))
+        factory.return_value.query.side_effect = pymysql.OperationalError('private details')
+        status, body = self.get('/api/network/ports')
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(body), {'error': 'Network ports are unavailable.'})
+        self.assertEqual(factory.return_value.close.call_count, 2)
+
+    @patch('cmdb.server.CmdbHandler.DbMgr', side_effect=pymysql.OperationalError('private details'))
+    def test_network_ports_connection_failure_is_503(self, factory):
+        status, body = self.get('/api/network/ports')
+        self.assertEqual(status, 503)
+        self.assertNotIn(b'private details', body)
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_empty_machine_inventory(self, factory):
         factory.return_value.query.return_value = []
         status, body = self.get('/api/machines')

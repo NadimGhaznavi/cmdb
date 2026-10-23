@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-23 @ 04:47
+
 This release is named for the element **Sodium (Na)**. Sodium reacts vigorously with water, releasing heat and hydrogen gas.
 
 - Discover literal `CMDB_NETWORK` declarations during application scans. Store

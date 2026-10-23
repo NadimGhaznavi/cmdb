@@ -247,7 +247,7 @@ class InventoryCoordinator(Thread):
             if self._stop_requested.is_set():
                 return
             name = application['name']
-            outcome, pathname, system, components, databases = self._application.collect(machine.ipAddress, name)
+            outcome, pathname, system, components, databases, network = self._application.collect(machine.ipAddress, name)
             if self._stop_requested.is_set():
                 return
             if outcome == 'observed':
@@ -263,7 +263,7 @@ class InventoryCoordinator(Thread):
                         machine.id, application['id'], pathname, system.version,
                         type=system.type, subtype=system.subtype, supplier=system.supplier,
                         codename=system.taggedValue[0].value if system.taggedValue else None,
-                        components=components, databases=tuple(
+                        components=components, network=network, databases=tuple(
                             declaration for declaration in databases
                             if mariadb_observation is not None and declaration[1] in mariadb_observation['databases']))
                 message = f'{host}: {name} {system.version}' if recorded else f'{host}: {name} — definition removed; skipped.'

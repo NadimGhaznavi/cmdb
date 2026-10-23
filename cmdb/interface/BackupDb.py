@@ -36,7 +36,7 @@ class BackupDb:
             "JOIN SoftwareSystem ss ON ss.id=me.namespace WHERE ss.type='DBMS' AND ss.subtype='MariaDB'")
 
     def components(self) -> list[dict]:
-        """Declared filesystem deployments, excluding install roots and DB clients."""
+        """Declared filesystem deployments, excluding install roots, clients and listeners."""
         return self._db.query(
             "SELECT dc.id AS modelElement, 'directory' AS kind, ce.name AS componentName, "
             "ae.name AS applicationName, ss.id AS application, dc.pathname, dc.pathname AS sourcePathname, "
@@ -54,6 +54,8 @@ class BackupDb:
             "LEFT JOIN TaggedValue env ON env.modelElement=m.id AND env.tag='DeploymentEnvironment' "
             "LEFT JOIN BackupSchedule bs ON bs.modelElement=dc.id "
             "WHERE ce.name IS NOT NULL AND NOT EXISTS (SELECT 1 FROM DataManager dm WHERE dm.id=dc.id) "
+            "AND NOT EXISTS (SELECT 1 FROM DeployedComponentsUsage u "
+            "WHERE u.usedComponents=dc.id AND ce.name='Network listeners') "
             "ORDER BY m.id, ae.name, ce.name, dc.pathname")
 
     def applications(self) -> list[dict]:

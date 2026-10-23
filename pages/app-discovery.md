@@ -16,7 +16,7 @@ has a separate reference with its declaration format and behavior.
 | [CMDB_CODENAME]({{ site.baseurl }}{% link pages/cmdb-codename.md %}) | Release codename | Implemented |
 | [CMDB_COMPONENTS]({{ site.baseurl }}{% link pages/cmdb-components.md %}) | Persistent filesystem data components | Implemented |
 | [CMDB_DATABASES]({{ site.baseurl }}{% link pages/cmdb-databases.md %}) | References to same-host MariaDB catalogs | Implemented |
-| [CMDB_NETWORK]({{ site.baseurl }}{% link pages/cmdb-network.md %}) | Default listener declarations and runtime wiring | Application standard available; discovery coming |
+| [CMDB_NETWORK]({{ site.baseurl }}{% link pages/cmdb-network.md %}) | Default listener declarations and runtime wiring | Discovered per application deployment as listener TaggedValues |
 
 ## Registration and constants file
 

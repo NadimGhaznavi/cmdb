@@ -1,5 +1,6 @@
 """Store OS observations through SoftwareSystem ownership and component deployment."""
 
+import json
 from pathlib import PurePosixPath
 
 from cmdb.entity.Component import Component
@@ -26,6 +27,8 @@ class SoftwareDeploymentDb:
             "JOIN ModelElement sme ON sme.id = ss.id "
             "LEFT JOIN TaggedValue tv ON tv.modelElement = ss.id AND tv.tag = 'VERSION_CODENAME' "
             "WHERE NOT EXISTS (SELECT 1 FROM DataProvider p WHERE p.id = dc.id) "
+            "AND NOT EXISTS (SELECT 1 FROM DeployedComponentsUsage u "
+            "WHERE u.usedComponents=dc.id AND me.name='Network listeners') "
             "ORDER BY dc.machine, dc.id"
         )
 
@@ -51,7 +54,8 @@ class SoftwareDeploymentDb:
                            *, type: str | None = None, subtype: str | None = None,
                            supplier: str | None = None, codename: str | None = None,
                            components: tuple[tuple[str, str], ...] = (),
-                           databases: tuple[tuple[str, str], ...] = ()) -> bool:
+                           databases: tuple[tuple[str, str], ...] = (),
+                           network: tuple[tuple[str, str, int], ...] | None = None) -> bool:
         """Reuse compatible releases, enriching missing metadata without erasing it."""
         definitions = self._db.query(
             'SELECT me.name FROM SoftwareSystem ss JOIN ModelElement me ON me.id = ss.id '
@@ -115,7 +119,52 @@ class SoftwareDeploymentDb:
                                                str(PurePosixPath(pathname) / component_path))
         if databases:
             DataProviderDb(self._db).record_databases(machine, identity, release, pathname, databases)
+        self._record_network_listeners(machine, identity, release, pathname, network)
         return True
+
+    def _record_network_listeners(self, machine: int, application: int, release: int, pathname: str,
+                                  network: tuple[tuple[str, str, int], ...] | None) -> None:
+        """Keep listener identity across upgrades and replace only validated network tags."""
+        rows = self._db.query(
+            'SELECT dc.id FROM DeployedComponentsUsage u '
+            'JOIN DeployedComponent dc ON dc.id=u.usedComponents '
+            'JOIN ModelElement ce ON ce.id=dc.component '
+            "WHERE u.usingComponents=%s AND ce.name='Network listeners' ORDER BY dc.id LIMIT 1",
+            (application,))
+        if not rows and network is None:
+            return
+        deployment = rows[0]['id'] if rows else None
+        components = self._db.query(
+            'SELECT c.id FROM Component c JOIN ModelElement me ON me.id=c.id '
+            "WHERE me.namespace=%s AND me.name='Network listeners' ORDER BY c.id LIMIT 1", (release,))
+        if components:
+            component = components[0]['id']
+        else:
+            component = self._namespaces.create(namespace=release, name='Network listeners')
+            self._db.execute('INSERT INTO Component (id) VALUES (%s)', (component,))
+        if deployment is not None:
+            self._db.execute('UPDATE DeployedComponent SET component=%s, pathname=%s WHERE id=%s',
+                             (component, pathname, deployment))
+        else:
+            deployment = self._namespaces.create_package(namespace=machine, name='Network listeners')
+            self._db.execute(
+                'INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s,%s,%s,%s)',
+                (deployment, pathname, machine, component))
+            self._db.execute('INSERT INTO DeployedComponentsUsage (usingComponents, usedComponents) VALUES (%s,%s)',
+                             (application, deployment))
+        if network is None:
+            return
+        tags = {'CMDB_NETWORK.' + use: json.dumps((use, interface, port), separators=(',', ':'))
+                for use, interface, port in network}
+        for tag, value in tags.items():
+            self._db.execute(
+                'INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s,%s,%s) '
+                'ON DUPLICATE KEY UPDATE value=VALUES(value)', (deployment, tag, value))
+        for row in self._db.query(
+                "SELECT id, tag FROM TaggedValue WHERE modelElement=%s AND LEFT(tag, 13)='CMDB_NETWORK.'",
+                (deployment,)):
+            if row['tag'] not in tags:
+                self._db.execute('DELETE FROM TaggedValue WHERE id=%s', (row['id'],))
 
     def _record_application_component(self, machine: int, release: int, application_name: str,
                                       name: str, pathname: str) -> None:

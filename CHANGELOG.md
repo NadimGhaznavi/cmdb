@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+This release is named for the element **Sodium (Na)**. Sodium reacts vigorously with water, releasing heat and hydrogen gas.
+
 - Discover literal `CMDB_NETWORK` declarations during application scans. Store
   each listener tuple as a TaggedValue on a dedicated `Network listeners`
   DeployedComponent, linked to the application through DeployedComponentsUsage.

@@ -28,6 +28,7 @@ from cmdb.activity.Scheduler import Scheduler
 from cmdb.activity.PatchScheduler import PatchScheduler
 from cmdb.activity.DatabaseManager import DatabaseManager
 from cmdb.interface.MachineDb import MachineDb
+from cmdb.interface.NetworkDb import NetworkDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 from cmdb.entity.Machine import Machine
@@ -115,6 +116,17 @@ class CmdbHandler(BaseHTTPRequestHandler):
                 self.respond(503, b'{"error":"Patching records are unavailable."}', 'application/json')
                 return
             self.respond(200, json.dumps(result, default=backup_json).encode(), 'application/json')
+        elif path == '/api/network/ports':
+            try:
+                db = DbMgr()
+                try:
+                    ports = NetworkDb(db).ports()
+                finally:
+                    db.close()
+            except pymysql.MySQLError:
+                self.respond(503, b'{"error":"Network ports are unavailable."}', 'application/json')
+                return
+            self.respond(200, json.dumps({'ports': ports}).encode(), 'application/json')
         elif path == '/api/applications':
             try:
                 db = DbMgr()

@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-23 @ 16:26
+
+This release is named for the element **Magnesium (Mg)**. Burning magnesium emits a brilliant white light once used in photographic flash powder.
+
+- Add Network between Inventory and Applications in the navigation. Its Ports
+  section starts expanded and reports stored listener declarations by Host,
+  Application, Service Name, and Port Number, with sortable headings and a
+  second header row of wildcard filters defaulting to `*`.
+
 ## [1.9.0] - 2026-10-23 @ 04:47
 
 This release is named for the element **Sodium (Na)**. Sodium reacts vigorously with water, releasing heat and hydrogen gas.

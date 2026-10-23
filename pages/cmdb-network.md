@@ -9,7 +9,8 @@ title: CMDB_NETWORK App Developer Guide
 `CMDB_NETWORK` is the application-side standard for declaring an app's default
 network listeners. Application discovery collects these declarations and stores
 them on a dedicated CWM DeployedComponent for each installed application. The
-listener records are not yet displayed in Inventory or Applications.
+Network page's Ports table reports the stored listener roles and port numbers
+by host and application.
 
 The declaration must drive the app's listener defaults, so inventory metadata
 and runtime defaults have one source. MyCount and CMDB use this pattern, with
@@ -166,8 +167,16 @@ share the application observation's transaction. Deleting the application releas
 removes its listener deployments, usage links, and tags through existing cleanup.
 
 Listener deployments are excluded from the general software display and directory
-backup targets. This storage adds no tables or columns and does not establish
-runtime bindings, reachability, transport, or client dependencies.
+backup targets. The Network page reports their stored tuples in an expanded,
+collapsible Ports section with Host, Application, Service Name, and Port Number
+columns. Click a heading to sort ascending or descending. The second header row
+filters each column; `*` matches any text, matching ignores case, and all column
+filters apply together. Blank filters also match everything. The initial order
+is Host ascending, and port numbers sort numerically. Sort and filter choices
+remain when switching pages within the current browser session.
+
+This storage adds no tables or columns and does not establish runtime bindings,
+reachability, transport, or client dependencies.
 
 ## Verify an app update
 
@@ -183,6 +192,6 @@ runtime bindings, reachability, transport, or client dependencies.
   new settings.
 - Document the app's uses, production config path, and restart procedure, and
   remove replaced listener constants and hardcoded values from runtime consumers.
-- Re-scan the registered application and inspect its `Network listeners`
-  deployment and `CMDB_NETWORK.<use>` tags. Verify updates stay local to that
-  application deployment and removed uses disappear after a valid declaration.
+- Re-scan the registered application and confirm its listeners in Network's
+  Ports report. Verify updates stay local to that application deployment and
+  removed uses disappear after a valid declaration.

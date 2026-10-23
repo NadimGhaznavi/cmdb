@@ -55,11 +55,11 @@
 #backups-page > .backup-panel > summary h3 { margin: 0; }
 .backup-vault-latest { margin-left: auto; text-align: right; color: var(--muted); font-size: .85rem; }
 .backup-vault-latest time { white-space: nowrap; }
-#applications-page, #patching-page, #discovery-page { min-width: 0; border: 0; padding: 0; gap: 1rem; }
-#applications-page .backup-panel > summary { cursor: pointer; }
-#applications-page .backup-panel > summary h3 { display: inline; margin: 0; }
-#applications-page .backup-panel > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-#applications-page .backups-table, #patching-page .backups-table { min-width: 30rem; }
+#applications-page, #patching-page, #discovery-page, #network-page { min-width: 0; border: 0; padding: 0; gap: 1rem; }
+#applications-page .backup-panel > summary, #network-page .backup-panel > summary { cursor: pointer; }
+#applications-page .backup-panel > summary h3, #network-page .backup-panel > summary h3 { display: inline; margin: 0; }
+#applications-page .backup-panel > summary:focus-visible, #network-page .backup-panel > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+#applications-page .backups-table, #patching-page .backups-table, #network-page .backups-table { min-width: 30rem; }
 .patch-row-status { max-width: 32rem; white-space: pre-wrap; }
 .patch-row-status:empty { display: none; }
 .backups-table th, .backups-table td { text-align: left; padding: .8rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
@@ -163,6 +163,9 @@ main { flex: 1; min-height: 28rem; display: flex; flex-direction: column; }
 
 .applications-table th button { border: 0; background: transparent; color: inherit; font-weight: inherit; padding: 0; white-space: nowrap; }
 .applications-table th button:hover { background: transparent; color: inherit; text-decoration: underline; }
+.network-ports-table { table-layout: fixed; }
+.network-ports-table .network-port-filters input[type="text"] { box-sizing: border-box; width: 100%; min-width: 4rem; }
+#network-ports-status:empty { display: none; }
 
 .application-form { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
 .application-form label { white-space: nowrap; }

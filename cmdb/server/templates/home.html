@@ -15,10 +15,11 @@
     <div class="header-heading">
       <div class="header-brand">
         <a class="site-logo" href="#inventory" aria-label="CMDB inventory"><img src="/pages/images/cmdb.png" alt="" width="64" height="64"></a>
-        <h1>CMDB <span id="inventory-heading">Inventory</span><span id="backups-heading" hidden>Backups</span><span id="applications-heading" hidden>Applications</span><span id="patching-heading" hidden>Patching</span><span id="discovery-heading" hidden>Discovery</span></h1>
+        <h1>CMDB <span id="inventory-heading">Inventory</span><span id="network-heading" hidden>Network</span><span id="backups-heading" hidden>Backups</span><span id="applications-heading" hidden>Applications</span><span id="patching-heading" hidden>Patching</span><span id="discovery-heading" hidden>Discovery</span></h1>
       </div>
       <nav aria-label="Main navigation">
         <a id="inventory-link" href="#inventory">Inventory</a>
+        <a id="network-link" href="#network">Network</a>
         <a id="applications-link" href="#applications">Applications</a>
         <a id="patching-link" href="#patching">Patching</a>
         <a id="page-link" href="#backups">Backups</a>
@@ -216,6 +217,31 @@
         <button value="delete">Delete</button>
       </form>
     </dialog>
+  </main>
+  <main id="network-page" aria-labelledby="network-heading" hidden>
+    <details class="backup-panel" aria-labelledby="ports-heading" open>
+      <summary><h3 id="ports-heading">Ports</h3></summary>
+      <p id="network-ports-status" role="status">Loading ports…</p>
+      <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Network ports">
+        <table class="backups-table applications-table network-ports-table" aria-label="Network ports">
+          <thead>
+            <tr>
+              <th scope="col" aria-sort="ascending"><button type="button" data-network-sort="host">Host<span aria-hidden="true"> ▲</span></button></th>
+              <th scope="col"><button type="button" data-network-sort="application">Application<span aria-hidden="true"></span></button></th>
+              <th scope="col"><button type="button" data-network-sort="serviceName">Service Name<span aria-hidden="true"></span></button></th>
+              <th scope="col"><button type="button" data-network-sort="portNumber">Port Number<span aria-hidden="true"></span></button></th>
+            </tr>
+            <tr class="network-port-filters">
+              <td><input type="text" data-network-filter="host" aria-label="Filter Host" value="*" autocomplete="off"></td>
+              <td><input type="text" data-network-filter="application" aria-label="Filter Application" value="*" autocomplete="off"></td>
+              <td><input type="text" data-network-filter="serviceName" aria-label="Filter Service Name" value="*" autocomplete="off"></td>
+              <td><input type="text" data-network-filter="portNumber" aria-label="Filter Port Number" value="*" autocomplete="off"></td>
+            </tr>
+          </thead>
+          <tbody id="network-port-rows"></tbody>
+        </table>
+      </div>
+    </details>
   </main>
   <main id="applications-page" aria-labelledby="applications-heading" hidden>
     <details class="backup-panel" aria-labelledby="deployed-applications-heading">

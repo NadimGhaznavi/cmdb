@@ -172,8 +172,10 @@ deployment even when Components are shared. Valid declarations refresh the tag
 set; missing or invalid declarations preserve prior tags. Explicit empty
 declarations clear network tags while retaining the deployment. All writes share
 the application observation transaction. The existing tables and cleanup paths
-support this model; no DataManager or ProviderConnection is created. Listener
-deployments are not yet displayed and are excluded from directory backup targets.
+support this model; no DataManager or ProviderConnection is created. Network's
+Ports report projects these listener tags into rows by host, application,
+service name, and port number. The listener deployments remain excluded from
+the general software display and directory backup targets.
 
 ## MariaDB discovery
 

@@ -7,9 +7,9 @@ title: CMDB_NETWORK App Developer Guide
 ## Status and purpose
 
 `CMDB_NETWORK` is the application-side standard for declaring an app's default
-network listeners. Apps should adopt it now so their declarations are ready for
-future CMDB discovery. CMDB does not yet collect, store, or display these network
-declarations. No scanner, schema, or UI changes are required when updating an app.
+network listeners. Application discovery collects these declarations and stores
+them on a dedicated CWM DeployedComponent for each installed application. The
+listener records are not yet displayed in Inventory or Applications.
 
 The declaration must drive the app's listener defaults, so inventory metadata
 and runtime defaults have one source. MyCount and CMDB use this pattern, with
@@ -120,9 +120,54 @@ proxy configuration or router mappings where applicable. Deployment health
 checks must use the same resolved settings as the services they check.
 
 The declaration describes **default inventory**, even when production JSON or CLI
-arguments change the actual listener. Updating an app to this standard does not
-promise discovery of its effective runtime settings. Future scanner behavior,
-validation rules, persistence, and display remain deferred.
+arguments change the actual listener. Discovery reads the constants declaration;
+it does not read production JSON, inspect CLI arguments, or probe live sockets.
+
+## Discovery and CWM storage
+
+Normal Inventory, Re-Scan Applications, and Add Application collect `CMDB_NETWORK`
+alongside the installed application's other metadata. A valid literal `VERSION`
+is still required. Constants are parsed as data and never imported or executed.
+
+Discovery accepts a literal tuple or list of three-item tuples or lists. Uses
+are trimmed, nonempty strings without control characters and must be unique
+after trimming. A use is limited to 242 characters so its prefixed tag fits the
+existing 255-character tag field. Interfaces must be literal IPv4 address
+strings. Ports must be integers from 1 to 65535; booleans are rejected.
+Computed declarations, invalid entries, and duplicate uses invalidate the whole
+network declaration. Other valid application metadata can still be recorded.
+
+| CWM element | Stored information |
+| --- | --- |
+| Component | Named `Network listeners`, owned by the application's SoftwareSystem release |
+| DeployedComponent | Named `Network listeners`, with the application's installation pathname and the host as both `machine` and inherited `namespace` |
+| DeployedComponentsUsage | Application deployment in `usingComponents`; listener deployment in `usedComponents` |
+| TaggedValue | One per listener, with `tag="CMDB_NETWORK.<use>"` and a JSON array string preserving `[use, interface, port]` |
+
+For example, `("http", "0.0.0.0", 18080)` becomes
+`tag="CMDB_NETWORK.http"`, `value='["http","0.0.0.0",18080]'`. The tag's
+`modelElement` references the listener deployment's inherited ModelElement ID.
+These tag names and values are CMDB conventions using CWM's TaggedValue extension
+mechanism. The listener is a plain DeployedComponent, without a DataManager,
+DataProvider, or ProviderConnection. `Network listeners` is a scanner-managed
+Component name; use other names for declared filesystem components.
+
+Hosts running the same application release share the listener Component, while
+each application deployment has its own listener DeployedComponent and tags.
+Repeated scans reuse deployment and tag identities. Upgrades rebind the listener
+deployment to the new release's Component without changing another host's tags.
+
+A valid declaration refreshes the complete listener set, removing network tags
+for uses no longer declared. An explicit empty tuple or list clears those tags
+and retains the listener deployment. A missing, unreadable, computed, or invalid
+declaration preserves the last recorded tags; existing listener deployments still
+follow application release changes. Unrelated tags are preserved. Listener writes
+share the application observation's transaction. Deleting the application release
+removes its listener deployments, usage links, and tags through existing cleanup.
+
+Listener deployments are excluded from the general software display and directory
+backup targets. This storage adds no tables or columns and does not establish
+runtime bindings, reachability, transport, or client dependencies.
 
 ## Verify an app update
 
@@ -138,3 +183,6 @@ validation rules, persistence, and display remain deferred.
   new settings.
 - Document the app's uses, production config path, and restart procedure, and
   remove replaced listener constants and hardcoded values from runtime consumers.
+- Re-scan the registered application and inspect its `Network listeners`
+  deployment and `CMDB_NETWORK.<use>` tags. Verify updates stay local to that
+  application deployment and removed uses disappear after a valid declaration.

@@ -2,6 +2,7 @@
 
 import os
 import hashlib
+import json
 import shlex
 import subprocess
 from tempfile import TemporaryDirectory
@@ -378,6 +379,140 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(self.software.list_deployments(), [])
         self.assertEqual(self.db.query('SELECT * FROM Component'), [])
         self.assertIsNone(definitions.list_software_systems()[0]['version'])
+
+    def test_network_listeners_belong_to_deployments_and_survive_upgrade_and_deletion(self):
+        definitions = SoftwareSystemDb(self.db)
+        with self.db.transaction():
+            application = definitions.create_application('MyCount')
+            first = self.machines.upsert(Machine('192.0.2.7'))
+            second = self.machines.upsert(Machine('192.0.2.8'))
+            for machine, port in ((first, 18080), (first, 18080), (second, 28080)):
+                self.software.record_application(machine, application, '/opt/prod/mycount', '1.0',
+                                                 network=(('http', '0.0.0.0', port),),
+                                                 components=(('Uploads', 'data'),))
+        rows = self.db.query(
+            'SELECT dc.id, dc.machine, dc.component, dc.pathname, ce.namespace AS softwareSystem, '
+            'de.name, de.namespace, u.usingComponents AS application, tv.id AS tagId, tv.tag, tv.value '
+            'FROM DeployedComponentsUsage u JOIN DeployedComponent dc ON dc.id=u.usedComponents '
+            'JOIN ModelElement ce ON ce.id=dc.component JOIN ModelElement de ON de.id=dc.id '
+            'JOIN TaggedValue tv ON tv.modelElement=dc.id ORDER BY dc.machine')
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]['component'], rows[1]['component'])
+        for row, machine, port in zip(rows, (first, second), (18080, 28080)):
+            self.assertEqual(row['machine'], machine)
+            self.assertEqual(row['namespace'], machine)
+            self.assertEqual(row['name'], 'Network listeners')
+            self.assertEqual(row['softwareSystem'], application)
+            self.assertEqual(row['pathname'], '/opt/prod/mycount')
+            self.assertEqual(row['tag'], 'CMDB_NETWORK.http')
+            self.assertEqual(json.loads(row['value']), ['http', '0.0.0.0', port])
+        self.assertEqual(self.db.query('SELECT * FROM DataManager'), [])
+        self.assertEqual(self.db.query('SELECT * FROM ProviderConnection'), [])
+        listener_ids = {row['id'] for row in rows}
+        self.assertTrue(listener_ids.isdisjoint(row['id'] for row in self.software.list_deployments()))
+        self.assertEqual(len(self.software.list_deployments()), 4)
+        self.assertEqual({row['componentName'] for row in BackupDb(self.db).applications()}, {'Uploads'})
+        for identity in listener_ids:
+            self.assertIsNone(BackupDb(self.db).target(identity))
+
+        with self.db.transaction():
+            self.software.record_application(first, application, '/opt/prod/mycount', '2.0',
+                                             network=(('http', '127.0.0.1', 19080),),
+                                             components=(('Uploads', 'data'),))
+        refreshed = self.db.query(
+            'SELECT dc.id, ce.namespace AS softwareSystem, ss.version, tv.id AS tagId, tv.value '
+            'FROM DeployedComponent dc JOIN ModelElement ce ON ce.id=dc.component '
+            'JOIN SoftwareSystem ss ON ss.id=ce.namespace JOIN TaggedValue tv ON tv.modelElement=dc.id '
+            "WHERE tv.tag='CMDB_NETWORK.http' ORDER BY dc.machine")
+        self.assertEqual([row['id'] for row in refreshed], [row['id'] for row in rows])
+        self.assertEqual([row['tagId'] for row in refreshed], [row['tagId'] for row in rows])
+        self.assertEqual([row['version'] for row in refreshed], ['2.0', '1.0'])
+        self.assertEqual(json.loads(refreshed[0]['value']), ['http', '127.0.0.1', 19080])
+        self.assertEqual(refreshed[1]['value'], rows[1]['value'])
+
+        with self.db.transaction():
+            self.software.record_application(second, application, '/opt/prod/mycount', '2.0',
+                                             components=(('Uploads', 'data'),))
+            removed = definitions.prune_unused(set())
+        self.assertEqual([row['id'] for row in removed], [application])
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DeployedComponentsUsage'), [{'n': 2}])
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM TaggedValue'), [{'n': 2}])
+        with self.db.transaction():
+            definitions.delete_application(refreshed[0]['softwareSystem'])
+        for table in ('DeployedComponent', 'DeployedComponentsUsage', 'Component', 'TaggedValue',
+                      'SoftwareSystem', 'Package'):
+            self.assertEqual(self.db.query('SELECT * FROM ' + table), [])
+        self.assertEqual({row['id'] for row in self.db.query('SELECT id FROM Namespace')}, {first, second})
+        self.assertEqual(len(self.db.query('SELECT id FROM ModelElement')), 2)
+
+    def test_network_snapshot_refresh_preserves_unknown_and_unrelated_metadata(self):
+        application = SoftwareSystemDb(self.db).create_application('MyCount')
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        self.software.record_application(machine, application, '/opt/prod/mycount', '1.0',
+                                         network=(('http', '0.0.0.0', 18080), ('backend', '127.0.0.1', 18081)))
+        identity = self.db.query('SELECT usedComponents FROM DeployedComponentsUsage')[0]['usedComponents']
+        self.db.execute('INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s,%s,%s)',
+                         (identity, 'Owner', 'Operations'))
+        before = self.db.query('SELECT * FROM TaggedValue ORDER BY id')
+        self.software.record_application(machine, application, '/opt/prod/mycount', '2.0')
+        self.assertEqual(self.db.query('SELECT * FROM TaggedValue ORDER BY id'), before)
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DeployedComponentsUsage'), [{'n': 1}])
+        self.software.record_application(machine, application, '/opt/prod/mycount', '2.0',
+                                         network=(('http', '127.0.0.1', 19080),))
+        tags = self.db.query('SELECT * FROM TaggedValue WHERE modelElement=%s ORDER BY id', (identity,))
+        self.assertEqual([row['tag'] for row in tags], ['CMDB_NETWORK.http', 'Owner'])
+        self.assertEqual(tags[0]['id'], before[0]['id'])
+        self.assertEqual(json.loads(tags[0]['value']), ['http', '127.0.0.1', 19080])
+        self.software.record_application(machine, application, '/opt/prod/mycount', '2.0', network=())
+        self.assertEqual(self.db.query('SELECT * FROM TaggedValue WHERE modelElement=%s', (identity,)), [before[2]])
+        self.assertEqual(self.db.query('SELECT usedComponents FROM DeployedComponentsUsage'),
+                         [{'usedComponents': identity}])
+        self.assertEqual(BackupDb(self.db).applications(), [])
+        self.assertEqual(len(self.software.list_deployments()), 1)
+        self.software.record_application(machine, application, '/opt/prod/mycount', '2.0', network=())
+        self.assertEqual(self.db.query('SELECT usedComponents FROM DeployedComponentsUsage'),
+                         [{'usedComponents': identity}])
+
+    def test_network_and_database_clients_coexist_and_delete_without_removing_server(self):
+        definitions = SoftwareSystemDb(self.db)
+        application = definitions.create_application('MyCount')
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        manager = DataManagerDb(self.db).record_mariadb(machine, '11.8', '/data/', ['mycount'])
+        for _ in range(2):
+            self.software.record_application(machine, application, '/opt/prod/mycount', '1.0',
+                                             databases=(('MyCount', 'mycount'),),
+                                             network=(('http', '0.0.0.0', 18080),))
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DeployedComponentsUsage'), [{'n': 2}])
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DataProvider'), [{'n': 1}])
+        self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM ProviderConnection'), [{'n': 1}])
+        self.assertEqual({row['kind'] for row in BackupDb(self.db).applications()}, {'database'})
+        with self.db.transaction():
+            definitions.delete_application(application)
+        self.assertEqual(self.db.query('SELECT id FROM DataManager'), [{'id': manager}])
+        for table in ('DataProvider', 'ProviderConnection', 'DeployedComponentsUsage', 'TaggedValue'):
+            self.assertEqual(self.db.query('SELECT * FROM ' + table), [])
+        self.assertEqual(len(self.db.query('SELECT * FROM Catalog')), 1)
+
+    def test_network_and_application_observations_roll_back_together(self):
+        application = SoftwareSystemDb(self.db).create_application('MyCount')
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        with self.assertRaises(RuntimeError):
+            with self.db.transaction():
+                self.software.record_application(machine, application, '/opt/prod/mycount', '1.0',
+                                                 network=(('http', '0.0.0.0', 18080),))
+                raise RuntimeError('abort observation')
+        for table in ('DeployedComponent', 'Component', 'DeployedComponentsUsage', 'TaggedValue'):
+            self.assertEqual(self.db.query('SELECT * FROM ' + table), [])
+        self.assertEqual(self.db.query('SELECT version FROM SoftwareSystem'), [{'version': None}])
+        self.software.record_application(machine, application, '/opt/prod/mycount', '1.0',
+                                         network=(('http', '0.0.0.0', 18080),))
+        before = self.db.query('SELECT * FROM TaggedValue')
+        with self.assertRaises(RuntimeError):
+            with self.db.transaction():
+                self.software.record_application(machine, application, '/opt/prod/mycount', '2.0', network=())
+                raise RuntimeError('abort refresh')
+        self.assertEqual(self.db.query('SELECT * FROM TaggedValue'), before)
+        self.assertEqual(self.db.query('SELECT version FROM SoftwareSystem'), [{'version': '1.0'}])
 
     def test_application_deleted_during_discovery_is_skipped(self):
         definitions = SoftwareSystemDb(self.db)

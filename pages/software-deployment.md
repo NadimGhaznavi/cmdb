@@ -155,11 +155,25 @@ Newly added definitions survive earlier workloads until their own queued
 discovery attempt ends. An application that has never been deployed is then
 pruned if discovery records no deployment.
 
-## Network declarations (coming)
+## Network declarations
 
 The [CMDB_NETWORK app developer guide]({{ site.baseurl }}{% link pages/cmdb-network.md %})
-covers the application-side listener standard. Network declarations are not yet
-collected, stored, or displayed by CMDB.
+covers the application-side listener standard and discovery validation.
+Application discovery creates a `Network listeners` Component within the release
+and a plain DeployedComponent on the host, using the application installation
+pathname. DeployedComponentsUsage links the application deployment to this
+listener deployment. Each tuple becomes a TaggedValue on the listener
+deployment's inherited ModelElement identity, named `CMDB_NETWORK.<use>` with
+a JSON array string containing `[use, interface, port]`.
+
+These are declared defaults, not verified runtime bindings. Listener deployment
+identities survive upgrades, and tags remain separate for each application
+deployment even when Components are shared. Valid declarations refresh the tag
+set; missing or invalid declarations preserve prior tags. Explicit empty
+declarations clear network tags while retaining the deployment. All writes share
+the application observation transaction. The existing tables and cleanup paths
+support this model; no DataManager or ProviderConnection is created. Listener
+deployments are not yet displayed and are excluded from directory backup targets.
 
 ## MariaDB discovery
 

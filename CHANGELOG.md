@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-23 @ 16:26
+
 This release is named for the element **Magnesium (Mg)**. Burning magnesium emits a brilliant white light once used in photographic flash powder.
 
 - Add Network between Inventory and Applications in the navigation. Its Ports

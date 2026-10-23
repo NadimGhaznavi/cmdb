@@ -555,6 +555,78 @@ async function loadApplications() {
   }
 }
 
+let networkPorts = [];
+let networkPortsRequest = 0;
+let networkSort = 'host';
+let networkDescending = false;
+
+function renderNetworkPorts() {
+  const body = document.getElementById('network-port-rows');
+  const filters = [...document.querySelectorAll('[data-network-filter]')].map(input => {
+    const pattern = (input.value.trim() || '*').split('*')
+      .map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+    return { field: input.dataset.networkFilter, pattern: new RegExp(`^${pattern}$`, 'i') };
+  });
+  const compare = (left, right, field) => field === 'portNumber'
+    ? left.portNumber - right.portNumber : applicationCollator.compare(left[field], right[field]);
+  const rows = networkPorts.filter(port => filters.every(filter => filter.pattern.test(String(port[filter.field]))))
+    .sort((left, right) => {
+      const order = compare(left, right, networkSort) || compare(left, right, 'host')
+        || compare(left, right, 'application') || compare(left, right, 'serviceName')
+        || compare(left, right, 'portNumber');
+      return networkDescending ? -order : order;
+    });
+  body.replaceChildren();
+  for (const port of rows) {
+    const row = document.createElement('tr');
+    for (const value of [port.host, port.application, port.serviceName, port.portNumber]) {
+      const cell = document.createElement('td');
+      cell.textContent = value;
+      row.append(cell);
+    }
+    body.append(row);
+  }
+  for (const button of document.querySelectorAll('[data-network-sort]')) {
+    const selected = button.dataset.networkSort === networkSort;
+    if (selected) button.closest('th').setAttribute('aria-sort', networkDescending ? 'descending' : 'ascending');
+    else button.closest('th').removeAttribute('aria-sort');
+    button.querySelector('span').textContent = selected ? (networkDescending ? ' ▼' : ' ▲') : '';
+  }
+  document.getElementById('network-ports-status').textContent = networkPorts.length
+    ? (rows.length ? '' : 'No matching ports.') : 'No ports recorded yet.';
+}
+
+for (const button of document.querySelectorAll('[data-network-sort]')) {
+  button.addEventListener('click', () => {
+    const field = button.dataset.networkSort;
+    networkDescending = field === networkSort ? !networkDescending : false;
+    networkSort = field;
+    renderNetworkPorts();
+  });
+}
+for (const input of document.querySelectorAll('[data-network-filter]')) {
+  input.addEventListener('input', renderNetworkPorts);
+}
+
+async function loadNetworkPorts() {
+  const request = ++networkPortsRequest;
+  const status = document.getElementById('network-ports-status');
+  networkPorts = [];
+  renderNetworkPorts();
+  status.textContent = 'Loading ports…';
+  try {
+    const response = await fetch('/api/network/ports', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Network ports are unavailable. Reopen Network to try again.');
+    const { ports } = await response.json();
+    if (request !== networkPortsRequest) return;
+    networkPorts = ports.map(port => ({ ...port, host: machineLabel(port) }));
+    renderNetworkPorts();
+  } catch (error) {
+    if (request !== networkPortsRequest) return;
+    status.textContent = error.message || 'Network ports could not be loaded. Reopen Network to try again.';
+  }
+}
+
 async function loadDiscovery() {
   const status = document.getElementById('discovery-status');
   const enabled = document.getElementById('discovery-enabled');
@@ -605,12 +677,12 @@ document.getElementById('scan-discovery').addEventListener('click', () => refres
 function showPage() {
   clearTimeout(patchingTimer);
   ++patchingRequest;
-  const page = ['applications', 'patching', 'backups', 'discovery'].includes(window.location.hash.slice(1))
+  const page = ['network', 'applications', 'patching', 'backups', 'discovery'].includes(window.location.hash.slice(1))
     ? window.location.hash.slice(1) : 'inventory';
   const backups = page === 'backups';
   const patching = page === 'patching';
   initialUptimePending = patching;
-  for (const name of ['inventory', 'applications', 'patching', 'backups', 'discovery']) {
+  for (const name of ['inventory', 'network', 'applications', 'patching', 'backups', 'discovery']) {
     document.getElementById(`${name}-heading`).hidden = page !== name;
     document.getElementById(`${name}-page`).hidden = page !== name;
     const link = document.getElementById(name === 'backups' ? 'page-link' : `${name}-link`);
@@ -624,6 +696,7 @@ function showPage() {
     loadRegisteredApplications();
   }
   if (page === 'discovery') loadDiscovery();
+  if (page === 'network') loadNetworkPorts();
   if (patching) loadPatchingHosts();
   if (backups) {
     loadBackups();

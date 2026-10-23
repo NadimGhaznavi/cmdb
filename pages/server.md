@@ -12,6 +12,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | --- | --- |
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
+| `GET /api/network/ports` | Reports stored listener declarations by host, application, service name, and integer port number; HTTP 503 when the database is unavailable. |
 | `POST /api/applications` | Registers a named SoftwareSystem and queues its discovery; returns HTTP 201 with id, name, and scanId. |
 | `DELETE /api/applications/<id>` | Removes one registered SoftwareSystem and its application deployments; returns HTTP 404 for a missing ID. |
 | `POST /api/applications/scan` | Queues application discovery on inventoried hosts; returns HTTP 202 with scanId. |
@@ -55,9 +56,20 @@ local time in `YYYY-MM-DD HH:MM:SS` format. History stays in memory and clears w
 server restarts; it is not written to MariaDB or disk.
 
 The homepage keeps the machine inventory graph. The top navigation links to
-Inventory, Applications, Patching, and Backups, in that order.
+Inventory, Network, Applications, Patching, Backups, and Discovery, in that order.
 The header logo and browser favicon use `pages/images/cmdb.png`, also used by
 the documentation site. Clicking the application logo returns to Inventory.
+Network shows a collapsible Ports section that starts expanded. Its table has
+Host, Application, Service Name, and Port Number columns, with one row per
+stored listener tuple. Host names use the same short labels as Inventory,
+falling back to IP addresses when a hostname is unavailable. Headers toggle
+ascending and descending sorting; Host ascending is the default, and port
+numbers sort numerically. The second header row filters each column, starting
+at `*`. Filters ignore case and support `*` as a wildcard; blank filters also
+match everything, and all column filters apply together. Sort and filter choices
+persist while navigating between pages and reset on reload. The page reads
+stored defaults without triggering discovery or checking live sockets. Empty
+inventory, unmatched filters, and read failures have separate status messages.
 Applications shows one Deployed Applications table for existing software deployments,
 including Debian and MariaDB, with Host, Application, Version, and Install Directory
 columns. Both Deployed Applications and Registered Applications start collapsed,

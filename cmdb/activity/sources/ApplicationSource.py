@@ -1,6 +1,7 @@
 """Read installed application metadata without executing its constants."""
 
 import ast
+from ipaddress import IPv4Address
 from pathlib import PurePosixPath
 import re
 import shlex
@@ -99,6 +100,53 @@ def application_databases(source: str) -> tuple[tuple[str, str], ...]:
     return application_pairs(source, 'CMDB_DATABASES', 64)
 
 
+def application_network(source: str) -> tuple[tuple[str, str, int], ...] | None:
+    """Read a complete literal listener declaration; None means unknown or invalid."""
+    try:
+        module = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    statements = list(module.body)
+    for statement in statements:
+        if isinstance(statement, ast.ClassDef):
+            statements.extend(statement.body)
+        if isinstance(statement, ast.Assign):
+            targets, value = statement.targets, statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            targets, value = [statement.target], statement.value
+        else:
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == 'CMDB_NETWORK' for target in targets):
+            continue
+        try:
+            declarations = ast.literal_eval(value)
+        except (ValueError, TypeError, SyntaxError, RecursionError):
+            return None
+        if not isinstance(declarations, (tuple, list)):
+            return None
+        listeners = []
+        uses = set()
+        for entry in declarations:
+            if not isinstance(entry, (tuple, list)) or len(entry) != 3:
+                return None
+            use, interface, port = entry
+            if (not isinstance(use, str) or not use.strip() or len(use.strip()) > 242
+                    or any(ord(character) < 32 or ord(character) == 127 for character in use)
+                    or not isinstance(interface, str) or type(port) is not int or not 1 <= port <= 65535):
+                return None
+            try:
+                IPv4Address(interface)
+            except ValueError:
+                return None
+            use = use.strip()
+            if use in uses:
+                return None
+            uses.add(use)
+            listeners.append((use, interface, port))
+        return tuple(listeners)
+    return None
+
+
 def application_version(source: str) -> str | None:
     """Return the version from an application's literal metadata."""
     system = application_metadata(source)
@@ -110,10 +158,11 @@ class ApplicationSource:
         self._ssh = SSH()
 
     def collect(self, address: str, name: str) -> tuple[
-            str, str | None, SoftwareSystem | None, tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
-        """Return outcome, install path, metadata, filesystem components and database declarations."""
+            str, str | None, SoftwareSystem | None, tuple[tuple[str, str], ...],
+            tuple[tuple[str, str], ...], tuple[tuple[str, str, int], ...] | None]:
+        """Return outcome, path, metadata, components, databases and listener defaults."""
         if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name) is None:
-            return 'unsupported name', None, None, (), ()
+            return 'unsupported name', None, None, (), (), None
         pathname = str(PurePosixPath(DCMDB.BASE_INSTALL_DIR) / name.lower())
         constants = str(PurePosixPath(pathname) / name.lower() / 'constants' / ('D' + name + '.py'))
         command = (f'if [ -d {shlex.quote(pathname)} ] && [ -f {shlex.quote(constants)} ]; '
@@ -122,8 +171,9 @@ class ApplicationSource:
             result = self._ssh.run(address, command, timeout=DCMDB.SSH_COMMAND_TIMEOUT_SECONDS,
                                    connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
         except (OSError, subprocess.SubprocessError):
-            return 'read failed', pathname, None, (), ()
+            return 'read failed', pathname, None, (), (), None
         system = application_metadata(result.stdout)
         components = application_components(result.stdout) if system is not None else ()
         databases = application_databases(result.stdout) if system is not None else ()
-        return ('observed' if system is not None else 'not detected'), pathname, system, components, databases
+        network = application_network(result.stdout) if system is not None else None
+        return ('observed' if system is not None else 'not detected'), pathname, system, components, databases, network

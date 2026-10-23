@@ -37,7 +37,7 @@ class InventoryCoordinatorTests(TestCase):
         self.worker._host.collect.return_value = {
             'hostname': 'SALLY.Example.COM', 'mac_address': None, 'system': None}
         self.worker._mariadb.collect.return_value = None
-        self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), ())
+        self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), None)
 
     def test_gateway_fallback_and_production_survive_failed_ssh_and_repeat_scans(self):
         self.gateway.return_value = '192.0.2.7'
@@ -93,7 +93,7 @@ class InventoryCoordinatorTests(TestCase):
             'hostname': 'sally', 'mac_address': 'AA:BB:CC:DD:EE:FF', 'system': system})
         observation = {'version': '11.8-MariaDB', 'pathname': '/var/lib/mysql/', 'databases': ['cmdb']}
         self.worker._mariadb.collect.side_effect = collect('mariadb', observation)
-        self.worker._application.collect.side_effect = collect('application', ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), ()))
+        self.worker._application.collect.side_effect = collect('application', ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), None))
         self.worker.scan_inventory()
         self.assertEqual(order, ['network', 'nmap-os', 'access', 'host', 'mariadb', 'application'])
         self.DataManagerDb.return_value.record_mariadb.assert_called_once_with(7, **observation)
@@ -101,7 +101,7 @@ class InventoryCoordinatorTests(TestCase):
         self.assertEqual(self.SoftwareDeploymentDb.return_value.record_operating_system.call_count, 2)
         self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
             7, 17, '/opt/prod/mycount', '1.2.3',
-            type=None, subtype=None, supplier=None, codename=None, components=(), databases=())
+            type=None, subtype=None, supplier=None, codename=None, components=(), databases=(), network=None)
         self.assertEqual(self.worker.status_messages.snapshot()[-1]['message'], 'sally: MyCount 1.2.3')
 
     def test_os_timeout_still_collects_host_database_and_applications(self):
@@ -116,16 +116,16 @@ class InventoryCoordinatorTests(TestCase):
         system = SoftwareSystem(version='1.2.3', type='application', subtype='inventory',
                                 supplier='Example Supplier', taggedValue=[
                                     TaggedValue(tag='VERSION_CODENAME', value='Orion')])
-        self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', system, (('Screenshots', 'pages/marketing'),), ())
+        self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', system, (('Screenshots', 'pages/marketing'),), (), None)
         self.worker.scan_applications()
         self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
             7, 17, '/opt/prod/mycount', '1.2.3', type='application', subtype='inventory',
-            supplier='Example Supplier', codename='Orion', components=(('Screenshots', 'pages/marketing'),), databases=())
+            supplier='Example Supplier', codename='Orion', components=(('Screenshots', 'pages/marketing'),), databases=(), network=None)
 
     def test_application_databases_refresh_without_network_and_ignore_missing_catalogs(self):
         self.worker._application.collect.return_value = (
             'observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (),
-            (('MyCount', 'mycount'), ('Missing', 'absent'), ('Wrong case', 'MyCount')))
+            (('MyCount', 'mycount'), ('Missing', 'absent'), ('Wrong case', 'MyCount')), None)
         observation = {'version': '11.8', 'pathname': '/data/', 'databases': ['mycount']}
         self.worker._mariadb.collect.return_value = observation
         self.worker.scan_applications()
@@ -138,6 +138,21 @@ class InventoryCoordinatorTests(TestCase):
         self.worker.scan_applications()
         self.assertEqual(self.SoftwareDeploymentDb.return_value.record_application.call_args.kwargs['databases'], ())
 
+    def test_listener_defaults_reach_persistence_in_full_and_application_scans(self):
+        network = (('http', '0.0.0.0', 18080), ('backend', '127.0.0.1', 18081))
+        self.worker._application.collect.return_value = (
+            'observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), network)
+        for scan in (self.worker.scan_inventory, self.worker.scan_applications):
+            with self.subTest(scan=scan.__name__):
+                self.SoftwareDeploymentDb.return_value.record_application.reset_mock()
+                scan()
+                self.assertEqual(self.SoftwareDeploymentDb.return_value.record_application.call_args.kwargs['network'],
+                                 network)
+        self.worker._application.collect.return_value = (
+            'observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), ())
+        self.worker.scan_applications()
+        self.assertEqual(self.SoftwareDeploymentDb.return_value.record_application.call_args.kwargs['network'], ())
+
     def test_host_failure_does_not_block_application_or_next_host(self):
         self.worker._network.collect.return_value.append(Machine('192.0.2.8'))
         self.MachineDb.return_value.upsert.side_effect = [7, 8]
@@ -148,11 +163,11 @@ class InventoryCoordinatorTests(TestCase):
 
     def test_absent_failed_and_deleted_applications_preserve_inventory(self):
         for outcome in ('not detected', 'read failed', 'unsupported name'):
-            self.worker._application.collect.return_value = (outcome, None, None, (), ())
+            self.worker._application.collect.return_value = (outcome, None, None, (), (), None)
             self.worker.scan_applications()
             self.assertIn(outcome, self.worker.status_messages.snapshot()[-1]['message'])
         self.SoftwareDeploymentDb.assert_not_called()
-        self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), ())
+        self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), None)
         self.SoftwareDeploymentDb.return_value.record_application.return_value = False
         self.worker.scan_applications()
         self.assertIn('definition removed', self.worker.status_messages.snapshot()[-1]['message'])
@@ -161,7 +176,7 @@ class InventoryCoordinatorTests(TestCase):
     def test_stop_after_read_prevents_write(self):
         def read(*args):
             self.worker._stop_requested.set()
-            return ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), ())
+            return ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), None)
         self.worker._application.collect.side_effect = read
         self.worker.scan_applications()
         self.SoftwareDeploymentDb.assert_not_called()

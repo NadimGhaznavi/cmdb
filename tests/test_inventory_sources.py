@@ -10,7 +10,10 @@ from unittest.mock import Mock, patch
 
 import nmap
 
-from cmdb.activity.sources.ApplicationSource import ApplicationSource, application_databases, application_components, application_metadata, application_version
+from cmdb.activity.sources.ApplicationSource import (
+    ApplicationSource, application_databases, application_components, application_metadata,
+    application_network, application_version,
+)
 from cmdb.activity.sources.HostSource import HostSource
 from cmdb.activity.sources.MariaDBSource import MariaDBSource
 from cmdb.activity.sources.NetworkSource import NetworkSource
@@ -79,7 +82,46 @@ class ApplicationSourceTests(TestCase):
         source = ApplicationSource()
         source._ssh = Mock()
         source._ssh.run.return_value = result('VERSION = "1.0"\nCMDB_DATABASES = (("MyCount", "mycount"),)')
-        self.assertEqual(source.collect('192.0.2.7', 'MyCount')[-1], (("MyCount", "mycount"),))
+        self.assertEqual(source.collect('192.0.2.7', 'MyCount')[4], (("MyCount", "mycount"),))
+
+    def test_network_is_literal_and_preserves_bind_addresses_and_integer_ports(self):
+        listeners = (("http", "0.0.0.0", 18080), ("backend", "127.0.0.1", 18081))
+        for assignment in ('CMDB_NETWORK = ', 'class App:\n    CMDB_NETWORK: tuple = '):
+            source = 'raise RuntimeError("never run")\n' + assignment + repr(listeners)
+            self.assertEqual(application_network(source), listeners)
+        self.assertEqual(application_network('CMDB_NETWORK = [[" http ", "192.0.2.7", 65535]]'),
+                         (("http", "192.0.2.7", 65535),))
+        self.assertEqual(application_network('CMDB_NETWORK = (("x", "127.0.0.1", 1),)'),
+                         (("x", "127.0.0.1", 1),))
+        source = ApplicationSource()
+        source._ssh = Mock()
+        source._ssh.run.return_value = result('VERSION = "1.0"\nCMDB_NETWORK = ' + repr(listeners))
+        self.assertEqual(source.collect('192.0.2.7', 'MyCount')[-1], listeners)
+        source._ssh.run.return_value = result('CMDB_NETWORK = ' + repr(listeners))
+        self.assertIsNone(source.collect('192.0.2.7', 'MyCount')[-1])
+
+    def test_network_rejects_incomplete_invalid_or_ambiguous_listener_sets(self):
+        for entry in (("http", "0.0.0.0"), (3, "0.0.0.0", 80), ("", "0.0.0.0", 80),
+                      ("x\ny", "0.0.0.0", 80), ("x" * 243, "0.0.0.0", 80),
+                      ("http", "localhost", 80), ("http", "::1", 80), ("http", 0, 80),
+                      ("http", "999.0.0.1", 80), ("http", "127.0.0.1 ", 80),
+                      ("http", "0.0.0.0", True), ("http", "0.0.0.0", "80"),
+                      ("http", "0.0.0.0", 80.0), ("http", "0.0.0.0", 0),
+                      ("http", "0.0.0.0", 65536)):
+            with self.subTest(entry=entry):
+                declaration = (("good", "0.0.0.0", 80), entry)
+                self.assertIsNone(application_network('CMDB_NETWORK = ' + repr(declaration)))
+        for declaration in ('None', 'get_network()', '"http"',
+                            '(("http", "0.0.0.0", PORT),)',
+                            '(("http", "0.0.0.0", 80), (" http ", "127.0.0.1", 81))'):
+            with self.subTest(declaration=declaration):
+                self.assertIsNone(application_network('CMDB_NETWORK = ' + declaration))
+
+    def test_network_distinguishes_empty_from_missing_or_unreadable_declarations(self):
+        for source in ('', 'broken syntax!', 'def f():\n    CMDB_NETWORK = ()'):
+            self.assertIsNone(application_network(source))
+        for declaration in ('()', '[]'):
+            self.assertEqual(application_network('CMDB_NETWORK = ' + declaration), ())
 
     def test_literal_versions_are_parsed_without_execution(self):
         for source in ('VERSION = "1.2.3"', 'class App:\n    VERSION: Final[str] = "1.2.3"',
@@ -102,13 +144,13 @@ class ApplicationSourceTests(TestCase):
             self.assertEqual(source.collect('192.0.2.7', 'MyCount')[0], 'not detected')
             constants.write_text('class App:\n    VERSION = "1.2.3"\n    CMDB_COMPONENTS = (("Screenshots", "pages/marketing"),)')
             self.assertEqual(source.collect('192.0.2.7', 'MyCount'),
-                             ('observed', str(Path(root) / 'mycount'), SoftwareSystem(version='1.2.3'), (('Screenshots', 'pages/marketing'),), ()))
+                             ('observed', str(Path(root) / 'mycount'), SoftwareSystem(version='1.2.3'), (('Screenshots', 'pages/marketing'),), (), None))
 
     def test_cmdb_convention_and_failed_read(self):
         source = ApplicationSource()
         source._ssh = Mock()
         source._ssh.run.return_value = result(Path('cmdb/constants/DCMDB.py').read_text())
-        outcome, pathname, system, components, databases = source.collect('192.0.2.7', 'CMDB')
+        outcome, pathname, system, components, databases, network = source.collect('192.0.2.7', 'CMDB')
         self.assertEqual((outcome, pathname), ('observed', '/opt/prod/cmdb'))
         self.assertEqual(system.version, DCMDB.VERSION)
         self.assertEqual(system.type, DCMDB.CMDB_TYPE)
@@ -116,6 +158,7 @@ class ApplicationSourceTests(TestCase):
         self.assertEqual(system.supplier, DCMDB.CMDB_SUPPLIER)
         self.assertEqual(system.taggedValue,
                          [TaggedValue(tag='VERSION_CODENAME', value=DCMDB.CMDB_CODENAME)])
+        self.assertEqual(network, DCMDB.CMDB_NETWORK)
         self.assertIn('/opt/prod/cmdb/cmdb/constants/DCMDB.py', source._ssh.run.call_args.args[1])
         source._ssh.run.side_effect = subprocess.TimeoutExpired('ssh', 30)
         self.assertEqual(source.collect('192.0.2.7', 'CMDB')[0], 'read failed')
@@ -124,7 +167,7 @@ class ApplicationSourceTests(TestCase):
         source = ApplicationSource()
         source._ssh = Mock()
         for name in ('../escape', 'My Count'):
-            self.assertEqual(source.collect('192.0.2.7', name), ('unsupported name', None, None, (), ()))
+            self.assertEqual(source.collect('192.0.2.7', name), ('unsupported name', None, None, (), (), None))
         source._ssh.run.assert_not_called()
 
 

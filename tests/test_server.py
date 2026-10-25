@@ -135,6 +135,57 @@ class ServerTests(unittest.TestCase):
         self.thread.join()
         self.server.server_close()
 
+    def delete_machine(self, identity):
+        connection = HTTPConnection(*self.server.server_address)
+        try:
+            connection.request('DELETE', '/api/machines/' + identity)
+            response = connection.getresponse()
+            return response.status, response.read()
+        finally:
+            connection.close()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    @patch('cmdb.server.CmdbHandler.MachineDb')
+    @patch('cmdb.server.CmdbHandler.Cron')
+    def test_delete_machine_removes_backup_and_patch_cron_in_transaction(self, cron, records, factory):
+        records.return_value.delete_machine.return_value = ([12], [15])
+        status, body = self.delete_machine('42')
+        self.assertEqual((status, json.loads(body)), (200, {'status': 'deleted'}))
+        records.return_value.delete_machine.assert_called_once_with(42)
+        cron.return_value.delete.assert_called_once_with(12)
+        cron.return_value.update_patch.assert_called_once_with(15, False, '')
+        factory.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    @patch('cmdb.server.CmdbHandler.MachineDb')
+    def test_delete_machine_missing_and_invalid_ids(self, records, factory):
+        for identity in ('0', '-1', 'abc', '42/extra', str(2**64), '1' * 21):
+            status, body = self.delete_machine(identity)
+            self.assertEqual((status, json.loads(body)), (404, {'error': 'Machine not found.'}))
+        factory.assert_not_called()
+        records.return_value.delete_machine.return_value = None
+        self.assertEqual(self.delete_machine('42')[0], 404)
+        factory.return_value.close.assert_called_once()
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    @patch('cmdb.server.CmdbHandler.MachineDb')
+    @patch('cmdb.server.CmdbHandler.Cron')
+    def test_delete_machine_failures_exit_transaction_and_hide_details(self, cron, records, factory):
+        for error, expected in ((pymysql.OperationalError('private failure'), 503),
+                                (pymysql.IntegrityError('private dependency'), 409),
+                                (OSError('private cron failure'), 503)):
+            factory.reset_mock()
+            records.return_value.delete_machine.side_effect = None if isinstance(error, OSError) else error
+            records.return_value.delete_machine.return_value = ([12], [])
+            cron.return_value.delete.side_effect = error if isinstance(error, OSError) else None
+            with self.assertLogs(level='ERROR'):
+                status, body = self.delete_machine('42')
+            self.assertEqual(status, expected)
+            self.assertNotIn(b'private', body)
+            self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[1], error)
+            factory.return_value.close.assert_called_once()
+
     @patch('cmdb.server.CmdbHandler.DbMgr')
     @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
     @patch('cmdb.server.CmdbHandler.Cron')

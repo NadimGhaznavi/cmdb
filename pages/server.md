@@ -11,6 +11,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | Endpoint | Behavior |
 | --- | --- |
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
+| `DELETE /api/machines/<id>` | Removes one machine, its deployed components, owned database inventory, and backup/patch schedules and cron entries; retains backup history and files. Returns HTTP 404 for a missing ID. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
 | `GET /api/network/ports` | Reports stored listener declarations by host, application, service name, and integer port number; HTTP 503 when the database is unavailable. |
 | `POST /api/applications` | Registers a named SoftwareSystem and queues its discovery; returns HTTP 201 with id, name, and scanId. |
@@ -149,10 +150,22 @@ selected, details expanded, environments updated, and other pages opened.
 Only the scan buttons are disabled while a browser-requested scan is pending.
 Requests enter a FIFO queue; one workload runs to completion before the next starts.
 
-Re-Scan beneath a selected machine's header runs the same discovery, OS, and SSH
+Re-Scan below a selected machine's values, before Update, runs the same discovery, OS, and SSH
 inventory steps for that host alone, then reloads with the machine selected.
 Requests made during an active workload wait in the same queue.
 Other machines' reachability results are preserved by a single-host scan.
+
+Delete follows Update on the same row and asks for confirmation. It removes the
+machine and its deployed components from CMDB, including owned database catalogs,
+connection and usage links, tags, patch records, and backup/patch schedules with
+their cron entries. Shared software definitions and other machines' deployments
+remain. Backup Vault retains saved files and historical source snapshots.
+Deletion updates the graph and machine counts and clears the removed selection.
+It does not contact the host or uninstall software. A later network scan can
+rediscover a responding machine. Related database changes use one transaction;
+unexpected dependent inventory returns HTTP 409, and database or cron errors
+return HTTP 503. After a cron failure, refresh before retrying; some jobs may
+already have been disabled.
 
 When an application is selected, its Inventory detail sidebar shows a
 `Database(s):` row above the Component table if discovered databases are present.

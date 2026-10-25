@@ -529,6 +529,9 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         path = urlsplit(self.path).path
+        if path.startswith('/api/machines/'):
+            self.delete_machine(path.removeprefix('/api/machines/'))
+            return
         if path.startswith('/api/applications/'):
             self.delete_application(path.removeprefix('/api/applications/'))
             return
@@ -548,6 +551,38 @@ class CmdbHandler(BaseHTTPRequestHandler):
         except (OSError, RuntimeError, pymysql.MySQLError):
             logging.exception('Could not delete backup schedule')
             self.respond(503, b'{"error":"Could not delete the schedule and cron entry."}', 'application/json')
+            return
+        self.respond(200, b'{"status":"deleted"}', 'application/json')
+
+    def delete_machine(self, identity: str) -> None:
+        if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
+            self.respond(404, b'{"error":"Machine not found."}', 'application/json')
+            return
+        try:
+            with Cron.EDIT_LOCK:
+                db = DbMgr()
+                try:
+                    with db.transaction():
+                        schedules = MachineDb(db).delete_machine(int(identity))
+                        if schedules is not None:
+                            backups, patches = schedules
+                            cron = Cron()
+                            for schedule in backups:
+                                cron.delete(schedule)
+                            for schedule in patches:
+                                cron.update_patch(schedule, False, '')
+                finally:
+                    db.close()
+        except pymysql.IntegrityError:
+            logging.exception('Machine deletion has dependent inventory')
+            self.respond(409, b'{"error":"Machine still has dependent inventory. Refresh and retry."}', 'application/json')
+            return
+        except (OSError, RuntimeError, pymysql.MySQLError):
+            logging.exception('Could not delete machine')
+            self.respond(503, b'{"error":"Could not delete the machine. Refresh before retrying; scheduled jobs may now be disabled."}', 'application/json')
+            return
+        if schedules is None:
+            self.respond(404, b'{"error":"Machine not found."}', 'application/json')
             return
         self.respond(200, b'{"status":"deleted"}', 'application/json')
 

@@ -1069,6 +1069,7 @@ async function loadMachines() {
   const environment = document.getElementById("machine-environment");
   const hostname = document.getElementById("detail-hostName");
   const update = document.getElementById("update-machine");
+  const deleteMachine = document.getElementById("delete-machine");
   const environmentStatus = document.getElementById("machine-environment-status");
   let selectedMachine = null;
   let selectedNode = null;
@@ -1323,6 +1324,7 @@ async function loadMachines() {
       let saved = false;
       let message;
       update.disabled = true;
+      deleteMachine.disabled = true;
       environment.disabled = true;
       hostname.disabled = true;
       environmentStatus.textContent = "Saving…";
@@ -1369,6 +1371,48 @@ async function loadMachines() {
           hostname.value = saved ? machine.hostName ?? "" : hostName;
           environmentStatus.textContent = message;
         }
+        update.disabled = false;
+        deleteMachine.disabled = false;
+        environment.disabled = false;
+        hostname.disabled = false;
+      }
+    });
+    deleteMachine.addEventListener("click", async () => {
+      if (!selectedMachine || deleteMachine.disabled || update.disabled) return;
+      const node = selectedMachine;
+      const machineId = node.data("machineId");
+      const label = machineLabel(node.data());
+      if (!window.confirm(`Delete ${label} (${node.id()}) and its deployed components from CMDB?`)) return;
+      deleteMachine.disabled = true;
+      update.disabled = true;
+      environment.disabled = true;
+      hostname.disabled = true;
+      environmentStatus.textContent = "Deleting…";
+      try {
+        const response = await fetch(`/api/machines/${machineId}`, {
+          method: "DELETE", signal: AbortSignal.timeout(15000),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not delete the machine. Try again.");
+        machines.splice(machines.findIndex(machine => machine.id === machineId), 1);
+        for (let index = softwareDeployments.length - 1; index >= 0; index--) {
+          if (softwareDeployments[index].machine === machineId) softwareDeployments.splice(index, 1);
+        }
+        const selectedId = selectedNode?.id();
+        const deletedSelection = selectedNode === node || selectedNode?.parent().id() === node.id();
+        selectedNode = null;
+        selectedMachine = null;
+        selectionDetails.hidden = true;
+        softwareDetails.replaceChildren();
+        renderGroups();
+        const selected = !deletedSelection && graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);
+        if (selected) selectNode(selected);
+        status.textContent = `${label} deleted.`;
+      } catch (error) {
+        if (selectedMachine === node) environmentStatus.textContent = error.message;
+        else status.textContent = error.message;
+      } finally {
+        deleteMachine.disabled = false;
         update.disabled = false;
         environment.disabled = false;
         hostname.disabled = false;

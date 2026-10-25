@@ -63,6 +63,54 @@ class MachineDb:
                 )
         return True
 
+    def delete_machine(self, machine_id: int) -> tuple[list[int], list[int]] | None:
+        """Remove a machine and its owned inventory in the caller's transaction.
+
+        Backup snapshots and files survive inventory deletion. Return backup and
+        patch schedule IDs so the caller can remove their cron entries.
+        """
+        if not self._db.query('SELECT id FROM Machine WHERE id = %s FOR UPDATE', (machine_id,)):
+            return None
+        owned = [machine_id]
+        seen = set(owned)
+        for identity in owned:
+            for row in self._db.query(
+                    'SELECT id FROM ModelElement WHERE namespace = %s ORDER BY id FOR UPDATE', (identity,)):
+                if row['id'] not in seen:
+                    owned.append(row['id'])
+                    seen.add(row['id'])
+        placeholders = ', '.join('%s' for _ in owned)
+        # Connections from other hosts must also stop referencing this host's managers.
+        connections = self._db.query(
+            f'SELECT id FROM ProviderConnection WHERE dataManager IN ({placeholders}) '
+            f'OR dataProvider IN ({placeholders}) FOR UPDATE', tuple(owned) * 2)
+        for row in connections:
+            if row['id'] not in seen:
+                owned.append(row['id'])
+                seen.add(row['id'])
+        placeholders = ', '.join('%s' for _ in owned)
+        params = tuple(owned)
+        backups = self._db.query(
+            f'SELECT id FROM BackupSchedule WHERE modelElement IN ({placeholders}) FOR UPDATE', params)
+        patches = self._db.query('SELECT id FROM PatchSchedule WHERE machine = %s FOR UPDATE', (machine_id,))
+        self._db.execute(f'DELETE FROM BackupSchedule WHERE modelElement IN ({placeholders})', params)
+        self._db.execute('DELETE FROM PatchSchedule WHERE machine = %s', (machine_id,))
+        self._db.execute('DELETE FROM Patch WHERE machine = %s', (machine_id,))
+        self._db.execute(
+            f'DELETE FROM DeployedComponentsUsage WHERE usingComponents IN ({placeholders}) '
+            f'OR usedComponents IN ({placeholders})', params * 2)
+        self._db.execute(
+            f'DELETE FROM DataManagerDataPackage WHERE dataManager IN ({placeholders}) '
+            f'OR dataPackage IN ({placeholders})', params * 2)
+        self._db.execute(f'DELETE FROM ProviderConnection WHERE id IN ({placeholders})', params)
+        # Children precede their owning namespaces; subclasses precede parents.
+        for identity in reversed(owned):
+            self._db.execute('DELETE FROM TaggedValue WHERE modelElement = %s', (identity,))
+            for table in ('DataProvider', 'DataManager', 'DeployedComponent', 'Catalog', 'Schema',
+                          'Package', 'Machine', 'Namespace', 'ModelElement'):
+                self._db.execute(f'DELETE FROM `{table}` WHERE id = %s', (identity,))
+        return [row['id'] for row in backups], [row['id'] for row in patches]
+
     def upsert(self, machine: Machine) -> int:
         """Refresh discovery fields and return the stable machine ID."""
         rows = self._db.query("SELECT id FROM Machine WHERE ipAddress = %s", (machine.ipAddress,))

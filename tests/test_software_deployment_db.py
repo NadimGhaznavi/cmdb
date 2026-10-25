@@ -282,6 +282,105 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                          {'DeploymentEnvironment': 'qa'})
         self.assertFalse(self.machines.update_environment(999999, 'dev'))
 
+    def test_delete_machine_without_deployments_and_missing_machine(self):
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        self.machines.update_environment(machine, 'dev')
+        with self.db.transaction():
+            self.assertEqual(self.machines.delete_machine(machine), ([], []))
+        for table in ('Machine', 'Namespace', 'ModelElement', 'TaggedValue'):
+            self.assertEqual(self.db.query(f'SELECT * FROM `{table}`'), [])
+        with self.db.transaction():
+            self.assertIsNone(self.machines.delete_machine(machine))
+
+    def test_delete_machine_removes_owned_inventory_and_preserves_other_host_and_backups(self):
+        first = self.machines.upsert(Machine('192.0.2.7', hostName='removed'))
+        second = self.machines.upsert(Machine('192.0.2.8', hostName='retained'))
+        self.machines.update_environment(first, 'dev')
+        self.machines.update_environment(second, 'qa')
+        app = SoftwareSystemDb(self.db).create_application('MyCount')
+        for machine in (first, second):
+            self.record(machine)
+            DataManagerDb(self.db).record_mariadb(machine, '11.8', '/var/lib/mysql', ['mycount', 'mysql'])
+            self.software.record_application(machine, app, '/opt/prod/mycount', '1.0',
+                                             components=(('Content', 'content'),),
+                                             databases=(('Database', 'mycount'),),
+                                             network=(('Web', 'HTTP', 14444),))
+            self.db.execute('INSERT INTO Patch (machine, address) VALUES (%s, %s)', (machine, '192.0.2.7'))
+            self.db.execute('INSERT INTO PatchSchedule (machine) VALUES (%s)', (machine,))
+        targets = [row for row in BackupDb(self.db).applications() if row['machine'] == first]
+        self.assertEqual({row['kind'] for row in targets}, {'directory', 'database'})
+        policies, attempts = [], []
+        for target in targets:
+            identity = target['modelElement']
+            policies.append(BackupScheduleDb(self.db).save(identity, True, '0 12 * * *', '1-week')['id'])
+            backup = BackupDb(self.db).start(identity, datetime(2026, 10, 24, 12))
+            BackupDb(self.db).finish(backup, datetime(2026, 10, 24, 12, 1),
+                                    result=dict(pathname=f'removed/{backup}.dump', sizeBytes=123, checksum='a' * 64))
+            attempts.append(BackupDb(self.db).get(backup))
+        patch_policy = self.db.query('SELECT id FROM PatchSchedule WHERE machine=%s', (first,))[0]['id']
+        surviving_inventory = [row for row in self.software.list_deployments() if row['machine'] == second]
+        definitions = self.db.query('SELECT * FROM SoftwareSystem')
+        components = self.db.query('SELECT * FROM Component')
+        owned = [first]
+        for identity in owned:
+            owned.extend(row['id'] for row in self.db.query('SELECT id FROM ModelElement WHERE namespace=%s', (identity,)))
+        with self.db.transaction():
+            removed_backups, removed_patches = self.machines.delete_machine(first)
+        self.assertEqual(set(removed_backups), set(policies))
+        self.assertEqual(removed_patches, [patch_policy])
+        self.assertEqual(self.software.list_deployments(), surviving_inventory)
+        self.assertEqual(self.db.query('SELECT * FROM SoftwareSystem'), definitions)
+        self.assertEqual(self.db.query('SELECT * FROM Component'), components)
+        for identity in owned:
+            self.assertEqual(self.db.query('SELECT id FROM ModelElement WHERE id=%s', (identity,)), [])
+        self.assertEqual({row['machine'] for row in self.db.query('SELECT machine FROM DeployedComponent')}, {second})
+        self.assertEqual({row['machine'] for row in self.db.query('SELECT machine FROM Patch')}, {second})
+        self.assertEqual({row['machine'] for row in self.db.query('SELECT machine FROM PatchSchedule')}, {second})
+        self.assertEqual(self.db.query('SELECT id FROM BackupSchedule'), [])
+        self.assertEqual(len(self.db.query('SELECT id FROM ProviderConnection')), 1)
+        self.assertEqual(len(self.db.query('SELECT id FROM Catalog')), 2)
+        for attempt in attempts:
+            self.assertEqual(BackupDb(self.db).get(attempt['id']), dict(attempt, modelElement=None))
+
+    def test_delete_machine_rolls_back_related_inventory_on_failure(self):
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        self.record(machine)
+        self.machines.update_environment(machine, 'dev')
+        deployment = self.db.query('SELECT id FROM DeployedComponent')[0]['id']
+        policy = BackupScheduleDb(self.db).save(deployment, True, '0 12 * * *', '1-week')
+        before = self.machines.list_machines()
+        execute = self.db.execute
+
+        def fail(sql, params=()):
+            if sql == 'DELETE FROM `Machine` WHERE id = %s':
+                raise pymysql.OperationalError('Injected failure')
+            return execute(sql, params)
+
+        with self.assertRaises(pymysql.OperationalError), patch.object(self.db, 'execute', side_effect=fail):
+            with self.db.transaction():
+                self.machines.delete_machine(machine)
+        self.assertEqual(self.machines.list_machines(), before)
+        self.assertEqual(BackupScheduleDb(self.db).get(policy['id']), policy)
+
+    def test_delete_machine_cleans_incoming_database_connections(self):
+        first = self.machines.upsert(Machine('192.0.2.7'))
+        second = self.machines.upsert(Machine('192.0.2.8'))
+        manager = DataManagerDb(self.db).record_mariadb(first, '11.8', '/data', ['app'])
+        DataManagerDb(self.db).record_mariadb(second, '11.8', '/data', ['app'])
+        app = SoftwareSystemDb(self.db).create_application('MyCount')
+        self.software.record_application(second, app, '/opt/prod/mycount', '1.0', databases=(('DB', 'app'),))
+        connection = self.db.query('SELECT id, dataProvider FROM ProviderConnection')[0]
+        self.db.execute('UPDATE ProviderConnection SET dataManager=%s WHERE id=%s', (manager, connection['id']))
+        catalog = self.db.query('SELECT id FROM ModelElement WHERE namespace=%s', (manager,))[0]['id']
+        self.db.execute('INSERT INTO DataManagerDataPackage (dataManager, dataPackage) VALUES (%s,%s)',
+                        (connection['dataProvider'], catalog))
+        with self.db.transaction():
+            self.machines.delete_machine(first)
+        self.assertEqual(self.db.query('SELECT id FROM ProviderConnection'), [])
+        self.assertEqual(self.db.query('SELECT id FROM ModelElement WHERE id=%s', (connection['id'],)), [])
+        self.assertEqual(self.db.query('SELECT id FROM DataProvider'), [{'id': connection['dataProvider']}])
+        self.assertEqual(len(self.db.query('SELECT * FROM DataManagerDataPackage')), 2)
+
     def record(self, machine, version="6.X"):
         with self.db.transaction():
             self.software.record_operating_system(machine, SoftwareSystem(

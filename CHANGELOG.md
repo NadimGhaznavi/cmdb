@@ -7,6 +7,15 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-24 @ 21:31
+
+This release is named for the element **Manganese (Mn)**. Manganese is vital to steelmaking because it helps remove unwanted oxygen and sulfur.
+
+- Place Re-Scan, Update, and Delete together below the Inventory machine details.
+  Delete confirms removal of the machine and its deployed components, cleans up
+  owned database inventory and scheduled jobs, and refreshes the graph. Preserve
+  other machines, shared software definitions, and saved backup history and files.
+
 ## [1.10.0] - 2026-10-23 @ 16:26
 
 This release is named for the element **Magnesium (Mg)**. Burning magnesium emits a brilliant white light once used in photographic flash powder.

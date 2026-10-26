@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-26 @ 05:48
+
 This release is named for the element **Iodine (I)**. Iodine is needed to make 
 thyroid hormones, which help regulate metabolism.
 

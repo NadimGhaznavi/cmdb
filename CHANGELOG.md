@@ -7,6 +7,9 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+- Indent each level of the Application and Databases backup hierarchies,
+  including expanded tables, to make nesting easier to follow.
+
 ## [1.11.0] - 2026-10-24 @ 21:31
 
 This release is named for the element **Manganese (Mn)**. Manganese is vital to steelmaking because it helps remove unwanted oxygen and sulfur.

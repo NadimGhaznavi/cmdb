@@ -7,18 +7,37 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-26 @ 05:48
+
+This release is named for the element **Iodine (I)**. Iodine is needed to make 
+thyroid hormones, which help regulate metabolism.
+
+### Changed
+
+- Indent each level of the Application and Databases backup hierarchies,
+  including expanded tables, to make nesting easier to follow.
+
+- Restore Added and Changed changelog categories for entries from 0.15.1 onward.
+
 ## [1.11.0] - 2026-10-24 @ 21:31
 
 This release is named for the element **Manganese (Mn)**. Manganese is vital to steelmaking because it helps remove unwanted oxygen and sulfur.
 
-- Place Re-Scan, Update, and Delete together below the Inventory machine details.
-  Delete confirms removal of the machine and its deployed components, cleans up
+### Added
+
+- Delete confirms removal of the machine and its deployed components, cleans up
   owned database inventory and scheduled jobs, and refreshes the graph. Preserve
   other machines, shared software definitions, and saved backup history and files.
+
+### Changed
+
+- Place Re-Scan, Update, and Delete together below the Inventory machine details.
 
 ## [1.10.0] - 2026-10-23 @ 16:26
 
 This release is named for the element **Magnesium (Mg)**. Burning magnesium emits a brilliant white light once used in photographic flash powder.
+
+### Added
 
 - Add Network between Inventory and Applications in the navigation. Its Ports
   section starts expanded and reports stored listener declarations by Host,
@@ -28,6 +47,8 @@ This release is named for the element **Magnesium (Mg)**. Burning magnesium emit
 ## [1.9.0] - 2026-10-23 @ 04:47
 
 This release is named for the element **Sodium (Na)**. Sodium reacts vigorously with water, releasing heat and hydrogen gas.
+
+### Added
 
 - Discover literal `CMDB_NETWORK` declarations during application scans. Store
   each listener tuple as a TaggedValue on a dedicated `Network listeners`
@@ -41,12 +62,16 @@ This release is named for the element **Sodium (Na)**. Sodium reacts vigorously 
 
 This release is named for the element **Fluorine (F)**. Fluorine is the most electronegative element, meaning it attracts shared electrons more strongly than any other.
 
+### Changed
+
 - Prefill Patching's Cron Schedule with Mondays at 1 p.m. when no schedule is
   saved, preserving saved values and leaving scheduling disabled by default.
 
 ## [1.8.0] - 2026-10-22 @ 04:40
 
 This release is named for the element **Oxygen (O)**. Oxygen makes up nearly half of Earth's crust by mass, mostly bound into minerals.
+
+### Added
 
 - Make Host Name editable in machine details and save it alongside the environment
   with Update, now below the values table. Successful SSH discovery continues to
@@ -56,6 +81,8 @@ This release is named for the element **Oxygen (O)**. Oxygen makes up nearly hal
 
 This release is named for the element **Nitrogen (N)**. Nitrogen makes up about 78% of Earth's atmosphere, yet most organisms cannot use it directly from the air.
 
+### Added
+
 - Capture machine, source, and software details on each backup attempt. Backup
   Vault uses these historical values and retains records when their inventory
   targets are deleted, without changing the core CWM schema.
@@ -64,20 +91,26 @@ This release is named for the element **Nitrogen (N)**. Nitrogen makes up about 
 
 This release is named for the element **Carbon (C)**. Carbon can form both diamond, one of the hardest natural materials, and graphite, which is soft enough to write with.
 
+### Added
+
 - Identify the default gateway during network discovery, assign it the uppercase
   fallback hostname `GATEWAY`, and classify it as Production. Successful SSH
   discovery replaces the fallback with the reported hostname.
-
-- Extract application discovery settings into individual `CMDB_*` developer
-  references, linked from an App discovery settings guide.
 
 - Add a `CMDB_NETWORK` app developer guide covering literal declarations,
   runtime wiring, production overrides, and checks, with network discovery
   explicitly marked as coming.
 
+### Changed
+
+- Extract application discovery settings into individual `CMDB_*` developer
+  references, linked from an App discovery settings guide.
+
 ## [1.5.0] - 2026-10-20 @ 17:59
 
 The **XMM-Newton** release is named for the *ESA X-ray space observatory*.
+
+### Added
 
 - Declare CMDB's `cmdb` database in `DCMDB.CMDB_DATABASES`.
 - Declare the HTTP listener in `DCMDB.CMDB_NETWORK` and use it for server
@@ -89,6 +122,8 @@ The **XMM-Newton** release is named for the *ESA X-ray space observatory*.
 
 The **Maryam** release is dedicated to [Maryam Mirzakhani](https://en.wikipedia.org/wiki/Maryam_Mirzakhani).
 
+### Changed
+
 - Label the application backup panel Application and show host counts in
   parentheses, such as Wintermute (1).
 
@@ -96,22 +131,28 @@ The **Maryam** release is dedicated to [Maryam Mirzakhani](https://en.wikipedia.
 
 This release is dedicated to [Louise Hay](https://en.wikipedia.org/wiki/Louise_Hay).
 
+### Added
+
 - Add a collapsed Applications panel above Databases for declared application
   directories and databases, with per-target scheduling and Backup Now controls.
   Archive directories as gzip tarballs under `<host>/files/`, show them in the
   Backup Vault, and preserve archives and history when an application is removed.
   Declared databases share existing policies and keep their `<host>/db/` paths.
 
+- Add Delete to every Backup Vault row with Cancel / Delete confirmation,
+  removing the selected dump and its record, including records for missing files.
+
+### Changed
+
 - Make the Databases panel collapsible and closed by default, matching Backup Vault.
 
 - Rename the Backups page's Live Databases section to Databases.
 
-- Add Delete to every Backup Vault row with Cancel / Delete confirmation,
-  removing the selected dump and its record, including records for missing files.
-
 ## [1.3.1] - 2026-10-10 @ 08:24
 
 The **Karen** is dedicated to [Karen Uhlenbeck](https://en.wikipedia.org/wiki/Karen_Uhlenbeck).
+
+### Changed
 
 - Keep MariaDB client providers out of the Inventory Component table while
   showing the application's database names above it.
@@ -120,6 +161,8 @@ The **Karen** is dedicated to [Karen Uhlenbeck](https://en.wikipedia.org/wiki/Ka
 
 The **Julia** release is dedicated to [Julia Robinson](https://en.wikipedia.org/wiki/Julia_Robinson).
 
+### Added
+
 - Show an application's discovered database names above its Component table in
   the Inventory detail sidebar, comma-separated when more than one is present.
 
@@ -127,20 +170,16 @@ The **Julia** release is dedicated to [Julia Robinson](https://en.wikipedia.org/
   inventory, and connect matching catalogs through a MariaDB Client DataProvider
   and ProviderConnection. Reuse client identities across scans and upgrades;
   application deletion preserves the server and backup history.
+
+### Changed
+
 - Store MariaDB database inventory as relational Catalogs in the fresh schema.
 
 ## [1.2.0] - 2026-10-10 @ 07:41
 
 The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org/wiki/Hilda_Geiringer).
 
-- Show named deployed components in application details with a Component / Path
-  table, linked directory names, and full paths on hover. Group components under
-  their app instead of displaying duplicate applications in Inventory.
-
-- Select Inventory applications independently, highlight the selected software,
-  and show only its details. Deselecting closes the sidebar.
-
-- Hide the Inventory details sidebar when the selected machine is deselected.
+### Added
 
 - Add Discovery to the right of Backups with an enabled flag, cron schedule,
   Update, and Scan Now. Periodic discovery runs independently through cron;
@@ -151,12 +190,27 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
   filesystem data. Resolve relative paths from the app installation, reuse
   records across scans, and preserve deployment IDs across release changes.
 
+### Changed
+
+- Show named deployed components in application details with a Component / Path
+  table, linked directory names, and full paths on hover. Group components under
+  their app instead of displaying duplicate applications in Inventory.
+
+- Select Inventory applications independently, highlight the selected software,
+  and show only its details. Deselecting closes the sidebar.
+
+- Hide the Inventory details sidebar when the selected machine is deselected.
+
 ## [1.1.2] - 2026-10-07 @ 06:16
+
+### Changed
 
 - Keep inventory machine and software selection available while a scan runs,
   so stored details can be inspected without waiting for scan completion.
 
 ## [1.1.1] - 2026-10-05 @ 17:30
+
+### Changed
 
 - Standardize the release script with reusable project settings, an interactive
   release confirmation, and colorized `[ PASSED ]`, `[ FAIL ]`, and `[ WARNING ]`
@@ -170,17 +224,23 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 ## [1.1.0] - 2026-10-05 @ 03:34
 
+### Added
+
 - Read optional `CMDB_TYPE`, `CMDB_SUBTYPE`, `CMDB_SUPPLIER`, and `CMDB_CODENAME`
   literal strings alongside application `VERSION` during discovery. Store them
   through CWM SoftwareSystem and TaggedValue, preserve omitted metadata, and
   keep classified applications discoverable on later scans.
+
+- Automatically prune SoftwareSystems without deployed components and their
+  unused Components after every workload; report each removal in Status Messages.
+
+### Changed
+
 - Replace the combined scanner activities with InventoryCoordinator and five
   observation sources under `cmdb/activity/sources/`. Workloads run sequentially
   through a FIFO queue, with persistence owned by the coordinator.
 - Queue application discovery when an application is added, protecting the new
   definition until its discovery attempt completes.
-- Automatically prune SoftwareSystems without deployed components and their
-  unused Components after every workload; report each removal in Status Messages.
 - Wait for Add Application discovery and pruning before refreshing both application tables,
   and report the outcome of the requested scan when later requests are running.
 
@@ -188,13 +248,19 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 ## [1.0.7] - 2026-10-03 @ 17:43
 
+### Changed
+
 - Use regular font weight for application labels inside Inventory machine boxes.
 
 ## [1.0.5] - 2026-10-03 @ 13:10
 
+### Changed
+
 - Rename the Inventory Refresh button to Re-Scan Network.
 
 ## [1.0.4] - 2026-10-03 @ 13:06
+
+### Changed
 
 - Keep Inventory Refresh working when an application is deleted during discovery:
   skip the removed definition instead of crashing the scanner, and lock existing
@@ -202,18 +268,26 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 ## [1.0.3] - 2026-10-03 @ 07:20
 
+### Changed
+
 - Compact Inventory machine and application nodes using a shared size based on
   the widest displayed label plus padding; reduce spacing inside machine groups.
 
 ## [1.0.2] - 2026-10-03 @ 07:06
 
+### Changed
+
 - Reduce Inventory application label font size to 16px to match machine labels.
 
 ## [1.0.1] - 2026-10-03 @ 07:04
 
+### Changed
+
 - Reduce Inventory machine label font size from 24px to 16px.
 
 ## [1.0.0] - 2026-10-03 @ 06:57
+
+### Changed
 
 - Group Inventory machines into stacked, collapsible Production, Quality Assurance,
   Development, and Unclassified boxes with machine counts and responsive grids.
@@ -221,16 +295,22 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 ## [0.15.14] - 2026-10-02 @ 18:35
 
+### Changed
+
 - Make Deployed Applications and Registered Applications collapsible, initially
   showing only their heading titles. Expand a heading to access its table and controls.
 
 ## [0.15.13] - 2026-10-02 @ 18:19
+
+### Changed
 
 - Rename the constants module and class to `DCMDB`, and move the project version
   into its literal `VERSION` constant so CMDB can discover its own installation.
   Update imports, installation tooling, and releases to use the new version source.
 
 ## [0.15.12] - 2026-10-02 @ 18:07
+
+### Added
 
 - Add a confirmed Delete action to each Registered Applications row. Remove the
   selected definition and its application deployments from CMDB, then refresh
@@ -239,11 +319,26 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 ## [0.15.11] - 2026-10-02 @ 17:41
 
+### Changed
+
 - Rename the Add Application panel to Registered Applications and list every
   stored SoftwareSystem above an inline Application Name field and Add Application
   button. Refresh the registered table after adding an application.
 
 ## [0.15.10] - 2026-10-02 @ 05:58
+
+### Added
+
+- Add Size after Filename in Backup Vault, displaying recorded backup sizes
+  in human-readable units such as KB and MB.
+
+- Add a machine environment dropdown (Unclassified, Prod, QA, DEV) and an
+  Update button beside Re-Scan in selected inventory machine details. Save
+  `DeploymentEnvironment` as a TaggedValue on the machine's ModelElement,
+  updating or creating it for dev, qa, and prod, and deleting it for Unclassified.
+  Load saved classifications when selecting machines and show save results.
+
+### Changed
 
 - Split Backup Vault's backup timestamp into Date and Time columns, and add
   per-column text filters below the headings with a Clear filters button.
@@ -256,26 +351,23 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 - Leave missing values and unchecked filesystem statuses blank in Backup Vault.
 
-- Add Size after Filename in Backup Vault, displaying recorded backup sizes
-  in human-readable units such as KB and MB.
-
-- Add a machine environment dropdown (Unclassified, Prod, QA, DEV) and an
-  Update button beside Re-Scan in selected inventory machine details. Save
-  `DeploymentEnvironment` as a TaggedValue on the machine's ModelElement,
-  updating or creating it for dev, qa, and prod, and deleting it for Unclassified.
-  Load saved classifications when selecting machines and show save results.
-
 - Report `Scan complete` when scanning finishes, keeping individual application
   read failures in status history without failing the overall scan.
 
 ## [0.15.8] - 2026-10-01 @ 05:19
 
-- Detect installed applications using only their `D`-prefixed constants files
-  (such as `DMyCount.py`).
+### Added
 
 - Report `Inventory scan complete` when an inventory scan finishes successfully.
 
+### Changed
+
+- Detect installed applications using only their `D`-prefixed constants files
+  (such as `DMyCount.py`).
+
 ## [0.15.7] - 2026-10-01 @ 05:07
+
+### Changed
 
 - Use unqualified, lowercase hostnames in application scan status messages when
   available, falling back to the IP address for unnamed hosts.
@@ -285,10 +377,14 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 ## [0.15.6] - 2026-10-01 @ 04:52
 
+### Changed
+
 - Increase inventory graph labels to 24px bold, use blue for machine selection,
   and give application boxes a lighter shade of their machine's background.
 
 ## [0.15.5] - 2026-10-01 @ 04:44
+
+### Changed
 
 - Give the inventory graph its own box and show selected machine details in a
   separate box on the left, stacked above the graph on narrow screens.
@@ -298,11 +394,15 @@ The **Hilda** release is dedicated to [Hilda Geiringer](https://en.wikipedia.org
 
 ## [0.15.3] - 2026-10-01 @ 04:35
 
+### Changed
+
 - Changed the app's default background color to black.
 - Applied a Mondrian color theme with red, yellow, blue, and warm white accents
   across navigation, controls, panels, and inventory graph states.
 
 ## [0.15.1] - 2026-10-01 @ 04:28
+
+### Added
 
 - Log application scan results as one-line status messages with host, application,
   and detected version, or a brief missing/read-failure outcome.

@@ -37,11 +37,12 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.db = DbMgr.__new__(DbMgr)
         self.db._connection = pymysql.connect(
             unix_socket=os.environ["CMDB_TEST_DB_SOCKET"], user="root", autocommit=True,
+            charset="utf8mb4", collation="utf8mb4_unicode_ci",
             cursorclass=pymysql.cursors.DictCursor,
         )
         self.addCleanup(self.db.close)
         self.database = "cmdb_test_" + uuid4().hex
-        self.db.execute(f"CREATE DATABASE `{self.database}`")
+        self.db.execute(f"CREATE DATABASE `{self.database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
         self.addCleanup(self.db.execute, f"DROP DATABASE `{self.database}`")
         self.db.execute(f"USE `{self.database}`")
         schema = Path(__file__).resolve().parents[1] / "schema/cmdb-schema-v1.sql"
@@ -50,6 +51,19 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 self.db.execute(statement)
         self.machines = MachineDb(self.db)
         self.software = SoftwareDeploymentDb(self.db)
+
+    def test_unicode_identifiers_join_across_application_databases(self):
+        peer = self.database + '_peer'
+        self.db.execute(f'CREATE DATABASE `{peer}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
+        self.addCleanup(self.db.execute, f'DROP DATABASE `{peer}`')
+        self.db.execute(f'CREATE TABLE `{peer}`.LookupKey (name VARCHAR(255) NOT NULL PRIMARY KEY) '
+                        'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
+        name = 'Résumé 東京 🚀'
+        identity = NamespaceDb(self.db).create(name=name)
+        self.db.execute(f'INSERT INTO `{peer}`.LookupKey (name) VALUES (%s)', (name,))
+        self.assertEqual(self.db.query(
+            f'SELECT me.id, me.name FROM ModelElement me JOIN `{peer}`.LookupKey p ON me.name=p.name'),
+            [{'id': identity, 'name': name}])
 
     def test_application_backup_targets_include_only_declarations_and_share_database_policy(self):
         machine = self.machines.upsert(Machine('192.0.2.7', hostName='wintermute'))
@@ -1067,6 +1081,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                              ('completedOn', datetime(2026, 9, 27)), ('pathname', None),
                              ('pathname', ''), ('sizeBytes', None), ('sizeBytes', -1),
                              ('checksum', None), ('checksum', 'a' * 63), ('checksum', 'g' * 64),
+                             ('checksum', 'A' * 64), ('status', 'SUCCEEDED'), ('kind', 'DATABASE'),
                              ('checksum', 'a' * 63 + '\n'), ('error', 'Unexpected error'),
                              ('kind', 'unknown'), ('kind', None), ('kind', 'directory'),
                              ('ipAddress', None), ('ipAddress', ''), ('sourcePathname', None),
@@ -1330,7 +1345,8 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         target = NamespaceDb(self.db).create(name='backup target')
         self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
         for column, value in (('enabled', 2), ('enabled', None), ('frequency', 'weekly'),
-                              ('frequency', None), ('retention', '3-weeks'), ('retention', None)):
+                              ('frequency', 'DAILY'), ('frequency', None), ('retention', '3-weeks'),
+                              ('retention', 'FOREVER'), ('retention', None)):
             with self.subTest(column=column, value=value), self.assertRaises(pymysql.MySQLError):
                 self.db.execute(f'UPDATE BackupSchedule SET {column}=%s WHERE modelElement=%s', (value, target))
 

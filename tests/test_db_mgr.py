@@ -31,6 +31,7 @@ class DbMgrTests(unittest.TestCase):
         self.assertEqual(options["init_command"], "SET time_zone = '+00:00'")
         self.assertTrue(options["autocommit"])
         self.assertEqual(options["charset"], "utf8mb4")
+        self.assertEqual(options["collation"], "utf8mb4_unicode_ci")
         self.connection.cursor.assert_not_called()
 
     def test_parameters_remain_bound_and_results_are_materialized(self):

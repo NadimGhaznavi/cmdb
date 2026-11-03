@@ -10,10 +10,13 @@ permalink: /CHANGELOG/
 ### Summary
 
 Standardize fresh-install database, table, column, and connection collations
-on BMForge's `utf8mb4` / `utf8mb4_unicode_ci` pair.
+on BMForge's `utf8mb4` / `utf8mb4_unicode_ci` pair and enforce its required
+SQL mode on application connections.
 
 ### Changed
 
+- Set `STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION` explicitly on each application
+  database connection.
 - Pin the database and all table defaults, remove binary/ASCII column overrides,
   and set the application connection collation explicitly.
 - Keep exact MariaDB catalog identity and policy/status/checksum validation

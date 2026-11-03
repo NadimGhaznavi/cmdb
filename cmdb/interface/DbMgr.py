@@ -34,6 +34,7 @@ class DbMgr:
             connect_timeout=DDbMgr.CONNECT_TIMEOUT,
             read_timeout=DDbMgr.READ_TIMEOUT,
             write_timeout=DDbMgr.WRITE_TIMEOUT,
+            sql_mode="STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION",
             init_command="SET time_zone = '+00:00'",
         )
 

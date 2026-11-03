@@ -110,11 +110,11 @@ class NetworkConfigurationTests(unittest.TestCase):
                 with patch('urllib.request.build_opener') as build, redirect_stdout(io.StringIO()):
                     response = build.return_value.open.return_value.__enter__.return_value
                     response.status = 200
-                    with patch('json.load', side_effect=[{'status': status, 'service': 'cmdb-server'}
-                                                        for status in ('ok', 'ready')]):
+                    with patch('json.load', return_value={'status': 'ok', 'service': 'cmdb-server',
+                               'components': {'http': 'ok', 'db-server': 'ok'}}):
                         exec(compile(source, 'install-services.sh', 'exec'), {})
                     self.assertEqual([call.args[0] for call in build.return_value.open.call_args_list],
-                                     [f'http://{host}:15000/{endpoint}' for endpoint in ('health', 'ready')])
+                                     [f'http://{host}:15000/health'])
 
     def test_restart_validates_before_touching_service(self):
         script = (ROOT / 'scripts/restart.sh').read_text()

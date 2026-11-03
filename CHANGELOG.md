@@ -12,9 +12,13 @@ permalink: /CHANGELOG/
 Standardize fresh-install database, table, column, and connection collations
 on BMForge's `utf8mb4` / `utf8mb4_unicode_ci` pair and enforce its required
 SQL mode on application connections.
+Use `/health` to report both HTTP and database readiness.
 
 ### Changed
 
+- Replace the separate HTTP-only `/health` and database `/ready` probes with
+  one `/health` endpoint reporting component states and HTTP 503 on a database
+  failure; update deployment checks to use it.
 - Set `STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION` explicitly on each application
   database connection.
 - Pin the database and all table defaults, remove binary/ASCII column overrides,

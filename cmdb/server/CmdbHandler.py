@@ -67,19 +67,19 @@ class CmdbHandler(BaseHTTPRequestHandler):
         if path == "/status-messages":
             self.respond(200, json.dumps(self.server.status_messages.snapshot()).encode(), "application/json")
         elif path == "/health":
-            self.respond(200, b'{"status":"ok","service":"cmdb-server"}', "application/json")
-        elif path == "/ready":
             try:
                 db = DbMgr()
                 try:
-                    db.query("SELECT 1 AS ready")
+                    healthy = db.health()
                 finally:
                     db.close()
             except pymysql.MySQLError:
                 logging.exception("CMDB database readiness check failed")
-                self.respond(503, b'{"status":"unavailable","service":"cmdb-server"}', "application/json")
-                return
-            self.respond(200, b'{"status":"ready","service":"cmdb-server"}', "application/json")
+                healthy = False
+            state = "ok" if healthy else "error"
+            body = {"status": state, "service": "cmdb-server",
+                    "components": {"http": "ok", "db-server": state}}
+            self.respond(200 if healthy else 503, json.dumps(body).encode(), "application/json")
         elif path == '/api/discovery':
             try:
                 db = DbMgr()

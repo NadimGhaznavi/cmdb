@@ -77,8 +77,8 @@ Application files are copied to `/opt/prod/cmdb`, with Python dependencies in
 the system cron service. The CMDB service can update its own crontab through
 the standard `crontab` helper; its sandbox permits writes to
 `/var/spool/cron/crontabs`. The installer checks the database connection, installs
-`cmdb-server.service`, enables it at boot, starts it, and checks `/health` and
-`/ready`. Open `http://<server>:14444/` afterward.
+`cmdb-server.service`, enables it at boot, starts it, and checks application
+readiness through `/health`. Open `http://<server>:14444/` afterward.
 
 The installer applies `schema/cmdb-schema-v1.sql` to the database. It creates the
 `Machine` table if absent, preserving existing rows on repeat installation.

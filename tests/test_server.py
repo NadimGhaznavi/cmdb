@@ -693,37 +693,53 @@ class ServerTests(unittest.TestCase):
                       pymysql.OperationalError)
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
-    def test_home_health_and_missing_page_do_not_query_database(self, factory):
+    def test_home_and_missing_page_do_not_query_database(self, factory):
         status, body = self.get('/')
         self.assertEqual(status, 200)
         self.assertIn(b'Configuration Management Database', body)
-        status, body = self.get('/health')
-        self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body), {'status': 'ok', 'service': 'cmdb-server'})
         self.assertEqual(self.get('/missing')[0], 404)
         factory.assert_not_called()
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
-    def test_readiness_queries_and_closes_database(self, factory):
-        status, body = self.get('/ready')
+    def test_health_checks_and_closes_database(self, factory):
+        factory.return_value.health.return_value = True
+        status, body = self.get('/health')
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body)['status'], 'ready')
-        factory.return_value.query.assert_called_once_with('SELECT 1 AS ready')
+        self.assertEqual(json.loads(body), {'status': 'ok', 'service': 'cmdb-server',
+                         'components': {'http': 'ok', 'db-server': 'ok'}})
+        factory.return_value.health.assert_called_once_with()
         factory.return_value.close.assert_called_once()
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
-    def test_database_failure_is_503_and_connection_is_closed(self, factory):
-        factory.return_value.query.side_effect = pymysql.OperationalError('private details')
+    def test_database_outage_and_recovery_change_health_status(self, factory):
+        factory.return_value.health.side_effect = [pymysql.OperationalError('private details'), True]
         with self.assertLogs(level='ERROR'):
-            status, body = self.get('/ready')
+            status, body = self.get('/health')
         self.assertEqual(status, 503)
+        self.assertEqual(json.loads(body), {'status': 'error', 'service': 'cmdb-server',
+                         'components': {'http': 'ok', 'db-server': 'error'}})
         self.assertNotIn(b'private details', body)
+        factory.return_value.close.assert_called_once()
+        status, body = self.get('/health')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['components']['db-server'], 'ok')
+        self.assertEqual(factory.return_value.close.call_count, 2)
+
+    @patch('cmdb.server.CmdbHandler.DbMgr')
+    def test_unsuccessful_database_health_is_503(self, factory):
+        factory.return_value.health.return_value = False
+        status, body = self.get('/health')
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(body)['components']['db-server'], 'error')
         factory.return_value.close.assert_called_once()
 
     @patch('cmdb.server.CmdbHandler.DbMgr', side_effect=pymysql.OperationalError('connection failed'))
     def test_connection_failure_is_503(self, factory):
         with self.assertLogs(level='ERROR'):
-            self.assertEqual(self.get('/ready')[0], 503)
+            status, body = self.get('/health')
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(body)['components']['db-server'], 'error')
+        self.assertNotIn(b'connection failed', body)
 
     @patch('cmdb.server.CmdbHandler.DbMgr')
     def test_machine_records_include_nullable_fields_and_utc_timestamps(self, factory):

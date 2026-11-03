@@ -77,5 +77,9 @@ class DbMgr:
                 error.add_note("Database rollback also failed; discard this connection.")
             raise
 
+    def health(self) -> bool:
+        """Probe through this application's configured connection."""
+        return self.query("SELECT 1 AS ok")[0]["ok"] == 1
+
     def close(self) -> None:
         self._connection.close()

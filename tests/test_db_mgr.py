@@ -94,6 +94,16 @@ class DbMgrTests(unittest.TestCase):
         self.assertIs(raised.exception, error)
         self.assertIn("rollback also failed", error.__notes__[0])
 
+    def test_health_queries_read_only_and_propagates_database_errors(self):
+        self.cursor.fetchall.return_value = [{'ok': 1}]
+        self.assertTrue(self.db.health())
+        self.cursor.execute.assert_called_once_with('SELECT 1 AS ok', ())
+        self.connection.begin.assert_not_called()
+        self.connection.commit.assert_not_called()
+        self.cursor.execute.side_effect = pymysql.OperationalError('database unavailable')
+        with self.assertRaises(pymysql.OperationalError):
+            self.db.health()
+
     def test_close_releases_connection(self):
         self.db.close()
         self.connection.close.assert_called_once()

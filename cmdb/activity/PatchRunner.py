@@ -17,11 +17,8 @@ def now():
 
 class PatchRunner:
     def record(self, method, *args):
-        db = connect_database()
-        try:
+        with connect_database() as db:
             return getattr(PatchDb(db), method)(*args)
-        finally:
-            db.close()
 
     def execute(self, job):
         identity, address = job['id'], job['address']

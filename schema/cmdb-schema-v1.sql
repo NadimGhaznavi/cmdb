@@ -122,13 +122,11 @@ CREATE TABLE IF NOT EXISTS BackupSchedule (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     modelElement BIGINT UNSIGNED NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    frequency VARCHAR(16) NOT NULL DEFAULT 'daily',
     expression VARCHAR(255) NOT NULL DEFAULT '0 12 * * *',
     retention VARCHAR(16) NOT NULL DEFAULT '1-week',
     UNIQUE KEY BackupSchedule_modelElement_uq (modelElement),
     CONSTRAINT BackupSchedule_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id),
     CONSTRAINT BackupSchedule_enabled_ck CHECK (enabled IN (0, 1)),
-    CONSTRAINT BackupSchedule_frequency_ck CHECK (BINARY frequency IN ('daily')),
     CONSTRAINT BackupSchedule_retention_ck CHECK (BINARY retention IN ('1-week', '2-weeks', '1-month', 'forever'))
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

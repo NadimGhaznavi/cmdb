@@ -16,8 +16,8 @@ Retention is saved as policy only; automatic file deletion is not implemented.
 The Cron interface uses [python-crontab](https://pypi.org/project/python-crontab/)
 to manage the `cmdb` account's crontab. Each entry has an exact comment marker,
 `cmdb-backup-schedule-<id>`. Updates replace only that schedule's entry; unrelated
-cron jobs are preserved. The configured expression is `DCMDB.BACKUP_CRON`,
-currently `0 12 * * *`.
+cron jobs are preserved. Each policy's five-field expression controls its timing;
+`DCMDB.BACKUP_CRON` supplies the default `0 12 * * *`.
 
 Cron invokes the installed venv directly:
 

@@ -69,11 +69,10 @@ def main() -> int:
         raise SystemExit('Local machine identity is empty; cleanup stopped.')
     values = DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV))
     os.environ.update(values)
-    db = connect_database()
     try:
-        addresses = [machine.ipAddress for machine in MachineDb(db).list_machines()]
+        with connect_database() as db:
+            addresses = [machine.ipAddress for machine in MachineDb(db).list_machines()]
     finally:
-        db.close()
         for name in values:
             os.environ.pop(name, None)
     account = pwd.getpwnam(DCMDB.SERVICE_USER)

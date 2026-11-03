@@ -3,6 +3,7 @@
 import subprocess
 from threading import Event
 from unittest import TestCase
+from database_fixtures import database_factory
 from unittest.mock import Mock, patch
 
 import nmap
@@ -20,7 +21,10 @@ class InventoryCoordinatorTests(TestCase):
         gateway = patch('cmdb.activity.InventoryCoordinator.Network.default_gateway', return_value=None)
         self.gateway = gateway.start()
         self.addCleanup(gateway.stop)
-        for name in ('connect_database', 'MachineDb', 'SoftwareDeploymentDb', 'SoftwareSystemDb', 'DataManagerDb'):
+        factory = patch('cmdb.activity.InventoryCoordinator.connect_database', new_callable=database_factory)
+        self.connect_database = factory.start()
+        self.addCleanup(factory.stop)
+        for name in ('MachineDb', 'SoftwareDeploymentDb', 'SoftwareSystemDb', 'DataManagerDb'):
             patcher = patch('cmdb.activity.InventoryCoordinator.' + name)
             setattr(self, name, patcher.start())
             self.addCleanup(patcher.stop)

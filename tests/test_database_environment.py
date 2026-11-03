@@ -21,17 +21,6 @@ class DatabaseEnvironmentTests(unittest.TestCase):
                 'user': 'reader', 'password': values['DB_PASSWORD'],
                 'connect_timeout': 10, 'read_timeout': 30, 'write_timeout': 30})
 
-    def test_invalid_environment_never_opens_connection(self):
-        values = {'DB_HOST': 'localhost', 'DB_PORT': '3306', 'DB_NAME': 'cmdb',
-                  'DB_USER': 'cmdb', 'DB_PASSWORD': 'test'}
-        with patch('cmdb.interface.Database.DbMgr') as manager:
-            for field, value in (('DB_PORT', '0'), ('DB_PORT', '65536'), ('DB_PORT', 'invalid'),
-                                 ('DB_HOST', ''), ('DB_PASSWORD', '')):
-                with self.subTest(field=field, value=value), patch.dict(os.environ, values | {field: value}, clear=True):
-                    with self.assertRaises(ValueError):
-                        connect_database()
-            manager.assert_not_called()
-
     def test_read_and_invalid_files(self):
         values = {'DB_HOST': 'localhost', 'DB_PORT': '3306', 'DB_NAME': 'cmdb',
                   'DB_USER': 'cmdb', 'DB_PASSWORD': '$(do-not-execute)'}
@@ -42,7 +31,7 @@ class DatabaseEnvironmentTests(unittest.TestCase):
             self.assertEqual(DatabaseEnvironment.read(path), values)
             for invalid in (text + 'DB_NAME=other\n', text + 'EXTRA=1\n',
                             text.replace('DB_HOST=localhost\n', ''),
-                            text.replace('3306', '0'), text.replace('3306', 'invalid'),
+                            text.replace('3306', '0'), text.replace('3306', '65536'), text.replace('3306', 'invalid'),
                             text.replace('DB_HOST=localhost', 'DB_HOST=')):
                 with self.subTest(value=invalid):
                     path.write_text(invalid)

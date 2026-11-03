@@ -1,6 +1,7 @@
 """HTTP contracts and deployment entry point checks."""
 
 from http.client import HTTPConnection
+from email.message import Message
 from cmdb.server.CmdbHTTPServer import CmdbHTTPServer
 from datetime import datetime
 import json
@@ -11,6 +12,7 @@ import sys
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
+from database_fixtures import database_factory
 from unittest.mock import Mock, patch
 
 import pymysql
@@ -18,8 +20,32 @@ import pymysql
 from cmdb.server.CmdbHandler import CmdbHandler
 
 
+class JsonRequestTests(unittest.TestCase):
+    def test_body_timeouts_return_408_for_all_json_endpoints(self):
+        endpoints = (
+            ('POST', '/api/machines/hostname'), ('POST', '/api/machines/environment'),
+            ('POST', '/api/applications'), ('POST', '/api/patching'),
+            ('POST', '/api/backups'), ('POST', '/api/patch-schedules'),
+            ('POST', '/api/discovery-schedules'), ('POST', '/api/backup-schedules'),
+            ('DELETE', '/api/databases/42'),
+        )
+        for method, path in endpoints:
+            with self.subTest(method=method, path=path):
+                handler = CmdbHandler.__new__(CmdbHandler)
+                handler.path = path
+                handler.headers = Message()
+                handler.headers['Content-Type'] = 'application/json'
+                handler.headers['Content-Length'] = '2'
+                handler.rfile = Mock()
+                handler.rfile.read.side_effect = TimeoutError('request timed out')
+                handler.respond = Mock()
+                getattr(handler, 'do_' + method)()
+                handler.respond.assert_called_once()
+                self.assertEqual(handler.respond.call_args.args[0], 408)
+
+
 class ServerTests(unittest.TestCase):
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_status_history_is_shared_without_database_and_resets_on_restart(self, factory):
         messages = [f'Scanning 192.0.2.{number}' for number in range(8)]
         for message in messages:
@@ -82,7 +108,7 @@ class ServerTests(unittest.TestCase):
                             for call in scanner.request_scan.call_args_list))
 
     @patch('cmdb.server.CmdbHandler.DiscoveryScheduleDb')
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_discovery_defaults_saved_policy_and_navigation_do_not_scan(self, db, records):
         scanner = self.server.inventory_coordinator = Mock()
         records.return_value.get.return_value = None
@@ -144,7 +170,7 @@ class ServerTests(unittest.TestCase):
         finally:
             connection.close()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     @patch('cmdb.server.CmdbHandler.MachineDb')
     @patch('cmdb.server.CmdbHandler.Cron')
     def test_delete_machine_removes_backup_and_patch_cron_in_transaction(self, cron, records, factory):
@@ -157,7 +183,7 @@ class ServerTests(unittest.TestCase):
         factory.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     @patch('cmdb.server.CmdbHandler.MachineDb')
     def test_delete_machine_missing_and_invalid_ids(self, records, factory):
         for identity in ('0', '-1', 'abc', '42/extra', str(2**64), '1' * 21):
@@ -168,7 +194,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.delete_machine('42')[0], 404)
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     @patch('cmdb.server.CmdbHandler.MachineDb')
     @patch('cmdb.server.CmdbHandler.Cron')
     def test_delete_machine_failures_exit_transaction_and_hide_details(self, cron, records, factory):
@@ -186,7 +212,7 @@ class ServerTests(unittest.TestCase):
             self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[1], error)
             factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
     @patch('cmdb.server.CmdbHandler.Cron')
     def test_delete_application_transaction_closes_and_removes_disabled_cron(self, cron, records, factory):
@@ -198,7 +224,7 @@ class ServerTests(unittest.TestCase):
         factory.return_value.transaction.return_value.__exit__.assert_called_once_with(None, None, None)
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
     def test_delete_application_missing_and_invalid_ids(self, records, factory):
         for identity in ('0', '-1', 'abc', '42/extra', str(2**64), '1' * 21):
@@ -209,7 +235,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.delete_application('42')[0], 404)
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
     def test_delete_application_failure_rolls_back_and_hides_details(self, records, factory):
         for error, expected in ((pymysql.OperationalError('private failure'), 503),
@@ -232,7 +258,7 @@ class ServerTests(unittest.TestCase):
         finally:
             connection.close()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     @patch('cmdb.server.CmdbHandler.SoftwareSystemDb')
     @patch('cmdb.server.CmdbHandler.Cron')
     def test_delete_application_cron_failure_exits_transaction(self, cron, records, factory):
@@ -246,7 +272,7 @@ class ServerTests(unittest.TestCase):
         self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[1], error)
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_registered_applications_lists_software_systems_and_closes_database(self, factory):
         records = [
             {'id': 1, 'name': 'MyCount', 'type': None, 'subtype': None, 'supplier': None, 'version': None},
@@ -258,7 +284,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body), {'applications': records})
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_registered_applications_database_failure_closes_and_hides_details(self, factory):
         factory.return_value.query.side_effect = pymysql.OperationalError('private failure')
         status, body = self.get('/api/applications')
@@ -280,7 +306,7 @@ class ServerTests(unittest.TestCase):
             connection.close()
         coordinator.add_application.assert_called_once_with('MyCount')
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_add_application_rejects_invalid_names_before_database_access(self, factory):
         for values in ({}, [], {'name': None}, {'name': 7}, {'name': '   '},
                        {'name': 'x' * 256}, {'name': 'a\nb'}, {'name': 'App', 'machine': 7}):
@@ -312,7 +338,7 @@ class ServerTests(unittest.TestCase):
                 connection.close()
 
     @patch('cmdb.server.CmdbHandler.PatchDb')
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_patching_hosts_and_queue(self, db, records):
         records.return_value.hosts.return_value = [{'id': 7, 'hostName': 'debian.example', 'job': None}]
         status, body = self.get('/api/patching/hosts')
@@ -336,7 +362,7 @@ class ServerTests(unittest.TestCase):
 
     @patch('cmdb.server.CmdbHandler.SSH')
     @patch('cmdb.server.CmdbHandler.SoftwareDeploymentDb')
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_uptime_only_contacts_known_debian_hosts(self, db, inventory, ssh):
         inventory.return_value.debian_hosts.return_value = [{'id': 7, 'ipAddress': '192.0.2.1'}]
         ssh.return_value.uptime.return_value = 90061
@@ -424,7 +450,7 @@ class ServerTests(unittest.TestCase):
         manager.request_backup.assert_called_once_with(7)
 
     @patch('cmdb.server.CmdbHandler.BackupDb')
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_backup_get_serializes_timestamps_and_missing_attempt(self, db, records):
         records.return_value.databases.return_value = [{'modelElement': 7, 'lastBackup': datetime(2026, 9, 28, 14)}]
         records.return_value.hosts.return_value = []
@@ -451,7 +477,7 @@ class ServerTests(unittest.TestCase):
 
     @patch('cmdb.server.CmdbHandler.BackupFiles')
     @patch('cmdb.server.CmdbHandler.BackupDb')
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_vault_scan_and_delete_files_before_records(self, db, records, files):
         records.return_value.files.return_value = [{'id': 42, 'pathname': 'host/db/db/file.dump'}]
         records.return_value.get.return_value = dict(id=42, status='succeeded', pathname='host/db/db/file.dump')
@@ -544,7 +570,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body), scanner.scan_status.return_value)
 
     @patch('cmdb.server.CmdbHandler.MachineDb')
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_selected_machine_rescan(self, db, inventory):
         inventory.return_value.list_machines.return_value = [Mock(ipAddress='192.168.0.7')]
         scanner = self.server.inventory_coordinator = Mock()
@@ -590,7 +616,7 @@ class ServerTests(unittest.TestCase):
         finally:
             connection.close()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_save_machine_environment_and_clear_tag(self, factory):
         db = factory.return_value
         db.query.return_value = [{'id': 7}]
@@ -611,7 +637,7 @@ class ServerTests(unittest.TestCase):
                 db.transaction.assert_called_once()
                 db.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_invalid_environment_requests_do_not_open_database(self, factory):
         for values in ([], {}, {'machine': True, 'environment': 'prod'},
                        {'machine': 0, 'environment': 'prod'}, {'machine': 2**64, 'environment': 'prod'},
@@ -624,7 +650,7 @@ class ServerTests(unittest.TestCase):
                                             content_type='text/plain')[0], 415)
         factory.assert_not_called()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_environment_missing_machine_and_database_failure(self, factory):
         db = factory.return_value
         db.query.return_value = []
@@ -641,14 +667,14 @@ class ServerTests(unittest.TestCase):
         db.close.assert_called_once()
         self.assertIs(db.transaction.return_value.__exit__.call_args.args[0], pymysql.OperationalError)
 
-    @patch('cmdb.server.CmdbHandler.connect_database', side_effect=pymysql.OperationalError('private details'))
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory, side_effect=pymysql.OperationalError('private details'))
     def test_environment_connection_failure(self, factory):
         status, body = self.post_hostname({'machine': 7, 'environment': 'dev'},
                                          path='/api/machines/environment')
         self.assertEqual(status, 503)
         self.assertNotIn('private details', json.dumps(body))
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_save_hostname_updates_only_selected_machine(self, factory):
         factory.return_value.query.side_effect = [[{
             'id': 7, 'ipAddress': '192.168.0.7', 'hostName': 'worker.lan',
@@ -663,7 +689,7 @@ class ServerTests(unittest.TestCase):
         factory.return_value.transaction.assert_called_once()
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_empty_hostname_clears_value_and_missing_machine_is_404(self, factory):
         factory.return_value.query.return_value = []
         status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': ''})
@@ -671,7 +697,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(factory.return_value.execute.call_args.args[1], (None, '192.168.0.7'))
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_invalid_hostname_requests_do_not_open_database(self, factory):
         for values in ([], {}, {'ipAddress': 'invalid', 'hostName': 'worker'},
                        {'ipAddress': '192.168.0.7', 'hostName': None},
@@ -682,7 +708,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.post_hostname({}, content_type='text/plain')[0], 415)
         factory.assert_not_called()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_hostname_save_failure_closes_connection_and_returns_error(self, factory):
         factory.return_value.execute.side_effect = pymysql.OperationalError('private details')
         status, body = self.post_hostname({'ipAddress': '192.168.0.7', 'hostName': 'worker'})
@@ -692,7 +718,7 @@ class ServerTests(unittest.TestCase):
         self.assertIs(factory.return_value.transaction.return_value.__exit__.call_args.args[0],
                       pymysql.OperationalError)
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_home_and_missing_page_do_not_query_database(self, factory):
         status, body = self.get('/')
         self.assertEqual(status, 200)
@@ -700,7 +726,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.get('/missing')[0], 404)
         factory.assert_not_called()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_health_checks_and_closes_database(self, factory):
         factory.return_value.health.return_value = True
         status, body = self.get('/health')
@@ -710,7 +736,7 @@ class ServerTests(unittest.TestCase):
         factory.return_value.health.assert_called_once_with()
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_database_outage_and_recovery_change_health_status(self, factory):
         factory.return_value.health.side_effect = [pymysql.OperationalError('private details'), True]
         with self.assertLogs(level='ERROR'):
@@ -725,7 +751,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)['components']['db-server'], 'ok')
         self.assertEqual(factory.return_value.close.call_count, 2)
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_unsuccessful_database_health_is_503(self, factory):
         factory.return_value.health.return_value = False
         status, body = self.get('/health')
@@ -733,7 +759,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)['components']['db-server'], 'error')
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database', side_effect=pymysql.OperationalError('connection failed'))
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory, side_effect=pymysql.OperationalError('connection failed'))
     def test_connection_failure_is_503(self, factory):
         with self.assertLogs(level='ERROR'):
             status, body = self.get('/health')
@@ -741,7 +767,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)['components']['db-server'], 'error')
         self.assertNotIn(b'connection failed', body)
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_machine_records_include_nullable_fields_and_utc_timestamps(self, factory):
         factory.return_value.query.side_effect = [[{
             'id': 7, 'ipAddress': '192.168.0.7', 'hostName': '<script>host</script>',
@@ -767,7 +793,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(record['updatedOn'], '2026-09-27T13:00:00+00:00')
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_network_ports_report_returns_listener_fields_and_closes_database(self, factory):
         factory.return_value.query.return_value = [
             {'hostName': 'wintermute.example', 'ipAddress': '192.0.2.7', 'application': 'MyCount',
@@ -783,7 +809,7 @@ class ServerTests(unittest.TestCase):
              'serviceName': 'backend', 'portNumber': 9}]})
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_network_ports_empty_inventory_and_database_failure(self, factory):
         factory.return_value.query.return_value = []
         self.assertEqual(self.get('/api/network/ports'), (200, b'{"ports": []}'))
@@ -793,20 +819,20 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body), {'error': 'Network ports are unavailable.'})
         self.assertEqual(factory.return_value.close.call_count, 2)
 
-    @patch('cmdb.server.CmdbHandler.connect_database', side_effect=pymysql.OperationalError('private details'))
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory, side_effect=pymysql.OperationalError('private details'))
     def test_network_ports_connection_failure_is_503(self, factory):
         status, body = self.get('/api/network/ports')
         self.assertEqual(status, 503)
         self.assertNotIn(b'private details', body)
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_empty_machine_inventory(self, factory):
         factory.return_value.query.return_value = []
         status, body = self.get('/api/machines')
         self.assertEqual((status, json.loads(body)), (200, {'machines': [], 'softwareDeployments': []}))
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_machine_query_failure_closes_connection_and_hides_details(self, factory):
         factory.return_value.query.side_effect = pymysql.OperationalError('private details')
         status, body = self.get('/api/machines')
@@ -814,13 +840,13 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn(b'private details', body)
         factory.return_value.close.assert_called_once()
 
-    @patch('cmdb.server.CmdbHandler.connect_database', side_effect=pymysql.OperationalError('private details'))
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory, side_effect=pymysql.OperationalError('private details'))
     def test_machine_connection_failure_is_503(self, factory):
         status, body = self.get('/api/machines')
         self.assertEqual(status, 503)
         self.assertNotIn(b'private details', body)
 
-    @patch('cmdb.server.CmdbHandler.connect_database')
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_local_graph_assets_and_unlisted_paths(self, factory):
         for path in ('/static/machines.css', '/static/machines.js',
                      '/pages/images/cmdb.png',

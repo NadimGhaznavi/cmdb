@@ -28,12 +28,9 @@ from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 @contextmanager
 def inventory_database():
     """Close each connection after its short inventory transaction."""
-    db = connect_database()
-    try:
+    with connect_database() as db:
         with db.transaction():
             yield db
-    finally:
-        db.close()
 
 
 class InventoryCoordinator(Thread):

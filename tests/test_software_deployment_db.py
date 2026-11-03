@@ -15,7 +15,6 @@ from uuid import uuid4
 import pymysql
 
 from cmdb.entity.Machine import Machine
-from cmdb.entity.Backup import Backup
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupScheduleDb import BackupScheduleDb
 from cmdb.activity.Scheduler import Scheduler
@@ -86,7 +85,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                                          components=(('Marketing', 'pages/marketing'),),
                                          databases=(('MyCount', 'mycount'),))
         inventory = BackupDb(self.db)
-        rows = inventory.applications()
+        rows = inventory.applications(inventory.databases())
         self.assertEqual({row['kind'] for row in rows}, {'directory', 'database'})
         self.assertEqual({row['applicationName'] for row in rows}, {'MyCount'})
         self.assertEqual({row['machine'] for row in rows}, {machine})
@@ -103,7 +102,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         inventory.finish(identity, started, result=dict(pathname=relative, sizeBytes=123, checksum='a' * 64))
         policy = BackupScheduleDb(self.db).save(component['modelElement'], True, '0 12 * * *', '1-week')
         BackupScheduleDb(self.db).save(catalog['modelElement'], True, '5 12 * * *', '2-weeks')
-        rows = inventory.applications()
+        rows = inventory.applications(inventory.databases())
         self.assertEqual(next(row for row in rows if row['kind'] == 'directory')['lastBackup'], started)
         declared_db = next(row for row in rows if row['kind'] == 'database')
         standalone_db = next(row for row in inventory.databases() if row['modelElement'] == catalog['modelElement'])
@@ -113,14 +112,14 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.software.record_application(machine, app, '/opt/prod/mycount', '2.0',
                                          components=(('Marketing', 'pages/marketing'),),
                                          databases=(('MyCount', 'mycount'),))
-        rows = inventory.applications()
+        rows = inventory.applications(inventory.databases())
         self.assertEqual(next(row for row in rows if row['kind'] == 'directory')['modelElement'], component['modelElement'])
         release = next(row for row in rows if row['kind'] == 'directory')['application']
         with self.db.transaction():
             disabled = SoftwareSystemDb(self.db).delete_application(release)
         self.assertIn(policy['id'], disabled)
         self.assertFalse(BackupScheduleDb(self.db).get(policy['id'])['enabled'])
-        self.assertEqual(inventory.applications(), [])
+        self.assertEqual(inventory.applications(inventory.databases()), [])
         self.assertEqual(inventory.files()[0]['pathname'], relative)
         self.assertIsNotNone(inventory.get(identity))
 
@@ -327,7 +326,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                                              network=(('Web', 'HTTP', 14444),))
             self.db.execute('INSERT INTO Patch (machine, address) VALUES (%s, %s)', (machine, '192.0.2.7'))
             self.db.execute('INSERT INTO PatchSchedule (machine) VALUES (%s)', (machine,))
-        targets = [row for row in BackupDb(self.db).applications() if row['machine'] == first]
+        targets = [row for row in BackupDb(self.db).applications(BackupDb(self.db).databases()) if row['machine'] == first]
         self.assertEqual({row['kind'] for row in targets}, {'directory', 'database'})
         policies, attempts = [], []
         for target in targets:
@@ -531,7 +530,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         listener_ids = {row['id'] for row in rows}
         self.assertTrue(listener_ids.isdisjoint(row['id'] for row in self.software.list_deployments()))
         self.assertEqual(len(self.software.list_deployments()), 4)
-        self.assertEqual({row['componentName'] for row in BackupDb(self.db).applications()}, {'Uploads'})
+        self.assertEqual({row['componentName'] for row in BackupDb(self.db).applications(BackupDb(self.db).databases())}, {'Uploads'})
         for identity in listener_ids:
             self.assertIsNone(BackupDb(self.db).target(identity))
 
@@ -587,7 +586,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(self.db.query('SELECT * FROM TaggedValue WHERE modelElement=%s', (identity,)), [before[2]])
         self.assertEqual(self.db.query('SELECT usedComponents FROM DeployedComponentsUsage'),
                          [{'usedComponents': identity}])
-        self.assertEqual(BackupDb(self.db).applications(), [])
+        self.assertEqual(BackupDb(self.db).applications(BackupDb(self.db).databases()), [])
         self.assertEqual(len(self.software.list_deployments()), 1)
         self.software.record_application(machine, application, '/opt/prod/mycount', '2.0', network=())
         self.assertEqual(self.db.query('SELECT usedComponents FROM DeployedComponentsUsage'),
@@ -605,7 +604,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DeployedComponentsUsage'), [{'n': 2}])
         self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM DataProvider'), [{'n': 1}])
         self.assertEqual(self.db.query('SELECT COUNT(*) AS n FROM ProviderConnection'), [{'n': 1}])
-        self.assertEqual({row['kind'] for row in BackupDb(self.db).applications()}, {'database'})
+        self.assertEqual({row['kind'] for row in BackupDb(self.db).applications(BackupDb(self.db).databases())}, {'database'})
         with self.db.transaction():
             definitions.delete_application(application)
         self.assertEqual(self.db.query('SELECT id FROM DataManager'), [{'id': manager}])
@@ -1029,7 +1028,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         rows = self.db.query('SELECT * FROM BackupSchedule ORDER BY id')
         self.assertEqual([row['modelElement'] for row in rows], [schema, manager])
         for row in rows:
-            self.assertEqual((row['enabled'], row['frequency'], row['retention']), (0, 'daily', '1-week'))
+            self.assertEqual((row['enabled'], row['retention']), (0, '1-week'))
         for retention in ('1-week', '2-weeks', '1-month', 'forever'):
             self.db.execute('UPDATE BackupSchedule SET enabled=1, retention=%s WHERE modelElement=%s',
                             (retention, schema))
@@ -1050,15 +1049,16 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         identity = self.db.insert(
             'INSERT INTO Backup (modelElement, startedOn, kind, ipAddress, sourcePathname, databaseName) '
             "VALUES (%s, %s, 'database', '192.0.2.7', '/data/', 'cmdb')", (target, started))
-        running = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
-        self.assertEqual(running, Backup(modelElement=target, startedOn=started, kind='database',
-                                         ipAddress='192.0.2.7', sourcePathname='/data/', databaseName='cmdb',
-                                         id=identity))
+        running = self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0]
+        self.assertEqual((running['modelElement'], running['startedOn'], running['kind'],
+                          running['ipAddress'], running['sourcePathname'], running['databaseName'],
+                          running['status'], running['id']),
+                         (target, started, 'database', '192.0.2.7', '/data/', 'cmdb', 'running', identity))
         self.db.execute('UPDATE Backup SET status=%s, completedOn=%s, pathname=%s, sizeBytes=%s, '
                         'checksum=%s WHERE id=%s',
                         ('succeeded', completed, 'sally/cmdb/example.dump', 123, 'a' * 64, identity))
-        success = Backup(**self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0])
-        self.assertEqual((success.status, success.sizeBytes, success.checksum), ('succeeded', 123, 'a' * 64))
+        success = self.db.query('SELECT * FROM Backup WHERE id=%s', (identity,))[0]
+        self.assertEqual((success['status'], success['sizeBytes'], success['checksum']), ('succeeded', 123, 'a' * 64))
         self.db.execute(
             'INSERT INTO Backup (modelElement, startedOn, completedOn, status, error, '
             'kind, ipAddress, sourcePathname, databaseName) '
@@ -1348,8 +1348,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
     def test_backup_schedule_rejects_invalid_policy_values(self):
         target = NamespaceDb(self.db).create(name='backup target')
         self.db.execute('INSERT INTO BackupSchedule (modelElement) VALUES (%s)', (target,))
-        for column, value in (('enabled', 2), ('enabled', None), ('frequency', 'weekly'),
-                              ('frequency', 'DAILY'), ('frequency', None), ('retention', '3-weeks'),
+        for column, value in (('enabled', 2), ('enabled', None), ('retention', '3-weeks'),
                               ('retention', 'FOREVER'), ('retention', None)):
             with self.subTest(column=column, value=value), self.assertRaises(pymysql.MySQLError):
                 self.db.execute(f'UPDATE BackupSchedule SET {column}=%s WHERE modelElement=%s', (value, target))

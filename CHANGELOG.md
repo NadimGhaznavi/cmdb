@@ -11,10 +11,20 @@ permalink: /CHANGELOG/
 
 Adopt BMForge's canonical MariaDB manager with CMDB-owned configuration,
 standard collations, and strict SQL mode. Report readiness through `/health`
-and keep inventory updates atomic.
+and keep inventory updates atomic while simplifying request, discovery, and
+backup handling.
 
 ### Changed
 
+- Release active backup targets even when recording completion fails, so a later
+  request can start a new attempt.
+- Centralize bounded JSON request reading and return HTTP 408 consistently for
+  body-read timeouts; use connection contexts for deterministic cleanup.
+- Limit backup and patch lookups to the requested target, reuse database rows in
+  backup responses, and parse application constants once per discovery read.
+- Validate database credentials when loaded rather than for every connection.
+- Remove unused application record classes, the version helper, label entries, and the
+  obsolete backup frequency field; cron expressions determine scheduling.
 - Copy the pinned canonical `DbMgr` unchanged and resolve application connection
   settings through `connect_database()` for HTTP, background jobs, and tooling.
 - Keep gateway environment updates inside the caller's inventory transaction,

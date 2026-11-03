@@ -20,22 +20,16 @@ class PatchScheduler:
             if len(expression.split()) != 5 or not CronSlices.is_valid(expression):
                 raise ValueError('Use five cron fields: minute hour day-of-month month day-of-week.')
         with Cron.EDIT_LOCK:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 with db.transaction():
-                    if not any(host['id'] == machine for host in SoftwareDeploymentDb(db).debian_hosts()):
+                    if not SoftwareDeploymentDb(db).debian_hosts(machine):
                         raise LookupError('Debian host not found.')
                     schedule = PatchScheduleDb(db).save(machine, enabled, expression)
                     Cron().update_patch(schedule['id'], enabled, expression)
                 return schedule
-            finally:
-                db.close()
 
     def run(self, identity):
-        db = connect_database()
-        try:
+        with connect_database() as db:
             schedule = PatchScheduleDb(db).get(identity)
             if schedule and schedule['enabled']:
                 PatchDb(db).request(schedule['machine'])
-        finally:
-            db.close()

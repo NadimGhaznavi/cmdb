@@ -137,11 +137,8 @@ from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
 from cmdb.interface.Database import connect_database
 
 os.environ.update(DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV)))
-db = connect_database()
-try:
+with connect_database() as db:
     db.query('SELECT 1 AS ready')
-finally:
-    db.close()
 PY
 )
 

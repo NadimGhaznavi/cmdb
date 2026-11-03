@@ -68,11 +68,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200, json.dumps(self.server.status_messages.snapshot()).encode(), "application/json")
         elif path == "/health":
             try:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     healthy = db.health()
-                finally:
-                    db.close()
             except pymysql.MySQLError:
                 logging.exception("CMDB database readiness check failed")
                 healthy = False
@@ -82,11 +79,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200 if healthy else 503, json.dumps(body).encode(), "application/json")
         elif path == '/api/discovery':
             try:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     schedule = DiscoveryScheduleDb(db).get() or asdict(DiscoverySchedule())
-                finally:
-                    db.close()
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Discovery settings are unavailable."}', 'application/json')
                 return
@@ -106,46 +100,34 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.host_uptime(path.removeprefix('/api/patching/hosts/').removesuffix('/uptime'))
         elif path in ('/api/patching/hosts', '/api/patching/report'):
             try:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     records = PatchDb(db)
                     result = {'hosts': records.hosts()} if path.endswith('/hosts') else {'runs': records.report()}
-                finally:
-                    db.close()
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Patching records are unavailable."}', 'application/json')
                 return
             self.respond(200, json.dumps(result, default=backup_json).encode(), 'application/json')
         elif path == '/api/network/ports':
             try:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     ports = NetworkDb(db).ports()
-                finally:
-                    db.close()
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Network ports are unavailable."}', 'application/json')
                 return
             self.respond(200, json.dumps({'ports': ports}).encode(), 'application/json')
         elif path == '/api/applications':
             try:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     records = SoftwareSystemDb(db).list_software_systems()
-                finally:
-                    db.close()
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Registered applications are unavailable."}', 'application/json')
                 return
             self.respond(200, json.dumps({'applications': records}).encode(), 'application/json')
         elif path == "/api/machines":
             try:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     machines = MachineDb(db).list_machines()
                     deployments = SoftwareDeploymentDb(db).list_deployments()
-                finally:
-                    db.close()
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Machines are unavailable."}', "application/json")
                 return
@@ -157,12 +139,12 @@ class CmdbHandler(BaseHTTPRequestHandler):
                          .encode("utf-8"), "application/json")
         elif path == '/api/backups' or path.startswith('/api/backups/'):
             try:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     backups = BackupDb(db)
                     if path == '/api/backups':
-                        result = {'databases': backups.databases(), 'hosts': backups.hosts(),
-                                  'applications': backups.applications()}
+                        databases = backups.databases()
+                        result = {'databases': databases, 'hosts': backups.hosts(),
+                                  'applications': backups.applications(databases)}
                     elif path == '/api/backups/files':
                         result = {'files': backups.files(), 'directory': DCMDB.BACKUP_DIR}
                         for record in result['files']:
@@ -170,8 +152,6 @@ class CmdbHandler(BaseHTTPRequestHandler):
                     else:
                         identity = path.removeprefix('/api/backups/')
                         result = backups.get(int(identity)) if identity.isdecimal() and len(identity) <= 20 and 0 < int(identity) < 2**64 else None
-                finally:
-                    db.close()
             except pymysql.MySQLError:
                 self.respond(503, b'{"error":"Backup records are unavailable."}', 'application/json')
                 return
@@ -238,15 +218,11 @@ class CmdbHandler(BaseHTTPRequestHandler):
         if path != "/api/machines/hostname":
             self.send_error(404, "Page not found")
             return
-        if self.headers.get_content_type() != "application/json":
-            self.respond(415, b'{"error":"Expected JSON."}', "application/json")
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 4096:
-                raise ValueError
-            values = json.loads(self.rfile.read(length))
-            if not isinstance(values, dict) or values.keys() != {"ipAddress", "hostName"}:
+            if values.keys() != {"ipAddress", "hostName"}:
                 raise ValueError
             address, hostname = values["ipAddress"], values["hostName"]
             if not isinstance(address, str) or not isinstance(hostname, str):
@@ -255,19 +231,13 @@ class CmdbHandler(BaseHTTPRequestHandler):
             hostname = hostname.strip()
             if len(hostname) > 255:
                 raise ValueError
-        except (ValueError, UnicodeError):
+        except ValueError:
             self.respond(400, b'{"error":"Provide an IP address and a hostname of at most 255 characters."}',
                          "application/json")
             return
-        except TimeoutError:
-            self.respond(408, b'{"error":"Request timed out."}', "application/json")
-            return
         try:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 machine = MachineDb(db).update_hostname(address, hostname or None)
-            finally:
-                db.close()
         except pymysql.MySQLError:
             self.respond(503, b'{"error":"Could not save the hostname. Try again."}', "application/json")
             return
@@ -277,32 +247,22 @@ class CmdbHandler(BaseHTTPRequestHandler):
         self.respond(200, json.dumps({"machine": machine_record(machine)}).encode("utf-8"), "application/json")
 
     def update_machine_environment(self) -> None:
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError
-            values = json.loads(self.rfile.read(length))
-            if (not isinstance(values, dict) or values.keys() != {'machine', 'environment'}
+            if (values.keys() != {'machine', 'environment'}
                     or type(values['machine']) is not int or not 0 < values['machine'] < 2**64
                     or values['environment'] not in ('dev', 'qa', 'prod', 'unclassified')):
                 raise ValueError
-        except (ValueError, UnicodeError):
+        except ValueError:
             self.respond(400, b'{"error":"Provide a machine ID and dev, qa, prod, or unclassified."}',
                          'application/json')
             return
-        except TimeoutError:
-            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
-            return
         try:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 with db.transaction():
                     saved = MachineDb(db).update_environment(values['machine'], values['environment'])
-            finally:
-                db.close()
         except pymysql.MySQLError:
             self.respond(503, b'{"error":"Could not save the environment. Try again."}', 'application/json')
             return
@@ -318,11 +278,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(400, b'{"error":"Invalid machine address."}', 'application/json')
             return
         try:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 known = any(machine.ipAddress == address for machine in MachineDb(db).list_machines())
-            finally:
-                db.close()
             if not known:
                 self.respond(404, b'{"error":"Machine no longer exists."}', 'application/json')
                 return
@@ -336,25 +293,18 @@ class CmdbHandler(BaseHTTPRequestHandler):
         self.respond(202, json.dumps({'scanId': scan_id}).encode(), 'application/json')
 
     def add_application(self) -> None:
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError
-            values = json.loads(self.rfile.read(length))
-            if (not isinstance(values, dict) or values.keys() != {'name'}
+            if (values.keys() != {'name'}
                     or not isinstance(values['name'], str)):
                 raise ValueError
             name = values['name'].strip()
             if not 1 <= len(name) <= 255 or any(ord(char) < 32 or ord(char) == 127 for char in name):
                 raise ValueError
-        except (ValueError, UnicodeError):
+        except ValueError:
             self.respond(400, b'{"error":"Provide an application name of 1 to 255 characters."}', 'application/json')
-            return
-        except TimeoutError:
-            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
             return
         try:
             coordinator = getattr(self.server, 'inventory_coordinator', None)
@@ -375,11 +325,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
             return
         try:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 host = next((host for host in SoftwareDeploymentDb(db).debian_hosts() if host['id'] == int(identity)), None)
-            finally:
-                db.close()
             if host is None:
                 self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
                 return
@@ -390,29 +337,19 @@ class CmdbHandler(BaseHTTPRequestHandler):
         self.respond(200, json.dumps({'uptimeSeconds': seconds}).encode(), 'application/json')
 
     def request_patch(self) -> None:
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError
-            values = json.loads(self.rfile.read(length))
-            if (not isinstance(values, dict) or values.keys() != {'machine'}
+            if (values.keys() != {'machine'}
                     or type(values['machine']) is not int or not 0 < values['machine'] < 2**64):
                 raise ValueError
-        except (ValueError, UnicodeError):
+        except ValueError:
             self.respond(400, b'{"error":"Provide a valid machine ID."}', 'application/json')
             return
-        except TimeoutError:
-            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
-            return
         try:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 identity = PatchDb(db).request(values['machine'])
-            finally:
-                db.close()
         except LookupError:
             self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
             return
@@ -422,22 +359,15 @@ class CmdbHandler(BaseHTTPRequestHandler):
         self.respond(202, json.dumps({'jobId': identity}).encode(), 'application/json')
 
     def request_backup(self) -> None:
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError
-            values = json.loads(self.rfile.read(length))
-            if (not isinstance(values, dict) or values.keys() != {'modelElement'}
+            if (values.keys() != {'modelElement'}
                     or type(values['modelElement']) is not int or not 0 < values['modelElement'] < 2**64):
                 raise ValueError
-        except (ValueError, UnicodeError):
+        except ValueError:
             self.respond(400, b'{"error":"Provide a valid modelElement ID."}', 'application/json')
-            return
-        except TimeoutError:
-            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
             return
         manager = getattr(self.server, 'backup_manager', None)
         if manager is None:
@@ -454,22 +384,15 @@ class CmdbHandler(BaseHTTPRequestHandler):
         self.respond(202, json.dumps({'backupId': identity}).encode(), 'application/json')
 
     def update_patch_schedule(self) -> None:
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError('Provide patch schedule settings.')
-            values = json.loads(self.rfile.read(length))
-            if not isinstance(values, dict) or values.keys() != {'machine', 'enabled', 'expression'}:
+            if values.keys() != {'machine', 'enabled', 'expression'}:
                 raise ValueError('Provide machine, enabled, and expression.')
             schedule = PatchScheduler().update(**values)
-        except (ValueError, UnicodeError) as error:
+        except ValueError as error:
             self.respond(400, json.dumps({'error': str(error)}).encode(), 'application/json')
-            return
-        except TimeoutError:
-            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
             return
         except LookupError:
             self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
@@ -481,22 +404,15 @@ class CmdbHandler(BaseHTTPRequestHandler):
         self.respond(200, json.dumps({'schedule': schedule}).encode(), 'application/json')
 
     def update_discovery_schedule(self) -> None:
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError('Provide discovery schedule settings.')
-            values = json.loads(self.rfile.read(length))
-            if not isinstance(values, dict) or values.keys() != {'enabled', 'expression'}:
+            if values.keys() != {'enabled', 'expression'}:
                 raise ValueError('Provide enabled and expression.')
             schedule = DiscoveryScheduler().update(**values)
-        except (ValueError, UnicodeError) as error:
+        except ValueError as error:
             self.respond(400, json.dumps({'error': str(error)}).encode(), 'application/json')
-            return
-        except TimeoutError:
-            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
             return
         except (OSError, RuntimeError, pymysql.MySQLError):
             logging.exception('Could not save discovery schedule')
@@ -505,18 +421,14 @@ class CmdbHandler(BaseHTTPRequestHandler):
         self.respond(200, json.dumps({'schedule': schedule}).encode(), 'application/json')
 
     def update_schedule(self) -> None:
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError
-            values = json.loads(self.rfile.read(length))
-            if not isinstance(values, dict) or values.keys() != {'modelElement', 'enabled', 'expression', 'retention'}:
+            if values.keys() != {'modelElement', 'enabled', 'expression', 'retention'}:
                 raise ValueError
             schedule = Scheduler().update(**values)
-        except (ValueError, UnicodeError):
+        except ValueError:
             self.respond(400, b'{"error":"Provide valid backup settings and a five-field cron expression."}', 'application/json')
             return
         except LookupError:
@@ -561,8 +473,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             return
         try:
             with Cron.EDIT_LOCK:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     with db.transaction():
                         schedules = MachineDb(db).delete_machine(int(identity))
                         if schedules is not None:
@@ -572,8 +483,6 @@ class CmdbHandler(BaseHTTPRequestHandler):
                                 cron.delete(schedule)
                             for schedule in patches:
                                 cron.update_patch(schedule, False, '')
-                finally:
-                    db.close()
         except pymysql.IntegrityError:
             logging.exception('Machine deletion has dependent inventory')
             self.respond(409, b'{"error":"Machine still has dependent inventory. Refresh and retry."}', 'application/json')
@@ -593,15 +502,12 @@ class CmdbHandler(BaseHTTPRequestHandler):
             return
         try:
             with Cron.EDIT_LOCK:
-                db = connect_database()
-                try:
+                with connect_database() as db:
                     with db.transaction():
                         schedules = SoftwareSystemDb(db).delete_application(int(identity))
                         if schedules is not None:
                             for schedule in schedules:
                                 Cron().delete(schedule)
-                finally:
-                    db.close()
         except pymysql.IntegrityError:
             logging.exception('Application deletion has dependent inventory')
             self.respond(409, b'{"error":"Application still has dependent inventory. Refresh and retry."}', 'application/json')
@@ -619,18 +525,14 @@ class CmdbHandler(BaseHTTPRequestHandler):
         if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
             self.respond(404, b'{"error":"Database not found."}', 'application/json')
             return
-        if self.headers.get_content_type() != 'application/json':
-            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+        values = self.read_json()
+        if values is None:
             return
         try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
-                raise ValueError('Confirm the database name.')
-            values = json.loads(self.rfile.read(length))
-            if not isinstance(values, dict) or values.keys() != {'confirmation'} or not isinstance(values['confirmation'], str):
+            if values.keys() != {'confirmation'} or not isinstance(values['confirmation'], str):
                 raise ValueError('Confirm the database name.')
             DatabaseManager().delete(int(identity), values['confirmation'])
-        except (ValueError, UnicodeError) as error:
+        except ValueError as error:
             self.respond(400, json.dumps({'error': str(error)}).encode(), 'application/json')
             return
         except LookupError:
@@ -647,11 +549,8 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def scan_backup_files(self) -> None:
         try:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 records = BackupDb(db).files()
-            finally:
-                db.close()
             statuses = BackupFiles().scan(records)
             result = [{'id': row['id'], 'status': status} for row, status in zip(records, statuses)]
         except (OSError, ValueError, subprocess.SubprocessError, pymysql.MySQLError):
@@ -665,8 +564,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Backup not found."}', 'application/json')
             return
         try:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 backups = BackupDb(db)
                 record = backups.get(int(identity))
                 if record is None or record['status'] != 'succeeded':
@@ -674,13 +572,31 @@ class CmdbHandler(BaseHTTPRequestHandler):
                     return
                 BackupFiles().delete(record)
                 backups.delete(int(identity))
-            finally:
-                db.close()
         except (OSError, ValueError, subprocess.SubprocessError, pymysql.MySQLError):
             logging.exception('Could not delete backup')
             self.respond(503, b'{"error":"Could not delete the backup file or its record. Refresh before retrying."}', 'application/json')
             return
         self.respond(200, b'{"status":"deleted"}', 'application/json')
+
+    def read_json(self) -> dict | None:
+        """Read one bounded JSON object, reporting transport errors consistently."""
+        if self.headers.get_content_type() != 'application/json':
+            self.respond(415, b'{"error":"Expected JSON."}', 'application/json')
+            return None
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096:
+                raise ValueError
+            values = json.loads(self.rfile.read(length))
+            if not isinstance(values, dict):
+                raise ValueError
+        except ValueError:
+            self.respond(400, b'{"error":"Expected a JSON object of at most 4096 bytes."}', 'application/json')
+            return None
+        except TimeoutError:
+            self.respond(408, b'{"error":"Request timed out."}', 'application/json')
+            return None
+        return values
 
     def respond(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)

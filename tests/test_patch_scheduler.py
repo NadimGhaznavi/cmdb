@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from database_fixtures import database_factory
 from unittest.mock import patch
 
 from crontab import CronTab
@@ -29,14 +30,14 @@ class PatchSchedulerTests(unittest.TestCase):
             self.assertEqual([job.command for job in tab], ['/other'])
 
     def test_bad_cron_is_rejected_before_writes(self):
-        with patch('cmdb.activity.PatchScheduler.connect_database') as db:
+        with patch('cmdb.activity.PatchScheduler.connect_database', new_callable=database_factory) as db:
             for expression in ('', '@reboot', '* * * *', '61 * * * *', '0 12 * * 0\n', '* * * * * /bin/reboot'):
                 with self.subTest(expression=expression), self.assertRaises(ValueError):
                     PatchScheduler().update(1, True, expression)
             db.assert_not_called()
 
     def test_cron_failure_rolls_back_and_valid_expression_is_passed_through(self):
-        with patch('cmdb.activity.PatchScheduler.connect_database') as db, \
+        with patch('cmdb.activity.PatchScheduler.connect_database', new_callable=database_factory) as db, \
                 patch('cmdb.activity.PatchScheduler.SoftwareDeploymentDb') as inventory, \
                 patch('cmdb.activity.PatchScheduler.PatchScheduleDb') as records, \
                 patch('cmdb.activity.PatchScheduler.Cron') as cron:
@@ -51,7 +52,7 @@ class PatchSchedulerTests(unittest.TestCase):
             self.assertIs(db.return_value.transaction.return_value.__exit__.call_args.args[0], OSError)
 
     def test_cron_dispatch_rechecks_enabled_and_queues_without_web(self):
-        with patch('cmdb.activity.PatchScheduler.connect_database'), \
+        with patch('cmdb.activity.PatchScheduler.connect_database', new_callable=database_factory), \
                 patch('cmdb.activity.PatchScheduler.PatchScheduleDb') as schedules, \
                 patch('cmdb.activity.PatchScheduler.PatchDb') as jobs:
             for record in (None, {'enabled': 0, 'machine': 7}):

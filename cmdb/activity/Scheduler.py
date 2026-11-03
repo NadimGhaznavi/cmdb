@@ -23,33 +23,24 @@ class Scheduler:
         if len(expression.split()) != 5 or not CronSlices.is_valid(expression):
             raise ValueError('Use five cron fields: minute hour day-of-month month day-of-week.')
         with self._edit_lock:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 with db.transaction():
                     if BackupDb(db).target(modelElement) is None:
                         raise LookupError('Backup target not found.')
                     schedule = BackupScheduleDb(db).save(modelElement, enabled, expression, retention)
                     Cron().update(schedule['id'], enabled, expression)
                 return schedule
-            finally:
-                db.close()
 
     def delete(self, identity: int) -> None:
         with self._edit_lock:
-            db = connect_database()
-            try:
+            with connect_database() as db:
                 with db.transaction():
                     Cron().delete(identity)
                     BackupScheduleDb(db).delete(identity)
-            finally:
-                db.close()
 
     def run(self, identity: int) -> bool:
-        db = connect_database()
-        try:
+        with connect_database() as db:
             schedule = BackupScheduleDb(db).get(identity)
-        finally:
-            db.close()
         if schedule is None or not schedule['enabled']:
             return True
         manager = BackupManager()

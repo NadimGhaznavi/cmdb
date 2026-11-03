@@ -7,7 +7,7 @@ class BackupDb:
     def __init__(self, db: DbMgr) -> None:
         self._db = db
 
-    def databases(self) -> list[dict]:
+    def databases(self, identity: int | None = None) -> list[dict]:
         return self._db.query(
             "SELECT s.id AS modelElement, 'database' AS kind, me.name AS databaseName, m.hostName, m.ipAddress, "
             "m.macAddress, m.site, env.value AS environment, dc.pathname AS sourcePathname, "
@@ -26,7 +26,8 @@ class BackupDb:
             "LEFT JOIN BackupSchedule bs ON bs.modelElement=s.id "
             "WHERE ss.type='DBMS' AND ss.subtype='MariaDB' "
             "AND LOWER(me.name) NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') "
-            "ORDER BY m.id, me.name")
+            + ("AND s.id=%s " if identity is not None else "")
+            + "ORDER BY m.id, me.name", (identity,) if identity is not None else ())
 
     def hosts(self) -> list[dict]:
         return self._db.query(
@@ -35,7 +36,7 @@ class BackupDb:
             "JOIN Component c ON c.id=dc.component JOIN ModelElement me ON me.id=c.id "
             "JOIN SoftwareSystem ss ON ss.id=me.namespace WHERE ss.type='DBMS' AND ss.subtype='MariaDB'")
 
-    def components(self) -> list[dict]:
+    def components(self, identity: int | None = None) -> list[dict]:
         """Declared filesystem deployments, excluding install roots, clients and listeners."""
         return self._db.query(
             "SELECT dc.id AS modelElement, 'directory' AS kind, ce.name AS componentName, "
@@ -56,11 +57,12 @@ class BackupDb:
             "WHERE ce.name IS NOT NULL AND NOT EXISTS (SELECT 1 FROM DataManager dm WHERE dm.id=dc.id) "
             "AND NOT EXISTS (SELECT 1 FROM DeployedComponentsUsage u "
             "WHERE u.usedComponents=dc.id AND ce.name='Network listeners') "
-            "ORDER BY m.id, ae.name, ce.name, dc.pathname")
+            + ("AND dc.id=%s " if identity is not None else "")
+            + "ORDER BY m.id, ae.name, ce.name, dc.pathname", (identity,) if identity is not None else ())
 
-    def applications(self) -> list[dict]:
+    def applications(self, database_rows: list[dict]) -> list[dict]:
         rows = self.components()
-        databases = {row['modelElement']: row for row in self.databases()}
+        databases = {row['modelElement']: row for row in database_rows}
         for link in self._db.query(
             "SELECT DISTINCT ae.name AS applicationName, ss.id AS application, "
             "dc.machine, ca.id AS modelElement FROM DataProvider p "
@@ -77,9 +79,9 @@ class BackupDb:
 
     def target(self, identity: int) -> dict | None:
         for lookup in (self.databases, self.components):
-            for row in lookup():
-                if row['modelElement'] == identity:
-                    return row
+            rows = lookup(identity)
+            if rows:
+                return rows[0]
         return None
 
     def get(self, identity: int) -> dict | None:

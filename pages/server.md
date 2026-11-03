@@ -278,9 +278,13 @@ precedence. See [runtime configuration]({{ site.baseurl }}{% link pages/installa
 for the file format and restart command.
 
 The server validates the database environment at startup. `/health` verifies
-the actual connection. `DbMgr` owns connections, cursors, bound SQL execution,
-and transactions; application code should use domain interfaces built on this
-layer as inventory features are added.
+the actual connection. `cmdb/interface/Database.py` resolves the environment and
+CMDB timeout settings, then passes them to the unchanged BMForge `DbMgr`.
+Each `connect_database()` call opens a separate connection owned by its caller.
+`DbMgr` owns connections, cursors, bound SQL execution, and transactions; domain
+interfaces own application queries. Credential-file parsing remains independent
+of the database driver so installation can read credentials before creating its
+Python environment.
 
 ## Network scans
 

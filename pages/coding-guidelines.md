@@ -54,8 +54,9 @@ Keep credentials, tokens, and other secrets out of this public site.
 
 ## Make reviewable changes
 
-Keep database mechanics in `cmdb/interface/DbMgr.py`; domain database interfaces
-own application queries. Never share a connection between request threads.
+Keep `cmdb/interface/DbMgr.py` identical to the pinned BMForge canonical manager.
+Resolve CMDB connection settings in `cmdb/interface/Database.py`; domain database
+interfaces own application queries. Never share a connection between request threads.
 Follow the [model mapping policy]({{ site.baseurl }}{% link pages/project-mission.md %}#model-reference):
 map each adopted CWM class directly to a Python entity and database table,
 preserving names, attribute casing, inheritance, relationships, and

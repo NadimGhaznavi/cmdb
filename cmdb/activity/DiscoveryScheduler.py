@@ -4,7 +4,7 @@ from crontab import CronSlices
 
 from cmdb.activity.InventoryCoordinator import InventoryCoordinator
 from cmdb.interface.Cron import Cron
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.DiscoveryScheduleDb import DiscoveryScheduleDb
 
 
@@ -17,7 +17,7 @@ class DiscoveryScheduler:
         if len(expression.split()) != 5 or not CronSlices.is_valid(expression):
             raise ValueError('Use five cron fields: minute hour day-of-month month day-of-week.')
         with Cron.EDIT_LOCK:
-            db = DbMgr()
+            db = connect_database()
             try:
                 with db.transaction():
                     schedule = DiscoveryScheduleDb(db).save(enabled, expression)
@@ -27,7 +27,7 @@ class DiscoveryScheduler:
                 db.close()
 
     def run(self, identity: int) -> bool:
-        db = DbMgr()
+        db = connect_database()
         try:
             schedule = DiscoveryScheduleDb(db).get(identity)
         finally:

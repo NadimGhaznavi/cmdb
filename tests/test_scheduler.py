@@ -10,7 +10,7 @@ from cmdb.activity.Scheduler import Scheduler
 
 class SchedulerTests(unittest.TestCase):
     def test_disabled_or_deleted_schedule_does_not_start_a_job(self):
-        with patch('cmdb.activity.Scheduler.DbMgr') as db, \
+        with patch('cmdb.activity.Scheduler.connect_database') as db, \
                 patch('cmdb.activity.Scheduler.BackupScheduleDb') as records, \
                 patch('cmdb.activity.Scheduler.BackupManager') as manager:
             for schedule in (None, {'enabled': 0, 'modelElement': 4}):
@@ -20,7 +20,7 @@ class SchedulerTests(unittest.TestCase):
             self.assertEqual(db.return_value.close.call_count, 2)
 
     def test_runner_dispatches_enabled_schedule_and_returns_failure(self):
-        with patch('cmdb.activity.Scheduler.DbMgr'), \
+        with patch('cmdb.activity.Scheduler.connect_database'), \
                 patch('cmdb.activity.Scheduler.BackupScheduleDb') as records, \
                 patch('cmdb.activity.Scheduler.BackupManager') as manager:
             records.return_value.get.return_value = {'enabled': 1, 'modelElement': 4}
@@ -30,7 +30,7 @@ class SchedulerTests(unittest.TestCase):
             manager.return_value.stop.assert_called_once()
 
     def test_invalid_policy_never_touches_cron_or_database(self):
-        with patch('cmdb.activity.Scheduler.DbMgr') as db, patch('cmdb.activity.Scheduler.Cron') as cron:
+        with patch('cmdb.activity.Scheduler.connect_database') as db, patch('cmdb.activity.Scheduler.Cron') as cron:
             for values in ((True, True, '0 12 * * *', 'forever'), (1, 1, '0 12 * * *', 'forever'),
                            (1, True, 'weekly', 'forever'), (1, True, '0 12 * * *', 'invalid')):
                 with self.assertRaises(ValueError):
@@ -39,7 +39,7 @@ class SchedulerTests(unittest.TestCase):
             cron.assert_not_called()
 
     def test_cron_failure_rolls_back_policy(self):
-        with patch('cmdb.activity.Scheduler.DbMgr') as db, \
+        with patch('cmdb.activity.Scheduler.connect_database') as db, \
                 patch('cmdb.activity.Scheduler.BackupDb') as inventory, \
                 patch('cmdb.activity.Scheduler.BackupScheduleDb') as records, \
                 patch('cmdb.activity.Scheduler.Cron') as cron:

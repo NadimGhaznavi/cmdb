@@ -9,13 +9,18 @@ permalink: /CHANGELOG/
 
 ### Summary
 
-Standardize fresh-install database, table, column, and connection collations
-on BMForge's `utf8mb4` / `utf8mb4_unicode_ci` pair and enforce its required
-SQL mode on application connections.
-Use `/health` to report both HTTP and database readiness.
+Adopt BMForge's canonical MariaDB manager with CMDB-owned configuration,
+standard collations, and strict SQL mode. Report readiness through `/health`
+and keep inventory updates atomic.
 
 ### Changed
 
+- Copy the pinned canonical `DbMgr` unchanged and resolve application connection
+  settings through `connect_database()` for HTTP, background jobs, and tooling.
+- Keep gateway environment updates inside the caller's inventory transaction,
+  preventing nested transactions from committing an incomplete batch.
+- Exercise the canonical constructor directly in database integration tests,
+  including rollback after a gateway inventory failure.
 - Replace the separate HTTP-only `/health` and database `/ready` probes with
   one `/health` endpoint reporting component states and HTTP 503 on a database
   failure; update deployment checks to use it.

@@ -3,7 +3,7 @@
 from crontab import CronSlices
 
 from cmdb.interface.Cron import Cron
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.PatchDb import PatchDb
 from cmdb.interface.PatchScheduleDb import PatchScheduleDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -20,7 +20,7 @@ class PatchScheduler:
             if len(expression.split()) != 5 or not CronSlices.is_valid(expression):
                 raise ValueError('Use five cron fields: minute hour day-of-month month day-of-week.')
         with Cron.EDIT_LOCK:
-            db = DbMgr()
+            db = connect_database()
             try:
                 with db.transaction():
                     if not any(host['id'] == machine for host in SoftwareDeploymentDb(db).debian_hosts()):
@@ -32,7 +32,7 @@ class PatchScheduler:
                 db.close()
 
     def run(self, identity):
-        db = DbMgr()
+        db = connect_database()
         try:
             schedule = PatchScheduleDb(db).get(identity)
             if schedule and schedule['enabled']:

@@ -1,6 +1,5 @@
 """Database mechanics without a running MariaDB server."""
 
-import os
 import unittest
 from unittest.mock import patch
 
@@ -11,18 +10,12 @@ from cmdb.interface.DbMgr import DbMgr
 
 class DbMgrTests(unittest.TestCase):
     def setUp(self):
-        environment = patch.dict(os.environ, {
-            "DB_HOST": "localhost", "DB_USER": "cmdb", "DB_PASSWORD": "test",
-            "DB_NAME": "cmdb",
-        }, clear=True)
-        environment.start()
-        self.addCleanup(environment.stop)
         connector = patch("cmdb.interface.DbMgr.pymysql.connect")
         self.connect = connector.start()
         self.addCleanup(connector.stop)
         self.connection = self.connect.return_value
         self.cursor = self.connection.cursor.return_value.__enter__.return_value
-        self.db = DbMgr()
+        self.db = DbMgr(host='localhost', port=3306, user='cmdb', password='test', database='cmdb')
         self.addCleanup(self.db.close)
 
     def test_connection_has_no_schema_side_effects(self):
@@ -92,7 +85,7 @@ class DbMgrTests(unittest.TestCase):
             with self.db.transaction():
                 raise error
         self.assertIs(raised.exception, error)
-        self.assertIn("rollback also failed", error.__notes__[0])
+        self.assertIn("Rollback also failed", error.__notes__[0])
 
     def test_health_queries_read_only_and_propagates_database_errors(self):
         self.cursor.fetchall.return_value = [{'ok': 1}]
@@ -108,11 +101,9 @@ class DbMgrTests(unittest.TestCase):
         self.db.close()
         self.connection.close.assert_called_once()
 
-    def test_invalid_port_does_not_connect(self):
-        self.connect.reset_mock()
-        for value in ("0", "65536", "invalid"):
-            with self.subTest(port=value), patch.dict(os.environ, {"DB_PORT": value}):
-                with self.assertRaises(ValueError):
-                    DbMgr()
-        self.connect.assert_not_called()
+    def test_context_closes_connection_when_work_fails(self):
+        with self.assertRaisesRegex(RuntimeError, 'work failed'):
+            with self.db:
+                raise RuntimeError('work failed')
+        self.connection.close.assert_called_once()
 

@@ -134,10 +134,10 @@ import os
 from pathlib import Path
 from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 
 os.environ.update(DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV)))
-db = DbMgr()
+db = connect_database()
 try:
     db.query('SELECT 1 AS ready')
 finally:

@@ -16,7 +16,7 @@ class BackupManagerTests(unittest.TestCase):
                     sourcePathname='/opt/prod/mycount/pages/marketing', pathname=None)
         metadata = dict(pathname='wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz',
                         sizeBytes=42, checksum='a' * 64)
-        with patch('cmdb.activity.BackupManager.DbMgr'), \
+        with patch('cmdb.activity.BackupManager.connect_database'), \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \
                 patch('cmdb.activity.BackupManager.SSHFiles') as remote, \
                 patch('cmdb.activity.BackupManager.SSHDb') as database:
@@ -41,7 +41,7 @@ class BackupManagerTests(unittest.TestCase):
             self.assertEqual(args[:2], ('192.0.2.2', 'cmdb'))
             self.assertTrue(args[2].startswith('sally/db/cmdb/mariadb-sally-cmdb-'))
             return metadata
-        with patch('cmdb.activity.BackupManager.DbMgr') as db, \
+        with patch('cmdb.activity.BackupManager.connect_database') as db, \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \
                 patch('cmdb.activity.BackupManager.SSHDb') as remote:
             records.return_value.get.return_value = item
@@ -61,7 +61,7 @@ class BackupManagerTests(unittest.TestCase):
             self.assertEqual(db.return_value.close.call_count, 2)
 
     def test_failure_is_recorded_and_missing_target_never_runs(self):
-        with patch('cmdb.activity.BackupManager.DbMgr'), \
+        with patch('cmdb.activity.BackupManager.connect_database'), \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \
                 patch('cmdb.activity.BackupManager.SSHDb') as remote:
             records.return_value.start.side_effect = LookupError('Backup target not found.')

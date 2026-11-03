@@ -161,6 +161,10 @@ ModelElement identity (the same ID as Machine and Namespace). Update creates
 the tag or changes its value while preserving its ID. Unclassified removes
 only this tag; other tags and other machines' classifications are preserved.
 No additional schema column or table is required.
+Environment updates use the caller's transaction. Inventory discovery includes
+the gateway's hostname and environment in its inventory transaction; a failed
+batch rolls back those writes together. Web environment updates open their own
+transaction before calling the same domain operation.
 
 The scanner includes `VERSION_CODENAME` in software-definition matching. Hosts
 with matching release fields and codenames share the same definition and tag.

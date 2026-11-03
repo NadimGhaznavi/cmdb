@@ -15,7 +15,7 @@ import pymysql
 
 from cmdb.constants.DCMDB import DCMDB
 from cmdb.constants.DLabel import DLabel
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupFiles import BackupFiles
 from cmdb.interface.Cron import Cron
@@ -68,7 +68,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200, json.dumps(self.server.status_messages.snapshot()).encode(), "application/json")
         elif path == "/health":
             try:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     healthy = db.health()
                 finally:
@@ -82,7 +82,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200 if healthy else 503, json.dumps(body).encode(), "application/json")
         elif path == '/api/discovery':
             try:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     schedule = DiscoveryScheduleDb(db).get() or asdict(DiscoverySchedule())
                 finally:
@@ -106,7 +106,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.host_uptime(path.removeprefix('/api/patching/hosts/').removesuffix('/uptime'))
         elif path in ('/api/patching/hosts', '/api/patching/report'):
             try:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     records = PatchDb(db)
                     result = {'hosts': records.hosts()} if path.endswith('/hosts') else {'runs': records.report()}
@@ -118,7 +118,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200, json.dumps(result, default=backup_json).encode(), 'application/json')
         elif path == '/api/network/ports':
             try:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     ports = NetworkDb(db).ports()
                 finally:
@@ -129,7 +129,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200, json.dumps({'ports': ports}).encode(), 'application/json')
         elif path == '/api/applications':
             try:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     records = SoftwareSystemDb(db).list_software_systems()
                 finally:
@@ -140,7 +140,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(200, json.dumps({'applications': records}).encode(), 'application/json')
         elif path == "/api/machines":
             try:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     machines = MachineDb(db).list_machines()
                     deployments = SoftwareDeploymentDb(db).list_deployments()
@@ -157,7 +157,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
                          .encode("utf-8"), "application/json")
         elif path == '/api/backups' or path.startswith('/api/backups/'):
             try:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     backups = BackupDb(db)
                     if path == '/api/backups':
@@ -263,7 +263,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(408, b'{"error":"Request timed out."}', "application/json")
             return
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
                 machine = MachineDb(db).update_hostname(address, hostname or None)
             finally:
@@ -297,9 +297,10 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(408, b'{"error":"Request timed out."}', 'application/json')
             return
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
-                saved = MachineDb(db).update_environment(values['machine'], values['environment'])
+                with db.transaction():
+                    saved = MachineDb(db).update_environment(values['machine'], values['environment'])
             finally:
                 db.close()
         except pymysql.MySQLError:
@@ -317,7 +318,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(400, b'{"error":"Invalid machine address."}', 'application/json')
             return
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
                 known = any(machine.ipAddress == address for machine in MachineDb(db).list_machines())
             finally:
@@ -374,7 +375,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
             return
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
                 host = next((host for host in SoftwareDeploymentDb(db).debian_hosts() if host['id'] == int(identity)), None)
             finally:
@@ -407,7 +408,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(408, b'{"error":"Request timed out."}', 'application/json')
             return
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
                 identity = PatchDb(db).request(values['machine'])
             finally:
@@ -560,7 +561,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             return
         try:
             with Cron.EDIT_LOCK:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     with db.transaction():
                         schedules = MachineDb(db).delete_machine(int(identity))
@@ -592,7 +593,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             return
         try:
             with Cron.EDIT_LOCK:
-                db = DbMgr()
+                db = connect_database()
                 try:
                     with db.transaction():
                         schedules = SoftwareSystemDb(db).delete_application(int(identity))
@@ -646,7 +647,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def scan_backup_files(self) -> None:
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
                 records = BackupDb(db).files()
             finally:
@@ -664,7 +665,7 @@ class CmdbHandler(BaseHTTPRequestHandler):
             self.respond(404, b'{"error":"Backup not found."}', 'application/json')
             return
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
                 backups = BackupDb(db)
                 record = backups.get(int(identity))

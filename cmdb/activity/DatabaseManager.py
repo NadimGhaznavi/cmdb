@@ -4,14 +4,14 @@ from threading import Event
 
 from cmdb.activity.Scheduler import Scheduler
 from cmdb.interface.BackupDb import BackupDb
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.SSH import SSH
 from cmdb.interface.SSHDb import SSHDb
 
 
 class DatabaseManager:
     def delete(self, identity, confirmation):
-        db = DbMgr()
+        db = connect_database()
         try:
             backups = BackupDb(db)
             item = next((item for item in backups.databases() if item['modelElement'] == identity), None)
@@ -29,7 +29,7 @@ class DatabaseManager:
         if item['scheduleId'] is not None:
             Scheduler().update(identity, False, item['expression'], item['retention'])
         SSHDb(SSH(), Event()).drop_db(item['ipAddress'], name)
-        db = DbMgr()
+        db = connect_database()
         try:
             BackupDb(db).remove_database(identity)
         finally:

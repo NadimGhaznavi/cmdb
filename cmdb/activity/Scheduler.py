@@ -6,7 +6,7 @@ from cmdb.activity.BackupManager import BackupManager
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupScheduleDb import BackupScheduleDb
 from cmdb.interface.Cron import Cron
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 
 
 class Scheduler:
@@ -23,7 +23,7 @@ class Scheduler:
         if len(expression.split()) != 5 or not CronSlices.is_valid(expression):
             raise ValueError('Use five cron fields: minute hour day-of-month month day-of-week.')
         with self._edit_lock:
-            db = DbMgr()
+            db = connect_database()
             try:
                 with db.transaction():
                     if BackupDb(db).target(modelElement) is None:
@@ -36,7 +36,7 @@ class Scheduler:
 
     def delete(self, identity: int) -> None:
         with self._edit_lock:
-            db = DbMgr()
+            db = connect_database()
             try:
                 with db.transaction():
                     Cron().delete(identity)
@@ -45,7 +45,7 @@ class Scheduler:
                 db.close()
 
     def run(self, identity: int) -> bool:
-        db = DbMgr()
+        db = connect_database()
         try:
             schedule = BackupScheduleDb(db).get(identity)
         finally:

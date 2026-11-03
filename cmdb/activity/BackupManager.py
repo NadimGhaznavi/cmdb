@@ -9,7 +9,7 @@ from threading import Event, Lock
 from urllib.parse import quote
 
 from cmdb.interface.BackupDb import BackupDb
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.SSH import SSH
 from cmdb.interface.SSHDb import SSHDb
 from cmdb.interface.SSHFiles import SSHFiles
@@ -27,7 +27,7 @@ class BackupManager:
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='backup')
 
     def _prepare(self, target: int):
-        db = DbMgr()
+        db = connect_database()
         try:
             inventory = BackupDb(db)
             with db.transaction():
@@ -78,7 +78,7 @@ class BackupManager:
             logging.exception('Backup %s failed', identity)
             error = str(failure)[:4000] or type(failure).__name__
         try:
-            db = DbMgr()
+            db = connect_database()
             try:
                 BackupDb(db).finish(identity, max(now(), started), result=result, error=error)
             finally:

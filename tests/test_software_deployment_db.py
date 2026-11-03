@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from datetime import datetime
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pymysql
@@ -19,6 +19,7 @@ from cmdb.entity.Backup import Backup
 from cmdb.interface.BackupDb import BackupDb
 from cmdb.interface.BackupScheduleDb import BackupScheduleDb
 from cmdb.activity.Scheduler import Scheduler
+from cmdb.activity.InventoryCoordinator import InventoryCoordinator
 from crontab import CronTab
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.interface.DbMgr import DbMgr
@@ -34,12 +35,8 @@ from cmdb.interface.HostOperatingSystem import operating_system
 @unittest.skipUnless(os.environ.get("CMDB_TEST_DB_SOCKET"), "Set CMDB_TEST_DB_SOCKET for database checks")
 class SoftwareDeploymentDbTests(unittest.TestCase):
     def setUp(self):
-        self.db = DbMgr.__new__(DbMgr)
-        self.db._connection = pymysql.connect(
-            unix_socket=os.environ["CMDB_TEST_DB_SOCKET"], user="root", autocommit=True,
-            charset="utf8mb4", collation="utf8mb4_unicode_ci",
-            cursorclass=pymysql.cursors.DictCursor,
-        )
+        self.db = DbMgr(host='localhost', port=3306, user='root', password='', database=None,
+                        unix_socket=os.environ['CMDB_TEST_DB_SOCKET'])
         self.addCleanup(self.db.close)
         self.database = "cmdb_test_" + uuid4().hex
         self.db.execute(f"CREATE DATABASE `{self.database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
@@ -51,6 +48,18 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 self.db.execute(statement)
         self.machines = MachineDb(self.db)
         self.software = SoftwareDeploymentDb(self.db)
+
+    def test_gateway_inventory_failure_rolls_back_machine_and_environment(self):
+        worker = InventoryCoordinator()
+        worker._network.collect = Mock(return_value=[Machine('192.0.2.7')])
+        with patch('cmdb.activity.InventoryCoordinator.connect_database', return_value=self.db), \
+                patch.object(self.db, 'close'), \
+                patch('cmdb.activity.InventoryCoordinator.Network.default_gateway', return_value='192.0.2.7'), \
+                patch.object(MachineDb, 'list_machines', side_effect=RuntimeError('projection failed')):
+            with self.assertRaisesRegex(RuntimeError, 'projection failed'):
+                worker.scan_inventory()
+        for table in ('Machine', 'TaggedValue', 'Namespace', 'ModelElement'):
+            self.assertEqual(self.db.query(f'SELECT COUNT(*) AS n FROM {table}'), [{'n': 0}])
 
     def test_unicode_identifiers_join_across_application_databases(self):
         peer = self.database + '_peer'
@@ -122,14 +131,11 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                                          components=(('Marketing', 'pages/marketing'),))
         target = BackupDb(self.db).components()[0]['modelElement']
         def connection():
-            db = DbMgr.__new__(DbMgr)
-            db._connection = pymysql.connect(
-                unix_socket=os.environ['CMDB_TEST_DB_SOCKET'], user='root', database=self.database,
-                autocommit=True, cursorclass=pymysql.cursors.DictCursor)
-            return db
+            return DbMgr(host='localhost', port=3306, user='root', password='', database=self.database,
+                         unix_socket=os.environ['CMDB_TEST_DB_SOCKET'])
         tab = CronTab(tab='')
-        with patch('cmdb.activity.Scheduler.DbMgr', side_effect=connection), \
-                patch('cmdb.activity.BackupManager.DbMgr', side_effect=connection), \
+        with patch('cmdb.activity.Scheduler.connect_database', side_effect=connection), \
+                patch('cmdb.activity.BackupManager.connect_database', side_effect=connection), \
                 patch('cmdb.interface.Cron.CronTab', return_value=tab), \
                 patch('cmdb.activity.BackupManager.SSHFiles') as remote:
             remote.return_value.backup_directory.return_value = dict(
@@ -790,7 +796,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         machine = self.machines.upsert(Machine('192.0.2.90', hostName='scheduled.example'))
         self.software.record_operating_system(machine, operating_system('ID=debian\nVERSION_ID=13'))
         tab = CronTab(tab='0 12 * * * /backup # cmdb-backup-schedule-1\n')
-        with patch('cmdb.activity.PatchScheduler.DbMgr', return_value=self.db), \
+        with patch('cmdb.activity.PatchScheduler.connect_database', return_value=self.db), \
                 patch.object(self.db, 'close'), patch('cmdb.interface.Cron.CronTab', return_value=tab):
             schedule = PatchScheduler().update(machine, True, '15 2 * * 0')
             self.assertEqual(PatchDb(self.db).hosts()[0]['schedule']['expression'], '15 2 * * 0')
@@ -1156,13 +1162,11 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         DataManagerDb(self.db).record_mariadb(machine, '11.8.3', '/data/', ['cmdb'])
         target = BackupDb(self.db).databases()[0]['modelElement']
         def connection():
-            db = DbMgr.__new__(DbMgr)
-            db._connection = pymysql.connect(unix_socket=os.environ['CMDB_TEST_DB_SOCKET'],
-                user='root', database=self.database, autocommit=True, cursorclass=pymysql.cursors.DictCursor)
-            return db
+            return DbMgr(host='localhost', port=3306, user='root', password='', database=self.database,
+                         unix_socket=os.environ['CMDB_TEST_DB_SOCKET'])
         tab = CronTab(tab='15 4 * * * /bin/true # unrelated\n')
-        with patch('cmdb.activity.Scheduler.DbMgr', side_effect=connection), \
-                patch('cmdb.activity.BackupManager.DbMgr', side_effect=connection), \
+        with patch('cmdb.activity.Scheduler.connect_database', side_effect=connection), \
+                patch('cmdb.activity.BackupManager.connect_database', side_effect=connection), \
                 patch('cmdb.interface.Cron.CronTab', return_value=tab), \
                 patch('cmdb.activity.BackupManager.SSHDb') as remote:
             scheduler = Scheduler()

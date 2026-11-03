@@ -43,24 +43,23 @@ class MachineDb:
         return machines
 
     def update_environment(self, machine_id: int, environment: str) -> bool:
-        """Save the machine's inherited tag; unclassified means no tag."""
+        """Save the machine's inherited tag in the caller's transaction."""
         if environment not in ('dev', 'qa', 'prod', 'unclassified'):
             raise ValueError('Invalid deployment environment.')
-        with self._db.transaction():
-            rows = self._db.query('SELECT id FROM Machine WHERE id = %s FOR UPDATE', (machine_id,))
-            if not rows:
-                return False
-            if environment == 'unclassified':
-                self._db.execute(
-                    'DELETE FROM TaggedValue WHERE modelElement = %s AND tag = %s',
-                    (machine_id, 'DeploymentEnvironment'),
-                )
-            else:
-                self._db.execute(
-                    'INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s) '
-                    'ON DUPLICATE KEY UPDATE value = VALUES(value)',
-                    (machine_id, 'DeploymentEnvironment', environment),
-                )
+        rows = self._db.query('SELECT id FROM Machine WHERE id = %s FOR UPDATE', (machine_id,))
+        if not rows:
+            return False
+        if environment == 'unclassified':
+            self._db.execute(
+                'DELETE FROM TaggedValue WHERE modelElement = %s AND tag = %s',
+                (machine_id, 'DeploymentEnvironment'),
+            )
+        else:
+            self._db.execute(
+                'INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s) '
+                'ON DUPLICATE KEY UPDATE value = VALUES(value)',
+                (machine_id, 'DeploymentEnvironment', environment),
+            )
         return True
 
     def delete_machine(self, machine_id: int) -> tuple[list[int], list[int]] | None:

@@ -1,0 +1,46 @@
+<script>
+  (() => {
+    const daily = {{ daily | tojson }};
+    const posts = {{ posting_times | tojson }};
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    });
+    const localTime = timestamp => {
+      const parts = Object.fromEntries(formatter.formatToParts(new Date(timestamp)).map(part => [part.type, part.value]));
+      return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:00`;
+    };
+    const dates = daily.map(day => day.day);
+    const totals = daily.map(day => day.page_views);
+    const range = [{{ (options.start.isoformat() + ' 00:00:00') | tojson }},
+                   {{ (options.end.isoformat() + ' 23:59:59') | tojson }}];
+    const markerTimes = posts.map(post => localTime(post.posted_at));
+    Plotly.newPlot('marketing-traffic', [{
+      type: 'scatter', mode: 'lines+markers', name: 'Visits', x: dates, y: totals,
+      line: {color: chartTheme.colors[1], width: 3, shape: 'spline', smoothing: 1},
+      hovertemplate: '%{x|%b %d, %Y}<br>%{y} visits<extra></extra>',
+    }, {
+      type: 'scatter', mode: 'markers', name: 'Promotional posts', x: markerTimes,
+      y: posts.map(() => 0), marker: {color: chartTheme.colors[0], size: 10, symbol: 'diamond'},
+      customdata: posts.map(post => [post.platform, post.id]),
+      hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>%{customdata[0]} · Post #%{customdata[1]}<extra></extra>',
+    }], {
+      ...chartTheme.layout, height: 350, margin: {l: 55, r: 20, t: 15, b: 65},
+      xaxis: {type: 'date', range, tickformat: '%b %d', showgrid: false},
+      yaxis: {title: {text: 'Visits per day'}, rangemode: 'tozero', tickformat: ',d', gridcolor: '#62412b'},
+      legend: {orientation: 'h', y: -0.2},
+      shapes: markerTimes.map(time => ({type: 'line', x0: time, x1: time, y0: 0, y1: 1,
+        yref: 'paper', line: {color: chartTheme.colors[0], width: 2, dash: 'dot'}})),
+    }, {responsive: true, displayModeBar: false}).then(plot => {
+      plot.on('plotly_click', event => {
+        const point = event.points[0];
+        if (point.curveNumber === 1) {
+          const row = document.getElementById(`posting-${point.customdata[1]}`);
+          const screenshot = row.querySelector('details');
+          if (screenshot) screenshot.open = true;
+          row.scrollIntoView({behavior: 'smooth'});
+        }
+      });
+    });
+  })();
+</script>

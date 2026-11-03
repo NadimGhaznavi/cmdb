@@ -1,0 +1,34 @@
+<!doctype html>
+{% set navigation = {'visitor_map': ('/', 'Map'), 'metrics': ('/metrics', 'Metrics'), 'marketing': ('/marketing', 'Marketing'), 'visitors': ('/visitors', 'Visitors'), 'reference': ('/reference', 'Reference')} %}
+{% set page_title = navigation[active_page][1] %}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyCount {{ page_title }}</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  {% include 'styles.html' %}
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-title">
+      <a href="/">MyCount <span>{{ page_title }}</span></a>
+      {% if first_visit_at is not none %}
+      <p>Counting since <time datetime="{{ first_visit_at | utc_iso }}" data-local-time="long-date">{{ first_visit_at.strftime('%B') }} {{ first_visit_at.day }}, {{ first_visit_at.year }}</time></p>
+      {% endif %}
+    </div>
+    <nav aria-label="Reports">
+      <span aria-hidden="true">[</span>
+      {% for page, (url, label) in navigation.items() if page != active_page %}
+      <a href="{{ url }}">{{ label }}</a>{% if not loop.last %}<span aria-hidden="true">|</span>{% endif %}
+      {% endfor %}
+      <span aria-hidden="true">]</span>
+    </nav>
+  </header>
+  <div class="refresh-row"><span class="last-refresh">Last refresh: <time datetime="{{ refreshed_at | utc_iso }}" data-local-time="time">—</time></span></div>
+  <main>{% block content %}{% endblock %}</main>
+  {% include 'local_time.html' %}
+  {% if active_page in ('metrics', 'visitors') %}{% include 'table_sort.html' %}{% endif %}
+</body>
+</html>

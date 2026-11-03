@@ -7,6 +7,11 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Added
+
+- Attach pinned BMForge HTTP, MariaDB, visualization, GitHub Pages, and RCA
+  skills with a project-local manager and lock file.
+
 ## [1.11.1] - 2026-10-26 @ 05:48
 
 This release is named for the element **Iodine (I)**. Iodine is needed to make 

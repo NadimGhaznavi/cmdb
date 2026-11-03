@@ -1,0 +1,20 @@
+<script>
+  (() => {
+    const daily = {{ daily | tojson }};
+    const dates = daily.map(day => day.day);
+    const hits = daily.map(day => day.page_views);
+    Plotly.newPlot('all-traffic', [{
+      type: 'bar', x: dates, y: hits,
+      marker: {color: chartTheme.colors[1], line: {color: chartTheme.outlines[1], width: 4}},
+      hovertemplate: '%{x|%b %d, %Y}<br>%{y} hits<extra></extra>',
+    }], {
+      ...chartTheme.layout,
+      height: 300,
+      margin: {l: 55, r: 20, t: 15, b: 45},
+      xaxis: {type: 'date', tickformat: '%b %d', showgrid: false, fixedrange: true},
+      yaxis: {title: {text: 'Hits'}, rangemode: 'tozero', minallowed: 0, tickformat: ',d',
+              tick0: 0, dtick: Math.max(5, Math.ceil(Math.max(...hits) / 20) * 5), gridcolor: '#62412b', fixedrange: true},
+      bargap: 0.25, showlegend: false,
+    }, {responsive: true, displayModeBar: false});
+  })();
+</script>

@@ -1,0 +1,29 @@
+<script>
+  (() => {
+    const drawPie = (target, labels, values) => {
+      Plotly.newPlot(target, [{
+        type: 'pie', labels, values, sort: false, textinfo: 'none',
+        marker: {
+          colors: labels.map((_, index) => chartTheme.colors[index % chartTheme.colors.length]),
+          line: {color: labels.map((_, index) => chartTheme.outlines[index % chartTheme.outlines.length]), width: 4},
+        },
+        hovertemplate: '%{label}<br>%{value} visits (%{percent})<extra></extra>',
+      }], {
+        ...chartTheme.layout,
+        margin: {l: 5, r: 5, t: 5, b: 5}, showlegend: false,
+      }, {responsive: true, displayModeBar: false});
+    };
+    {% if country_slices %}
+    drawPie('country-pie', {{ country_slices | map(attribute='name') | list | tojson }},
+            {{ country_slices | map(attribute='visits') | list | tojson }});
+    {% endif %}
+    {% if sites %}
+    drawPie('site-pie', {{ sites | map(attribute='site') | list | tojson }},
+            {{ sites | map(attribute='page_views') | list | tojson }});
+    {% endif %}
+    {% if language_slices %}
+    drawPie('language-pie', {{ language_slices | map(attribute='name') | list | tojson }},
+            {{ language_slices | map(attribute='visits') | list | tojson }});
+    {% endif %}
+  })();
+</script>

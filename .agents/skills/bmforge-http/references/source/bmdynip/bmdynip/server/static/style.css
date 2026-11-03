@@ -1,0 +1,106 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  /* Navy mountains, cyan network lines, and orange light from the logo. */
+  --background: #08151c;
+  --surface: #102630;
+  --border: #31505c;
+  --text: #e5f1f5;
+  --muted: #a5bac3;
+  --cyan: #6edfff;
+  --orange: #ffad42;
+  --error: #ffb4a5;
+  background: var(--background);
+  color: var(--text);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: var(--cyan); text-underline-offset: .2em; }
+a:hover { color: #b2efff; }
+.masthead { padding: 1.2rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.brand { font-size: 1.3rem; font-weight: 700; text-decoration: none; }
+.brand span { color: var(--muted); }
+.masthead-details { margin-left: auto; text-align: right; }
+nav { display: flex; flex-wrap: wrap; gap: 1.2rem; justify-content: end; }
+.version { display: block; margin-top: .5rem; font-size: .85rem; color: var(--muted); }
+main { padding: 1rem 2rem 2rem; max-width: 94rem; margin-inline: auto; }
+.note { color: var(--muted); font-size: .9rem; line-height: 1.6; }
+.badge { display: inline-block; flex-shrink: 0; border: 1px solid #986e3a; border-radius: 2rem; padding: .25rem .7rem; font-size: .8rem; color: var(--orange); white-space: nowrap; }
+.badge-idle { color: var(--cyan); border-color: var(--border); }
+.badge-error { color: var(--error); border-color: #965d51; }
+.control-panel { display: grid; grid-template-columns: minmax(10rem, 20rem) minmax(0, 1fr); align-items: center; gap: 2rem; padding: 2rem; border: 1px solid var(--border); border-radius: .8rem; margin-bottom: 1.5rem; }
+.control-logo { display: block; width: 100%; height: auto; max-width: 20rem; justify-self: center; }
+.control-settings { min-width: 0; }
+.panel-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem; }
+h1 { font-size: 1.8rem; }
+h1, h2 { margin: 0; }
+h2 { font-size: 1.15rem; }
+.introduction { margin: .75rem 0 1.5rem; }
+.introduction strong { color: var(--text); font-weight: 500; }
+.status-values { display: grid; gap: .85rem; margin: 0; }
+.status-values > div { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: .4rem; }
+.status-values > div[hidden] { display: none; }
+dt { color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+.panel { border: 1px solid var(--border); border-radius: .65rem; padding: 1.5rem; min-width: 0; margin-bottom: 1.5rem; }
+form { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0 .75rem; }
+label { display: grid; gap: .5rem; font-size: .9rem; min-width: 0; }
+input, button { font: inherit; padding: .6rem .8rem; border-radius: .3rem; border: 1px solid var(--border); background: var(--surface); color: inherit; }
+input { min-width: 0; width: 20ch; font-family: monospace; }
+input::placeholder { color: var(--muted); }
+input[aria-invalid="true"] { border-color: var(--error); }
+button { cursor: pointer; white-space: nowrap; min-height: 2.65rem; }
+button:hover { border-color: var(--cyan); background: #183743; }
+button.primary { color: var(--background); background: var(--orange); border-color: var(--orange); font-weight: 600; }
+button.primary:hover { background: #ffc473; }
+button.danger { color: var(--error); border-color: #965d51; }
+button.danger:hover { background: #3a2524; }
+button:disabled { opacity: .5; cursor: default; }
+.hostname-input { display: flex; align-items: center; }
+.hostname-input input { border-radius: .3rem 0 0 .3rem; }
+.domain-suffix { border: 1px solid var(--border); border-left: 0; background: var(--surface); color: var(--muted); padding: .6rem; border-radius: 0 .3rem .3rem 0; font: inherit; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.feedback { min-height: 1.5em; font-size: .9rem; color: var(--cyan); margin: .75rem 0 1rem; }
+.feedback.error { color: var(--error); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: .4rem; }
+table { border-collapse: collapse; width: 100%; text-align: left; font-size: .9rem; }
+th, td { padding: .8rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th { background: var(--surface); color: var(--muted); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.hostnames-table { min-width: 42rem; }
+.schedule-table { min-width: 34rem; }
+#schedule-form { display: block; }
+#schedule-enabled { width: auto; min-height: 1.25rem; }
+.hostnames-table td:first-child { overflow-wrap: anywhere; }
+.actions { text-align: right; }
+.actions button { padding: .4rem .75rem; min-height: 2.25rem; }
+.empty-state { padding: 2rem; text-align: center; color: var(--muted); }
+.activity-wrap { max-height: 18rem; overflow: auto; margin-top: 1rem; }
+.activity-table { border-collapse: separate; border-spacing: 0; min-width: 42rem; }
+.activity-table th { position: sticky; top: 0; }
+.activity-table th:first-child { width: 12rem; }
+.activity-table th:nth-child(2) { width: 5rem; }
+.activity-table td:first-child { white-space: nowrap; color: var(--muted); }
+.activity-table td:last-child { overflow-wrap: anywhere; }
+footer { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .8rem; }
+dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: .65rem; padding: 1.5rem; width: min(30rem, calc(100% - 2rem)); }
+dialog::backdrop { background: #000b; }
+dialog form { display: block; margin: 0; }
+dialog strong { color: var(--cyan); overflow-wrap: anywhere; }
+.dialog-actions { display: flex; gap: .75rem; justify-content: end; margin-top: 1.5rem; }
+@media (max-width: 800px) {
+  .control-panel { grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: 1.5rem; padding: 1.5rem; }
+  .status-values > div { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  main, .masthead { padding: 1rem; }
+  .masthead-details { margin-left: 0; text-align: left; width: 100%; }
+  nav { justify-content: start; gap: .6rem 1rem; }
+  .control-panel { grid-template-columns: minmax(0, 1fr); padding: 1rem; gap: 1rem; }
+  .control-logo { max-width: 12rem; }
+  .panel { padding: 1rem; }
+  #add-hostname label { width: 100%; }
+  .hostname-input input { width: 100%; flex: 1; }
+  .domain-suffix { flex-shrink: 0; }
+  footer { flex-wrap: wrap; }
+}

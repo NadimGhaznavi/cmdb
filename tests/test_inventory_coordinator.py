@@ -18,6 +18,9 @@ from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 
 class InventoryCoordinatorTests(TestCase):
     def setUp(self):
+        target = patch('cmdb.activity.InventoryCoordinator.DCMDB.SCAN_TARGET', '192.0.2.0/24')
+        target.start()
+        self.addCleanup(target.stop)
         gateway = patch('cmdb.activity.InventoryCoordinator.Network.default_gateway', return_value=None)
         self.gateway = gateway.start()
         self.addCleanup(gateway.stop)
@@ -125,6 +128,8 @@ class InventoryCoordinatorTests(TestCase):
         self.SoftwareDeploymentDb.return_value.record_application.assert_called_once_with(
             7, 17, '/opt/prod/mycount', '1.2.3', type='application', subtype='inventory',
             supplier='Example Supplier', codename='Orion', components=(('Screenshots', 'pages/marketing'),), databases=(), network=None)
+        self.MachineDb.return_value.update_discovered_online.assert_called_once_with(7, True)
+        self.worker._network.collect.assert_not_called()
 
     def test_application_databases_refresh_without_network_and_ignore_missing_catalogs(self):
         self.worker._application.collect.return_value = (
@@ -171,6 +176,7 @@ class InventoryCoordinatorTests(TestCase):
             self.worker.scan_applications()
             self.assertIn(outcome, self.worker.status_messages.snapshot()[-1]['message'])
         self.SoftwareDeploymentDb.assert_not_called()
+        self.worker._network.collect.reset_mock()
         self.worker._application.collect.return_value = ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), None)
         self.SoftwareDeploymentDb.return_value.record_application.return_value = False
         self.worker.scan_applications()
@@ -184,22 +190,87 @@ class InventoryCoordinatorTests(TestCase):
         self.worker._application.collect.side_effect = read
         self.worker.scan_applications()
         self.SoftwareDeploymentDb.assert_not_called()
+        self.MachineDb.return_value.update_discovered_online.assert_not_called()
+        self.worker._network.collect.assert_not_called()
 
-    def test_reachability_retains_last_successful_discovery_and_target_scope(self):
-        with patch('cmdb.activity.InventoryCoordinator.DCMDB.SCAN_TARGET', '192.0.2.0/24'):
-            self.worker._network.collect.return_value = []
-            self.worker.scan_inventory()
-            self.assertFalse(self.worker.host_is_up('192.0.2.7'))
-            self.assertIsNone(self.worker.host_is_up('192.0.3.7'))
-            self.worker._network.collect.side_effect = nmap.PortScannerTimeout('timeout')
-            with self.assertRaises(nmap.PortScannerTimeout):
+    def test_network_scan_updates_online_for_responders_and_offline_for_missing_hosts_in_scope(self):
+        self.MachineDb.return_value.list_machines.return_value += [
+            Machine('192.0.2.8', id=8), Machine('192.0.3.7', id=9)]
+        self.worker.scan_inventory()
+        self.assertEqual(self.MachineDb.return_value.update_discovered_online.call_args_list,
+                         [((7, True),), ((8, False),)])
+
+    def test_empty_network_and_single_host_scans_update_only_their_scope(self):
+        self.MachineDb.return_value.list_machines.return_value += [
+            Machine('192.0.2.8', id=8), Machine('192.0.3.7', id=9)]
+        self.worker._network.collect.return_value = []
+        for target, expected in ((None, [((7, False),), ((8, False),)]),
+                                 ('192.0.2.7', [((7, False),)])):
+            with self.subTest(target=target):
+                self.MachineDb.return_value.update_discovered_online.reset_mock()
+                self.worker.scan_inventory(target)
+                self.assertEqual(self.MachineDb.return_value.update_discovered_online.call_args_list, expected)
+        self.worker._nmap_os.collect.assert_not_called()
+
+    def test_failed_or_cancelled_discovery_does_not_write_online_observations(self):
+        for error in (nmap.PortScannerTimeout('timeout'), nmap.PortScannerError('failed'), OSError('failed')):
+            self.worker._network.collect.side_effect = error
+            with self.assertRaises(type(error)):
                 self.worker.scan_inventory()
-            self.assertFalse(self.worker.host_is_up('192.0.2.7'))
-            self.worker._network.collect.side_effect = None
-            self.worker._network.collect.return_value = [Machine('192.0.2.7')]
+        self.worker._network.collect.side_effect = lambda target: self.worker._stop_requested.set()
+        self.worker.scan_inventory()
+        self.MachineDb.return_value.update_discovered_online.assert_not_called()
+
+    def test_later_inventory_failures_preserve_successful_online_observation(self):
+        self.worker._nmap_os.collect.side_effect = nmap.PortScannerTimeout('timeout')
+        self.worker._host.ensure_access.side_effect = subprocess.CalledProcessError(255, ['ssh'])
+        self.worker._application.collect.return_value = ('read failed', None, None, (), (), None)
+        with self.assertRaises(nmap.PortScannerTimeout):
             self.worker.scan_inventory('192.0.2.7')
-            self.assertTrue(self.worker.host_is_up('192.0.2.7'))
-            self.assertFalse(self.worker.host_is_up('192.0.2.8'))
+        self.MachineDb.return_value.update_discovered_online.assert_called_once_with(7, True)
+
+    def test_application_scan_checks_nmap_once_per_host_if_no_application_is_detected(self):
+        self.SoftwareSystemDb.return_value.list_applications.return_value.append({'id': 18, 'name': 'Other'})
+        self.MachineDb.return_value.list_machines.return_value.append(Machine('192.0.2.8', id=8))
+        self.worker._application.collect.return_value = ('not detected', None, None, (), (), None)
+        self.worker._network.collect.side_effect = [[Machine('192.0.2.7')], []]
+        self.worker.scan_applications()
+        self.assertEqual(self.worker._application.collect.call_count, 4)
+        self.assertEqual(self.worker._network.collect.call_args_list,
+                         [(('192.0.2.7',),), (('192.0.2.8',),)])
+        self.assertEqual(self.MachineDb.return_value.update_discovered_online.call_args_list,
+                         [((7, True),), ((8, False),)])
+
+    def test_application_detection_on_any_check_skips_nmap(self):
+        self.SoftwareSystemDb.return_value.list_applications.return_value += [
+            {'id': 18, 'name': 'Other'}, {'id': 19, 'name': 'Missing'}]
+        self.worker._application.collect.side_effect = [
+            ('read failed', None, None, (), (), None),
+            ('observed', '/opt/prod/other', SoftwareSystem(version='1.0'), (), (), None),
+            ('not detected', None, None, (), (), None)]
+        self.worker.scan_applications()
+        self.MachineDb.return_value.update_discovered_online.assert_called_once_with(7, True)
+        self.worker._network.collect.assert_not_called()
+
+    def test_application_scan_without_definitions_still_collects_online(self):
+        self.SoftwareSystemDb.return_value.list_applications.return_value = []
+        self.worker._network.collect.return_value = []
+        self.worker.scan_applications()
+        self.worker._application.collect.assert_not_called()
+        self.worker._network.collect.assert_called_once_with('192.0.2.7')
+        self.MachineDb.return_value.update_discovered_online.assert_called_once_with(7, False)
+
+    def test_failed_or_cancelled_application_fallback_preserves_online(self):
+        self.worker._application.collect.return_value = ('read failed', None, None, (), (), None)
+        self.worker._network.collect.side_effect = nmap.PortScannerTimeout('timeout')
+        with self.assertRaises(nmap.PortScannerTimeout):
+            self.worker.scan_applications()
+        def cancelled(target):
+            self.worker._stop_requested.set()
+            return []
+        self.worker._network.collect.side_effect = cancelled
+        self.worker.scan_applications()
+        self.MachineDb.return_value.update_discovered_online.assert_not_called()
 
     def test_fifo_requests_each_prune_even_when_collection_fails(self):
         worker = self.worker

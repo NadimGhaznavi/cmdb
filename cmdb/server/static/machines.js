@@ -1059,8 +1059,8 @@ function compareSoftware(left, right) {
 
 async function loadMachines() {
   const theme = getComputedStyle(document.documentElement);
-  const palette = Object.fromEntries(["background", "surface", "text", "border", "selection", "danger",
-    "software-surface", "software-unnamed", "software-selection", "software-danger"]
+  const palette = Object.fromEntries(["background", "surface", "text", "border", "selection", "online", "offline",
+    "software-surface", "software-unnamed", "software-selection"]
     .map(color => [color, theme.getPropertyValue(`--${color}`).trim()]));
   const status = document.getElementById("graph-status");
   const details = document.getElementById("machine-details");
@@ -1132,8 +1132,9 @@ async function loadMachines() {
           const center = { x: 0, y: 0 };
           const systems = softwareDeployments.filter(system => system.machine === machine.id && !system.componentName)
             .sort(compareSoftware);
+          const online = machine.taggedValue?.find(tag => tag.tag === "IsOnline")?.value === "true";
           elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
-            classes: machine.reachable === false ? "machine down" : "machine", position: center });
+            classes: online ? "machine up" : "machine down", position: center });
           systems.forEach((system, offset) => {
             elements.push({ data: { ...system, id: `deployment-${system.id}`,
               parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
@@ -1173,20 +1174,14 @@ async function loadMachines() {
             { selector: ".machine[!hostName] > .software", style: {
               "background-color": palette["software-unnamed"], "color": palette.background,
             } },
+            { selector: ".machine.up", style: {
+              "border-color": palette.online,
+            } },
             { selector: ".machine.down", style: {
-              "background-color": palette.danger, "border-color": palette.border, "color": palette.text,
-            } },
-            { selector: ".machine.down > .software", style: {
-              "background-color": palette["software-danger"], "border-color": palette.border, "color": palette.text,
-            } },
-            { selector: ".machine.down:selected", style: {
-              "border-color": palette.selection, "border-width": 3,
+              "border-color": palette.offline,
             } },
             { selector: ".machine:selected > .software", style: {
               "background-color": palette["software-selection"], "border-color": palette.selection, "color": palette.text,
-            } },
-            { selector: ".machine.down:selected > .software", style: {
-              "background-color": palette["software-danger"],
             } },
             { selector: ".software:selected", style: {
               "background-color": palette["software-selection"], "border-color": palette.selection,

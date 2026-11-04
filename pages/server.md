@@ -191,10 +191,10 @@ listing stored Schema names for that deployment, one per line (or a dash when
 none are recorded). User databases appear first, followed by a horizontal rule
 when any are present, then system databases: `mysql`, `information_schema`,
 `performance_schema`, and `sys` when recorded.
-Selection turns a reachable machine blue with cream text. Unreachable machines
-use muted red with cream text and a blue border when selected. Software boxes
-use a lighter shade of their machine's background, including blue when selected
-and muted red when unreachable.
+The outer machine border is muted green when its `IsOnline` tag is `"true"`
+and muted red otherwise. Selection turns a machine blue with cream text while
+preserving its green or red border. Software boxes use a lighter shade of their
+machine's background, including blue when selected.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines
 show their IP address. Details retain the full hostname and IP address.
@@ -332,7 +332,13 @@ The SSH follow-up also reads the interface owning the scanned IP to populate
 its MAC. For the local machine, the SSH interface runs those commands directly,
 so collection does not require a local SSH server or Nmap-reported MAC.
 The Nmap pass preserves existing hostnames, including manual edits. Existing `site`
-values and machines absent from a scan are retained.
+values and machines absent from a scan are retained. The scan stores `IsOnline`
+on each machine within its scope: `"true"` for responding hosts and `"false"`
+for existing hosts that did not respond, even when no hosts respond. Machines
+outside that scope are unchanged. Saving either value refreshes the machine's
+existing `updatedOn` timestamp. A failed or cancelled discovery preserves the
+previous values; later OS or SSH failures do not undo successful reachability
+observations.
 
 Inventory shows machines absent from the latest successful discovery in
 red, including their software boxes. Selected machines use a blue border.
@@ -369,8 +375,9 @@ command timeouts. SSH failures are isolated to that host and preserve its data.
 The worker prints its startup message to the journal. Scan and database failures
 are reported for that request; another scan requires a new request or cron run.
 It opens short database transactions to apply observations, closes connections
-before collecting more data, and stops with the server. Pending requests and
-reachability results are held in memory and are lost on restart.
+before collecting more data, and stops with the server. Pending requests are
+held in memory and are lost on restart. `IsOnline` is stored with inventory
+and survives restarts.
 
 ## Inventory coordination
 
@@ -391,7 +398,12 @@ Cron runs full Inventory in its own process. The network and
 single-machine buttons request Inventory with the corresponding host scope.
 Re-Scan Applications checks all registered application names on all stored
 machines. Add Application queues a check of that new definition on all stored
-machines, without network discovery. Every accepted request gets its own scan ID.
+machines. Both application scan paths set `IsOnline` to `"true"` when any
+application is detected on a machine. Otherwise, one Nmap host-discovery check
+determines its value, including when there are no application definitions.
+Failed or cancelled Nmap checks preserve the previous value. These observations
+refresh `updatedOn` and use the same stored machine tags as full inventory.
+Every accepted request gets its own scan ID.
 `GET /api/scan?scanId=ID` reports progress with the requested workload's outcome;
 the worker keeps the most recent 100 completion outcomes in memory.
 

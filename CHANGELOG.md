@@ -7,6 +7,23 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-04 @ 03:28
+
+### Summary
+
+Persist machine reachability as the `IsOnline` tagged value collected during
+network, single-machine, and application scans. Show up/down through muted green
+or red outer machine borders, retaining status across restarts and cron scans.
+
+### Changed
+
+- Update existing machines that do not respond within a successful scan's scope,
+  refreshing the existing last-updated time with each online observation.
+- Use detected applications as evidence a host is online; fall back to one Nmap
+  check per machine when none is detected. Failed checks preserve prior status.
+- Preserve the status border when selected and use normal machine/software
+  backgrounds without adding fields to the details panel.
+
 ## [1.12.0] - 2026-11-04 @ 02:53
 
 ### Summary

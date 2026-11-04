@@ -48,9 +48,6 @@ class InventoryCoordinator(Thread):
         self._error = None
         self._outcomes = deque(maxlen=100)
         self._protected_applications = set()
-        self._up_hosts = None
-        self._scan_network = None
-        self._host_results = {}
         self._network = NetworkSource()
         self._nmap_os = NmapOSSource()
         self._host = HostSource(self._stop_requested)
@@ -89,18 +86,6 @@ class InventoryCoordinator(Thread):
             return {'scanId': self._scan_id, 'completedScanId': self._completed_scan_id,
                     'running': self._running_scan,
                     'error': self._error if scan_id is None else dict(self._outcomes).get(scan_id)}
-
-    def host_is_up(self, address: str) -> bool | None:
-        with self._state_lock:
-            if address in self._host_results:
-                return self._host_results[address]
-            if self._up_hosts is None:
-                return None
-            if address in self._up_hosts:
-                return True
-            if self._scan_network is not None and ip_address(address) in self._scan_network:
-                return False
-            return None
 
     def stop(self) -> None:
         self._stop_requested.set()
@@ -149,19 +134,8 @@ class InventoryCoordinator(Thread):
         machines = self._network.collect(target or DCMDB.SCAN_TARGET)
         if self._stop_requested.is_set():
             return
-        with self._state_lock:
-            up_hosts = {machine.ipAddress for machine in machines}
-            if target is None:
-                self._up_hosts = up_hosts
-                try:
-                    self._scan_network = ip_network(DCMDB.SCAN_TARGET, strict=False)
-                except ValueError:
-                    self._scan_network = None
-                self._host_results.clear()
-            else:
-                self._host_results[target] = target in up_hosts
-        if not machines:
-            return
+        up_hosts = {machine.ipAddress for machine in machines}
+        scope = ip_network(target or DCMDB.SCAN_TARGET, strict=False)
         gateway = Network.default_gateway()
         with inventory_database() as db:
             inventory = MachineDb(db)
@@ -170,10 +144,14 @@ class InventoryCoordinator(Thread):
                 if machine.ipAddress == gateway:
                     inventory.update_discovered_hostname(machine.id, 'GATEWAY')
                     inventory.update_environment(machine.id, 'prod')
-            hostnames = {machine.id: machine.hostName for machine in inventory.list_machines()}
+            stored = inventory.list_machines()
+            for machine in stored:
+                if ip_address(machine.ipAddress) in scope:
+                    inventory.update_discovered_online(machine.id, machine.ipAddress in up_hosts)
+            hostnames = {machine.id: machine.hostName for machine in stored}
             for machine in machines:
                 machine.hostName = 'GATEWAY' if machine.ipAddress == gateway else hostnames.get(machine.id)
-        if self._stop_requested.is_set():
+        if not machines or self._stop_requested.is_set():
             return
         scan_error = None
         try:
@@ -234,25 +212,36 @@ class InventoryCoordinator(Thread):
         for machine in machines:
             if self._stop_requested.is_set():
                 return
-            self._collect_applications(machine, applications)
+            online = self._collect_applications(machine, applications)
+            if self._stop_requested.is_set():
+                return
+            if not online:
+                online = any(host.ipAddress == machine.ipAddress
+                             for host in self._network.collect(machine.ipAddress))
+            if self._stop_requested.is_set():
+                return
+            with inventory_database() as db:
+                MachineDb(db).update_discovered_online(machine.id, online)
 
-    def _collect_applications(self, machine: Machine, applications: list[dict]) -> None:
+    def _collect_applications(self, machine: Machine, applications: list[dict]) -> bool:
         host = (machine.hostName or '').split('.')[0].lower() or machine.ipAddress
         mariadb_observation = None
         mariadb_collected = False
+        detected = False
         for application in applications:
             if self._stop_requested.is_set():
-                return
+                return detected
             name = application['name']
             outcome, pathname, system, components, databases, network = self._application.collect(machine.ipAddress, name)
             if self._stop_requested.is_set():
-                return
+                return detected
             if outcome == 'observed':
+                detected = True
                 if databases and not mariadb_collected:
                     mariadb_observation = self._mariadb.collect(machine.ipAddress)
                     mariadb_collected = True
                 if self._stop_requested.is_set():
-                    return
+                    return detected
                 with inventory_database() as db:
                     if databases and mariadb_observation is not None:
                         DataManagerDb(db).record_mariadb(machine.id, **mariadb_observation)
@@ -267,6 +256,7 @@ class InventoryCoordinator(Thread):
             else:
                 message = f'{host}: {name} — {outcome}.'
             self.status_messages.append(message)
+        return detected
 
     def prune(self, application: int | None = None) -> None:
         """Remove unused definitions, preserving additions awaiting their own request."""

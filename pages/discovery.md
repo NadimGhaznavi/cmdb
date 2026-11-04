@@ -47,7 +47,8 @@ and final pruning. The runner exits 0 on success and 1 on failure, logging error
 It does not contact or require the web service. The installer deploys the runner
 and creates the schedule table through the install schema.
 
-Scan IDs, web Status Messages, and reachability colors belong to the web worker's
-memory. Independent cron scans update stored inventory; reload Inventory to see
-those updates. Cron scan messages and reachability results are not transferred
-into the web worker.
+Scan IDs and web Status Messages belong to the web worker's memory.
+Independent cron scans update stored inventory, including each scanned machine's
+`IsOnline` tagged value and existing last-updated time. Reload Inventory to see
+those updates and the corresponding green or red outer machine borders.
+Cron scan messages are not transferred into the web worker.

@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-04 @ 02:53
+
 ### Summary
 
 Adopt BMForge's canonical MariaDB manager with CMDB-owned configuration,

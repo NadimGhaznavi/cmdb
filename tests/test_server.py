@@ -775,7 +775,8 @@ class ServerTests(unittest.TestCase):
             'createdOn': datetime(2026, 9, 27, 12, 0), 'updatedOn': datetime(2026, 9, 27, 13, 0),
         }], [{'id': 21, 'machine': 7}, {'id': 22, 'machine': 7}],
             [{'id': 21, 'namespace': 7}, {'id': 22, 'namespace': 7}],
-            [{'id': 31, 'modelElement': 7, 'tag': 'DeploymentEnvironment', 'value': 'qa'}],
+            [{'id': 31, 'modelElement': 7, 'tag': 'DeploymentEnvironment', 'value': 'qa'},
+             {'id': 32, 'modelElement': 7, 'tag': 'IsOnline', 'value': 'false'}],
             [{'id': 22, 'machine': 7, 'subtype': 'MariaDB'}],
             [{'dataManager': 22, 'name': 'ax3l'}, {'dataManager': 22, 'name': 'r3el'}]]
         status, body = self.get('/api/machines')
@@ -785,10 +786,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(record['ipAddress'], '192.168.0.7')
         self.assertEqual(record['hostName'], '<script>host</script>')
         self.assertIsNone(record['site'])
-        self.assertIsNone(record['reachable'])
         self.assertEqual(record['deployedComponent'], [21, 22])
         self.assertEqual(record['taggedValue'], [
-            {'id': 31, 'modelElement': 7, 'tag': 'DeploymentEnvironment', 'value': 'qa'}])
+            {'id': 31, 'modelElement': 7, 'tag': 'DeploymentEnvironment', 'value': 'qa'},
+            {'id': 32, 'modelElement': 7, 'tag': 'IsOnline', 'value': 'false'}])
         self.assertEqual(record['createdOn'], '2026-09-27T12:00:00+00:00')
         self.assertEqual(record['updatedOn'], '2026-09-27T13:00:00+00:00')
         factory.return_value.close.assert_called_once()

@@ -301,6 +301,53 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                          {'DeploymentEnvironment': 'qa'})
         self.assertFalse(self.machines.update_environment(999999, 'dev'))
 
+    def test_online_observations_update_one_tag_and_timestamp_atomically(self):
+        with self.db.transaction():
+            machine = self.machines.upsert(Machine('192.0.2.7'))
+            other = self.machines.upsert(Machine('192.0.2.8'))
+            self.machines.update_environment(machine, 'prod')
+            self.db.execute("UPDATE Machine SET updatedOn='2000-01-01' WHERE id=%s", (machine,))
+        created = self.db.query('SELECT createdOn FROM Machine WHERE id=%s', (machine,))[0]['createdOn']
+        for online in (True, False, False):
+            with self.db.transaction():
+                self.assertTrue(self.machines.update_discovered_online(machine, online))
+            records = {record.id: record for record in self.machines.list_machines()}
+            self.assertEqual({tag.tag: tag.value for tag in records[machine].taggedValue},
+                             {'DeploymentEnvironment': 'prod', 'IsOnline': 'true' if online else 'false'})
+            self.assertEqual(records[machine].createdOn, created)
+            self.assertGreater(records[machine].updatedOn, datetime(2000, 1, 1))
+            self.assertEqual(records[other].taggedValue, [])
+        before = self.db.query('SELECT updatedOn FROM Machine WHERE id=%s', (machine,))
+        with self.assertRaisesRegex(RuntimeError, 'rollback'):
+            with self.db.transaction():
+                self.machines.update_discovered_online(machine, True)
+                raise RuntimeError('rollback')
+        self.assertEqual(self.db.query('SELECT updatedOn FROM Machine WHERE id=%s', (machine,)), before)
+        self.assertEqual(self.db.query("SELECT value FROM TaggedValue WHERE modelElement=%s AND tag='IsOnline'",
+                                      (machine,)), [{'value': 'false'}])
+        with self.db.transaction():
+            self.assertFalse(self.machines.update_discovered_online(999999, True))
+
+    def test_scan_observations_persist_for_existing_offline_and_new_online_machines(self):
+        with self.db.transaction():
+            offline = self.machines.upsert(Machine('192.0.2.7'))
+            outside = self.machines.upsert(Machine('192.0.3.7'))
+        worker = InventoryCoordinator()
+        worker._network.collect = Mock(return_value=[Machine('192.0.2.8')])
+        worker._nmap_os.collect = Mock(return_value=[])
+        worker._host.ensure_access = Mock(return_value=False)
+        with patch('cmdb.activity.InventoryCoordinator.connect_database', return_value=self.db), \
+                patch.object(self.db, 'close'), \
+                patch('cmdb.activity.InventoryCoordinator.DCMDB.SCAN_TARGET', '192.0.2.0/24'), \
+                patch('cmdb.activity.InventoryCoordinator.Network.default_gateway', return_value=None):
+            worker.scan_inventory()
+        records = {record.ipAddress: record for record in self.machines.list_machines()}
+        self.assertEqual({tag.tag: tag.value for tag in records['192.0.2.7'].taggedValue}, {'IsOnline': 'false'})
+        self.assertEqual({tag.tag: tag.value for tag in records['192.0.2.8'].taggedValue}, {'IsOnline': 'true'})
+        self.assertEqual(records['192.0.2.7'].id, offline)
+        self.assertEqual(records['192.0.3.7'].id, outside)
+        self.assertEqual(records['192.0.3.7'].taggedValue, [])
+
     def test_delete_machine_without_deployments_and_missing_machine(self):
         machine = self.machines.upsert(Machine('192.0.2.7'))
         self.machines.update_environment(machine, 'dev')

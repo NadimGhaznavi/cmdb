@@ -127,6 +127,18 @@ class MachineDb:
             )
         return identity
 
+    def update_discovered_online(self, machine_id: int, online: bool) -> bool:
+        """Save the scan observation and refresh updatedOn in the caller's transaction."""
+        if not self._db.query('SELECT id FROM Machine WHERE id = %s FOR UPDATE', (machine_id,)):
+            return False
+        self._db.execute(
+            'INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s) '
+            'ON DUPLICATE KEY UPDATE value = VALUES(value)',
+            (machine_id, 'IsOnline', 'true' if online else 'false'),
+        )
+        self._db.execute('UPDATE Machine SET updatedOn = CURRENT_TIMESTAMP(6) WHERE id = %s', (machine_id,))
+        return True
+
     def update_discovered_hostname(self, machine_id: int, host_name: str) -> None:
         """Store the hostname reported over SSH using the stable machine identity."""
         self._db.execute(

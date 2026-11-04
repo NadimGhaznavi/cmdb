@@ -155,6 +155,14 @@ current uninstall/install workflow; no record migration is provided.
 Tag names use the standard case-insensitive collation. TaggedValue
 has its own technical ID; it does not inherit from ModelElement.
 
+Machine reachability uses `tag="IsOnline"` with `value="true"` or `"false"`,
+attached to the machine's inherited ModelElement identity. Network and
+single-machine discovery save the Nmap result for every stored machine in scope.
+Application scans save `"true"` when an application is detected and otherwise
+use a Nmap check. Each saved observation refreshes `Machine.updatedOn` in the
+same transaction. Inventory displays the value through the outer machine border.
+No additional schema column or table is required.
+
 Machine classification uses `tag="DeploymentEnvironment"` with `value="dev"`,
 `"qa"`, or `"prod"`. Its `modelElement` references the machine's inherited
 ModelElement identity (the same ID as Machine and Namespace). Update creates

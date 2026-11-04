@@ -12,7 +12,7 @@ import nmap
 
 from cmdb.activity.sources.ApplicationSource import (
     ApplicationSource, application_databases, application_components, application_metadata,
-    application_network, application_version,
+    application_network, application_assignments,
 )
 from cmdb.activity.sources.HostSource import HostSource
 from cmdb.activity.sources.MariaDBSource import MariaDBSource
@@ -40,45 +40,45 @@ class ApplicationSourceTests(TestCase):
                   '    CMDB_SUBTYPE = "inventory"\n'
                   '    CMDB_SUPPLIER = "Example Supplier"\n'
                   '    CMDB_CODENAME = "Orion"\n')
-        self.assertEqual(application_metadata(source), SoftwareSystem(
+        self.assertEqual(application_metadata(application_assignments(source)), SoftwareSystem(
             version='1.2.3', type='application', subtype='inventory', supplier='Example Supplier',
             taggedValue=[TaggedValue(tag='VERSION_CODENAME', value='Orion')]))
         for value in ('get_type()', '3', 'None', '""', '"a\\nb"', repr('x' * 256)):
             with self.subTest(value=value):
-                self.assertEqual(application_metadata('VERSION = "1.0"\nCMDB_TYPE = ' + value),
+                self.assertEqual(application_metadata(application_assignments('VERSION = "1.0"\nCMDB_TYPE = ' + value)),
                                  SoftwareSystem(version='1.0'))
-        self.assertIsNone(application_metadata('CMDB_TYPE = "application"'))
-        self.assertEqual(application_metadata('VERSION = "1.0"\ndef f():\n    CMDB_TYPE = "ignored"'),
+        self.assertIsNone(application_metadata(application_assignments('CMDB_TYPE = "application"')))
+        self.assertEqual(application_metadata(application_assignments('VERSION = "1.0"\ndef f():\n    CMDB_TYPE = "ignored"')),
                          SoftwareSystem(version='1.0'))
 
     def test_components_are_literal_validated_and_deduplicated(self):
         source = ('raise RuntimeError("never run")\nclass App:\n'
                   '    CMDB_COMPONENTS: tuple = ((" Marketing Screenshots ", "pages/marketing"), '
                   '("Uploads", "/srv/uploads"), ("Marketing Screenshots", "pages/marketing"))')
-        self.assertEqual(application_components(source),
+        self.assertEqual(application_components(application_assignments(source)),
                          (("Marketing Screenshots", "pages/marketing"), ("Uploads", "/srv/uploads")))
         for declaration in ('get_components()', '"path"', 'None', '(("name",),)',
                             '((3, "path"),)', '(("", "path"),)', '(("name", "../escape"),)',
                             '(("name", "a/../escape"),)', '(("name", "."),)', '(("name", "./"),)',
                             repr((("x" * 256, "path"),)), repr((("name", "a\nb"),))):
             with self.subTest(declaration=declaration):
-                self.assertEqual(application_components('CMDB_COMPONENTS = ' + declaration), ())
-        self.assertEqual(application_components('def f():\n    CMDB_COMPONENTS = (("name", "path"),)'), ())
-        self.assertEqual(application_components('broken syntax!'), ())
-        self.assertEqual(application_components('CMDB_COMPONENTS = [("good", "path"), ("bad", 3)]'),
+                self.assertEqual(application_components(application_assignments('CMDB_COMPONENTS = ' + declaration)), ())
+        self.assertEqual(application_components(application_assignments('def f():\n    CMDB_COMPONENTS = (("name", "path"),)')), ())
+        self.assertEqual(application_components(application_assignments('broken syntax!')), ())
+        self.assertEqual(application_components(application_assignments('CMDB_COMPONENTS = [("good", "path"), ("bad", 3)]')),
                          (("good", "path"),))
 
     def test_databases_are_literal_validated_and_case_preserving(self):
         source = ('raise RuntimeError("never run")\nclass App:\n'
                   '    CMDB_DATABASES: tuple = (("MyCount", "mycount"), '
                   '("MyCount", "mycount"), ("Other", "MyCount"))')
-        self.assertEqual(application_databases(source), (("MyCount", "mycount"), ("Other", "MyCount")))
+        self.assertEqual(application_databases(application_assignments(source)), (("MyCount", "mycount"), ("Other", "MyCount")))
         for declaration in ('get_databases()', 'None', '"mycount"', '(("name",),)',
                             '(("", "db"),)', '((3, "db"),)', '(("name", "a\\nb"),)',
                             repr((("name", "x" * 65),))):
             with self.subTest(declaration=declaration):
-                self.assertEqual(application_databases('CMDB_DATABASES = ' + declaration), ())
-        self.assertEqual(application_databases('def f():\n    CMDB_DATABASES = (("x", "db"),)'), ())
+                self.assertEqual(application_databases(application_assignments('CMDB_DATABASES = ' + declaration)), ())
+        self.assertEqual(application_databases(application_assignments('def f():\n    CMDB_DATABASES = (("x", "db"),)')), ())
         source = ApplicationSource()
         source._ssh = Mock()
         source._ssh.run.return_value = result('VERSION = "1.0"\nCMDB_DATABASES = (("MyCount", "mycount"),)')
@@ -88,10 +88,10 @@ class ApplicationSourceTests(TestCase):
         listeners = (("http", "0.0.0.0", 18080), ("backend", "127.0.0.1", 18081))
         for assignment in ('CMDB_NETWORK = ', 'class App:\n    CMDB_NETWORK: tuple = '):
             source = 'raise RuntimeError("never run")\n' + assignment + repr(listeners)
-            self.assertEqual(application_network(source), listeners)
-        self.assertEqual(application_network('CMDB_NETWORK = [[" http ", "192.0.2.7", 65535]]'),
+            self.assertEqual(application_network(application_assignments(source)), listeners)
+        self.assertEqual(application_network(application_assignments('CMDB_NETWORK = [[" http ", "192.0.2.7", 65535]]')),
                          (("http", "192.0.2.7", 65535),))
-        self.assertEqual(application_network('CMDB_NETWORK = (("x", "127.0.0.1", 1),)'),
+        self.assertEqual(application_network(application_assignments('CMDB_NETWORK = (("x", "127.0.0.1", 1),)')),
                          (("x", "127.0.0.1", 1),))
         source = ApplicationSource()
         source._ssh = Mock()
@@ -110,26 +110,26 @@ class ApplicationSourceTests(TestCase):
                       ("http", "0.0.0.0", 65536)):
             with self.subTest(entry=entry):
                 declaration = (("good", "0.0.0.0", 80), entry)
-                self.assertIsNone(application_network('CMDB_NETWORK = ' + repr(declaration)))
+                self.assertIsNone(application_network(application_assignments('CMDB_NETWORK = ' + repr(declaration))))
         for declaration in ('None', 'get_network()', '"http"',
                             '(("http", "0.0.0.0", PORT),)',
                             '(("http", "0.0.0.0", 80), (" http ", "127.0.0.1", 81))'):
             with self.subTest(declaration=declaration):
-                self.assertIsNone(application_network('CMDB_NETWORK = ' + declaration))
+                self.assertIsNone(application_network(application_assignments('CMDB_NETWORK = ' + declaration)))
 
     def test_network_distinguishes_empty_from_missing_or_unreadable_declarations(self):
         for source in ('', 'broken syntax!', 'def f():\n    CMDB_NETWORK = ()'):
-            self.assertIsNone(application_network(source))
+            self.assertIsNone(application_network(application_assignments(source)))
         for declaration in ('()', '[]'):
-            self.assertEqual(application_network('CMDB_NETWORK = ' + declaration), ())
+            self.assertEqual(application_network(application_assignments('CMDB_NETWORK = ' + declaration)), ())
 
     def test_literal_versions_are_parsed_without_execution(self):
         for source in ('VERSION = "1.2.3"', 'class App:\n    VERSION: Final[str] = "1.2.3"',
                        'raise RuntimeError("never run")\nVERSION = "1.2.3"'):
-            self.assertEqual(application_version(source), '1.2.3')
+            self.assertEqual(application_metadata(application_assignments(source)).version, '1.2.3')
         for source in ('', 'broken syntax!', 'VERSION = get_version()', 'VERSION = 3',
                        'VERSION = ""', 'VERSION = "a\\nb"', 'def f():\n    VERSION = "1.0"'):
-            self.assertIsNone(application_version(source))
+            self.assertIsNone(application_metadata(application_assignments(source)))
 
     def test_directory_and_prefixed_constants_are_required(self):
         source = ApplicationSource()

@@ -91,7 +91,7 @@ os.chown(path, 0, grp.getgrnam(DCMDB.SERVICE_USER).gr_gid)
 path.chmod(0o640)
 
 database, user = DCMDB.DATABASE_NAME, DCMDB.DATABASE_USER
-sql = (f'CREATE DATABASE IF NOT EXISTS `{database}` CHARACTER SET utf8mb4;\n'
+sql = (f'CREATE DATABASE IF NOT EXISTS `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n'
        f"CREATE USER IF NOT EXISTS '{user}'@'localhost' IDENTIFIED BY '{password}';\n"
        f"GRANT ALL ON `{database}`.* TO '{user}'@'localhost';\n")
 subprocess.run(['mariadb', '--protocol=socket', '--user=root'], input=sql, text=True, check=True)

@@ -3,6 +3,7 @@
 import subprocess
 from threading import Event
 from unittest import TestCase
+from database_fixtures import database_factory
 from unittest.mock import Mock, patch
 
 import nmap
@@ -20,7 +21,10 @@ class InventoryCoordinatorTests(TestCase):
         gateway = patch('cmdb.activity.InventoryCoordinator.Network.default_gateway', return_value=None)
         self.gateway = gateway.start()
         self.addCleanup(gateway.stop)
-        for name in ('DbMgr', 'MachineDb', 'SoftwareDeploymentDb', 'SoftwareSystemDb', 'DataManagerDb'):
+        factory = patch('cmdb.activity.InventoryCoordinator.connect_database', new_callable=database_factory)
+        self.connect_database = factory.start()
+        self.addCleanup(factory.stop)
+        for name in ('MachineDb', 'SoftwareDeploymentDb', 'SoftwareSystemDb', 'DataManagerDb'):
             patcher = patch('cmdb.activity.InventoryCoordinator.' + name)
             setattr(self, name, patcher.start())
             self.addCleanup(patcher.stop)
@@ -76,7 +80,7 @@ class InventoryCoordinatorTests(TestCase):
         def end(*args):
             nonlocal transaction_open
             transaction_open = False
-        transaction = self.DbMgr.return_value.transaction.return_value
+        transaction = self.connect_database.return_value.transaction.return_value
         transaction.__enter__.side_effect = begin
         transaction.__exit__.side_effect = end
         def collect(label, value):
@@ -282,7 +286,7 @@ class InventoryCoordinatorTests(TestCase):
         try:
             self.assertTrue(waiting.wait(3))
             self.worker.scan_inventory.assert_not_called()
-            self.DbMgr.assert_not_called()
+            self.connect_database.assert_not_called()
             self.worker.request_scan()
             self.assertTrue(scanned.wait(3))
         finally:
@@ -296,8 +300,8 @@ class InventoryCoordinatorTests(TestCase):
             self.worker.add_application('NewApp')
         self.assertFalse(self.worker._requests)
         self.assertFalse(self.worker._protected_applications)
-        self.DbMgr.return_value.close.assert_called_once()
-        self.assertIs(self.DbMgr.return_value.transaction.return_value.__exit__.call_args.args[0],
+        self.connect_database.return_value.close.assert_called_once()
+        self.assertIs(self.connect_database.return_value.transaction.return_value.__exit__.call_args.args[0],
                       pymysql.OperationalError)
 
     def test_unavailable_worker_rejects_registration_and_scan_without_writes(self):
@@ -305,7 +309,7 @@ class InventoryCoordinatorTests(TestCase):
             self.worker.request_scan()
         with self.assertRaises(RuntimeError):
             self.worker.add_application('NewApp')
-        self.DbMgr.assert_not_called()
+        self.connect_database.assert_not_called()
 
     def test_pruning_failure_is_reported_and_next_request_runs(self):
         worker = self.worker

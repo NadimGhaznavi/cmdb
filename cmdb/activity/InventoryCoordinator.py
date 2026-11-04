@@ -18,7 +18,7 @@ from cmdb.activity.sources.MariaDBSource import MariaDBSource
 from cmdb.activity.sources.NetworkSource import NetworkSource
 from cmdb.activity.sources.NmapOSSource import NmapOSSource
 from cmdb.interface.DataManagerDb import DataManagerDb
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.Network import Network
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
@@ -28,12 +28,9 @@ from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 @contextmanager
 def inventory_database():
     """Close each connection after its short inventory transaction."""
-    db = DbMgr()
-    try:
+    with connect_database() as db:
         with db.transaction():
             yield db
-    finally:
-        db.close()
 
 
 class InventoryCoordinator(Thread):

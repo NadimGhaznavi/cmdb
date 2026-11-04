@@ -13,16 +13,14 @@ from cmdb.entity.TaggedValue import TaggedValue
 from cmdb.interface.SSH import SSH
 
 
-def application_metadata(source: str) -> SoftwareSystem | None:
-    """Read optional CMDB fields and a required literal VERSION."""
+def application_assignments(source: str) -> dict:
+    """Parse module and class assignments once without executing application code."""
     try:
         module = ast.parse(source)
     except (SyntaxError, ValueError):
-        return None
+        return {}
     statements = list(module.body)
-    fields = {}
-    names = {'VERSION': 'version', 'CMDB_TYPE': 'type', 'CMDB_SUBTYPE': 'subtype',
-             'CMDB_SUPPLIER': 'supplier', 'CMDB_CODENAME': 'codename'}
+    assignments = {}
     for statement in statements:
         if isinstance(statement, ast.ClassDef):
             statements.extend(statement.body)
@@ -33,12 +31,23 @@ def application_metadata(source: str) -> SoftwareSystem | None:
         else:
             continue
         for target in targets:
-            if isinstance(target, ast.Name) and target.id in names:
-                if isinstance(value, ast.Constant) and isinstance(value.value, str):
-                    literal = value.value.strip()
-                    if literal and len(literal) <= 255 and not any(
-                            ord(character) < 32 or ord(character) == 127 for character in literal):
-                        fields.setdefault(names[target.id], literal)
+            if isinstance(target, ast.Name):
+                assignments.setdefault(target.id, []).append(value)
+    return assignments
+
+
+def application_metadata(assignments: dict) -> SoftwareSystem | None:
+    """Read optional CMDB fields and a required literal VERSION."""
+    fields = {}
+    names = {'VERSION': 'version', 'CMDB_TYPE': 'type', 'CMDB_SUBTYPE': 'subtype',
+             'CMDB_SUPPLIER': 'supplier', 'CMDB_CODENAME': 'codename'}
+    for name, field in names.items():
+        for value in assignments.get(name, ()):
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                literal = value.value.strip()
+                if literal and len(literal) <= 255 and not any(
+                        ord(character) < 32 or ord(character) == 127 for character in literal):
+                    fields.setdefault(field, literal)
     if 'version' not in fields:
         return None
     codename = fields.pop('codename', None)
@@ -48,25 +57,10 @@ def application_metadata(source: str) -> SoftwareSystem | None:
     return system
 
 
-def application_pairs(source: str, field: str, limit: int) -> tuple[tuple[str, str], ...]:
+def application_pairs(assignments: dict, field: str, limit: int) -> tuple[tuple[str, str], ...]:
     """Read validated literal name/value pairs without executing code."""
-    try:
-        module = ast.parse(source)
-    except (SyntaxError, ValueError):
-        return ()
-    statements = list(module.body)
     components = []
-    for statement in statements:
-        if isinstance(statement, ast.ClassDef):
-            statements.extend(statement.body)
-        if isinstance(statement, ast.Assign):
-            targets, value = statement.targets, statement.value
-        elif isinstance(statement, ast.AnnAssign):
-            targets, value = [statement.target], statement.value
-        else:
-            continue
-        if not any(isinstance(target, ast.Name) and target.id == field for target in targets):
-            continue
+    for value in assignments.get(field, ()):
         try:
             declarations = ast.literal_eval(value)
         except (ValueError, TypeError, SyntaxError, RecursionError):
@@ -88,36 +82,21 @@ def application_pairs(source: str, field: str, limit: int) -> tuple[tuple[str, s
     return tuple(components)
 
 
-def application_components(source: str) -> tuple[tuple[str, str], ...]:
+def application_components(assignments: dict) -> tuple[tuple[str, str], ...]:
     """Read filesystem components whose paths stay beneath the application root."""
     return tuple(dict.fromkeys((name, str(PurePosixPath(path)))
-                 for name, path in application_pairs(source, 'CMDB_COMPONENTS', 4096)
+                 for name, path in application_pairs(assignments, 'CMDB_COMPONENTS', 4096)
                  if '..' not in PurePosixPath(path).parts and str(PurePosixPath(path)) != '.'))
 
 
-def application_databases(source: str) -> tuple[tuple[str, str], ...]:
+def application_databases(assignments: dict) -> tuple[tuple[str, str], ...]:
     """Read application labels and exact MariaDB catalog names."""
-    return application_pairs(source, 'CMDB_DATABASES', 64)
+    return application_pairs(assignments, 'CMDB_DATABASES', 64)
 
 
-def application_network(source: str) -> tuple[tuple[str, str, int], ...] | None:
+def application_network(assignments: dict) -> tuple[tuple[str, str, int], ...] | None:
     """Read a complete literal listener declaration; None means unknown or invalid."""
-    try:
-        module = ast.parse(source)
-    except (SyntaxError, ValueError):
-        return None
-    statements = list(module.body)
-    for statement in statements:
-        if isinstance(statement, ast.ClassDef):
-            statements.extend(statement.body)
-        if isinstance(statement, ast.Assign):
-            targets, value = statement.targets, statement.value
-        elif isinstance(statement, ast.AnnAssign):
-            targets, value = [statement.target], statement.value
-        else:
-            continue
-        if not any(isinstance(target, ast.Name) and target.id == 'CMDB_NETWORK' for target in targets):
-            continue
+    for value in assignments.get('CMDB_NETWORK', ()):
         try:
             declarations = ast.literal_eval(value)
         except (ValueError, TypeError, SyntaxError, RecursionError):
@@ -147,12 +126,6 @@ def application_network(source: str) -> tuple[tuple[str, str, int], ...] | None:
     return None
 
 
-def application_version(source: str) -> str | None:
-    """Return the version from an application's literal metadata."""
-    system = application_metadata(source)
-    return system.version if system is not None else None
-
-
 class ApplicationSource:
     def __init__(self) -> None:
         self._ssh = SSH()
@@ -172,8 +145,9 @@ class ApplicationSource:
                                    connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
         except (OSError, subprocess.SubprocessError):
             return 'read failed', pathname, None, (), (), None
-        system = application_metadata(result.stdout)
-        components = application_components(result.stdout) if system is not None else ()
-        databases = application_databases(result.stdout) if system is not None else ()
-        network = application_network(result.stdout) if system is not None else None
+        assignments = application_assignments(result.stdout)
+        system = application_metadata(assignments)
+        components = application_components(assignments) if system is not None else ()
+        databases = application_databases(assignments) if system is not None else ()
+        network = application_network(assignments) if system is not None else None
         return ('observed' if system is not None else 'not detected'), pathname, system, components, databases, network

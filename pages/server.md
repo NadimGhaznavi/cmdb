@@ -38,12 +38,12 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `POST /api/scan` | Queues an Inventory workload and returns HTTP 202 with its scanId. |
 | `GET /api/scan` | Reports scan progress and completion, or HTTP 503 if the worker is unavailable. |
 | `/status-messages` | Reads shared in-memory status history as JSON without querying MariaDB. |
-| `/health` | HTTP 200 JSON identifying `cmdb-server`; checks HTTP availability without querying MariaDB. |
-| `/ready` | Queries MariaDB; HTTP 200 when connected, HTTP 503 on a database error. |
+| `/health` | Checks MariaDB through the application's configured database connection; HTTP 200 when ready, HTTP 503 when unavailable. JSON identifies `cmdb-server` and the `http` and `db-server` component states. |
 
-Database errors are logged to the service journal; the HTTP response contains
-only a short status. Each readiness request opens and closes its own database
-connection.
+Database errors are logged to the service journal; health responses identify
+failed components without exposing database error details. Each health request
+opens its own configured database connection, runs one read-only query through `DbMgr.health()`,
+and closes the connection. The check does not retry or repair the database.
 
 Every screen includes a Status Messages table below its main panel, with a header,
 five visible rows, and scrollable history. It polls shared server history every two
@@ -242,7 +242,6 @@ under `cmdb/server/static/vendor/`, so the graph needs no CDN connection.
 systemctl status cmdb-server.service
 journalctl -u cmdb-server.service -f
 curl -i http://127.0.0.1:14444/health
-curl -i http://127.0.0.1:14444/ready
 ```
 
 ## Development
@@ -278,10 +277,14 @@ Listener defaults come from `DCMDB.CMDB_NETWORK`, with production overrides in
 precedence. See [runtime configuration]({{ site.baseurl }}{% link pages/installation.md %}#runtime-configuration)
 for the file format and restart command.
 
-The server validates the database environment at startup. `/ready` verifies
-the actual connection. `DbMgr` owns connections, cursors, bound SQL execution,
-and transactions; application code should use domain interfaces built on this
-layer as inventory features are added.
+The server validates the database environment at startup. `/health` verifies
+the actual connection. `cmdb/interface/Database.py` resolves the environment and
+CMDB timeout settings, then passes them to the unchanged BMForge `DbMgr`.
+Each `connect_database()` call opens a separate connection owned by its caller.
+`DbMgr` owns connections, cursors, bound SQL execution, and transactions; domain
+interfaces own application queries. Credential-file parsing remains independent
+of the database driver so installation can read credentials before creating its
+Python environment.
 
 ## Network scans
 

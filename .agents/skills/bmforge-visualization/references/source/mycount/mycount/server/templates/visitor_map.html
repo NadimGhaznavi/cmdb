@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block head %}
+{% if not error %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endif %}
+<style>
+  #visitor-map { height: 65vh; min-height: 22rem; max-height: 45rem; border: 1px solid #62412b; border-radius: .4rem; margin: 1rem; background: #191410; color-scheme: dark; }
+  #visitor-map .visitor-map-tiles { filter: invert(1) hue-rotate(180deg) brightness(.75) saturate(.45) contrast(1.15); }
+  #visitor-map .leaflet-popup-content-wrapper, #visitor-map .leaflet-popup-tip { background: #291d15; color: #f3e7db; }
+  #visitor-map .leaflet-popup-content-wrapper, #visitor-map .leaflet-bar { border: 1px solid #62412b; }
+  #visitor-map .leaflet-bar a { background: #291d15; color: #ffac63; border-bottom-color: #62412b; }
+  #visitor-map .leaflet-bar a:hover, #visitor-map .leaflet-bar a:focus { background: #3b2a1e; }
+  #visitor-map .leaflet-bar a.leaflet-disabled { background: #191410; color: #9e8774; }
+  #visitor-map .leaflet-control-attribution { background: rgba(25, 20, 16, .92); color: #d8b89d; }
+  #visitor-map .leaflet-control-attribution a, #visitor-map .leaflet-popup-close-button { color: #ffac63; }
+  .map-panel { margin-top: 1.5rem; }
+  .map-panel > h2 { margin: 0; padding: .8rem; font-size: .9rem; background: #291d15; }
+  .city-schedule-content { padding: 0 1.25rem 1.25rem; }
+  .schedule-table { min-width: 32rem; }
+  #schedule-form input, #schedule-form button { font: inherit; padding: .6rem .8rem; border: 1px solid #62412b; border-radius: .3rem; }
+  #schedule-form button { color: #191410; background: #ffac63; font-weight: 600; cursor: pointer; }
+  #schedule-form button:disabled { opacity: .5; cursor: default; }
+  #schedule-status.error { color: #ff7777; }
+</style>
+{% endblock %}
+{% block content %}
+{% include 'report_filters.html' %}
+<section class="metric-panel map-panel" aria-labelledby="visitor-map-heading">
+  <h2 id="visitor-map-heading">Visitor Map</h2>
+{% if error %}
+<p role="alert">{{ error }}</p>
+{% else %}
+<p>{{ mapped_views }} mapped visits · {{ total_views - mapped_views }} unmapped visits · {{ total_views }} total visits.</p>
+{% if not locations %}<p>No visits match the current filters.</p>
+{% elif not mapped_locations %}<p>No locations could be mapped for visits matching the current filters.</p>{% endif %}
+<div id="visitor-map" role="region" aria-label="World map of visitor locations" aria-describedby="map-status"></div>
+<p id="map-status" role="status">Loading map…</p>
+<noscript><p>Enable JavaScript to use the interactive map. Location counts are available below.</p></noscript>
+{% endif %}
+</section>
+<details class="metric-panel map-panel">
+  <summary>Visitor Log</summary>
+{% if not error %}
+<div class="table-wrap">
+  <table aria-label="Visitor map locations">
+    <thead><tr><th scope="col">Country</th><th scope="col">State/Province</th><th scope="col">City</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col" class="visits">Visits</th></tr></thead>
+    <tbody>
+      {% for location in locations %}
+      <tr><td>{{ location.country_name or location.country_code or '---' }}</td><td>{{ location.region_name or '---' }}</td><td>{{ location.city_name or '---' }}</td><td>{{ location.latitude if location.latitude is not none else '---' }}</td><td>{{ location.longitude if location.longitude is not none else '---' }}</td><td class="visits">{{ location.page_views }}</td></tr>
+      {% else %}<tr><td colspan="6">No visits match the current filters.</td></tr>{% endfor %}
+    </tbody>
+    <tfoot><tr><th scope="row" colspan="5">Total:</th><td class="visits">{{ total_views }}</td></tr></tfoot>
+  </table>
+</div>
+{% endif %}
+</details>
+{% include 'city_schedule.html' %}
+{% if not error %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  (() => {
+    const status = document.getElementById('map-status');
+    if (!window.L) {
+      status.textContent = 'Map could not load. Location counts are available below.';
+      return;
+    }
+    const map = L.map('visitor-map', {worldCopyJump: true, minZoom: 1, preferCanvas: true}).setView([20, 0], 2);
+    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      className: 'visitor-map-tiles',
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    });
+    tiles.on('tileerror', () => {
+      status.textContent = 'Some map tiles could not load. Visitor markers and location counts remain available.';
+    });
+    tiles.addTo(map);
+    const locations = {{ mapped_locations | tojson }};
+    for (const location of locations) {
+      const name = [location.city_name, location.region_name, location.country_name || location.country_code]
+        .filter(Boolean).join(', ') || 'Unknown location';
+      const popup = document.createElement('div');
+      popup.textContent = `${name}: ${location.page_views} page views (${location.coordinate_source})`;
+      L.circleMarker([location.latitude, location.longitude], {
+        radius: Math.min(28, 5 + 3 * Math.log2(location.page_views + 1)),
+        color: '#36b85a', weight: 2, fillColor: '#104a21', fillOpacity: 0.9
+      }).bindPopup(popup).addTo(map);
+    }
+    status.textContent = 'Pan and zoom to explore visitor locations. Counts are also listed below.';
+  })();
+</script>
+{% endif %}
+{% endblock %}

@@ -14,8 +14,6 @@ class DLabel:
         "ipAddress": "IP Address",
         "macAddress": "MAC Address",
         "hostName": "Host Name",
-        "site": "Site",
-        "deployedComponent": "Deployed Components",
         "createdOn": "Created On",
         "updatedOn": "Updated On",
     }

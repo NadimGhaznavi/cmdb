@@ -1,0 +1,11 @@
+<script src="https://cdn.plot.ly/plotly-4.1.1.min.js" charset="utf-8"></script>
+<script>
+  const chartTheme = {
+    colors: {{ chart_colors | tojson }},
+    outlines: {{ chart_outlines | tojson }},
+    layout: {
+      paper_bgcolor: '#191410', plot_bgcolor: '#191410',
+      font: {family: 'system-ui, sans-serif', color: '#f3e7db', size: 12},
+    },
+  };
+</script>

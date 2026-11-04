@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BMDynIP · Control</title>
+  <link rel="icon" href="/pages/images/bmdynip-logo.png" type="image/png">
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/ui.js"></script>
+  <script src="/static/schedule.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="/">BMDynIP <span>Control</span></a>
+    <div class="masthead-details">
+      <nav aria-label="Main navigation">
+        <a href="#system-status">System status</a>
+        <a href="#hostnames">Hostnames</a>
+        <a href="#runner-schedule">Runner schedule</a>
+        <a href="#activity">Activity</a>
+        <a href="https://bmdynip.osoyalce.com">Documentation</a>
+      </nav>
+      <span class="version">Bear &amp; Moose · Version {{ version }}</span>
+    </div>
+  </header>
+  <main>
+    <section class="control-panel" id="system-status" aria-labelledby="status-heading">
+      <img class="control-logo" src="/pages/images/bmdynip-logo.png" alt="Bear &amp; Moose Dynamic DNS" width="1254" height="1254">
+      <div class="control-settings">
+        <div class="panel-heading"><h1 id="status-heading">System status</h1><span id="connection-status" class="badge badge-idle">Connecting…</span></div>
+        <p class="note introduction">Dynamic IPv4 records for <strong class="domain-name">the configured domain</strong></p>
+        <dl class="status-values">
+          <div><dt>Public IPv4</dt><dd><code id="public-ip">Loading…</code></dd></div>
+          <div><dt>DNS provider</dt><dd>GoDaddy</dd></div>
+          <div><dt>Update worker</dt><dd><a href="#runner-schedule">View runner schedule</a></dd></div>
+          <div><dt>Last IP check</dt><dd><time id="last-ip-check">Loading…</time></dd></div>
+          <div><dt>Last DNS submission</dt><dd><time id="last-dns-update">Loading…</time></dd></div>
+          <div><dt>Managed names</dt><dd id="hostname-count">Loading…</dd></div>
+          <div id="worker-error-row" hidden><dt>Last updater error</dt><dd id="worker-error"></dd></div>
+        </dl>
+        <p id="connection-message" class="feedback" role="status" aria-live="polite">Loading live status…</p>
+      </div>
+    </section>
+    <section class="panel" id="runner-schedule" aria-labelledby="schedule-heading">
+      <h2 id="schedule-heading">Runner Schedule</h2>
+      <p class="note">Check the public IPv4 address and update managed DNS records on a recurring schedule.</p>
+      <form id="schedule-form">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Runner schedule settings">
+          <table class="schedule-table">
+            <thead><tr><th scope="col">Enabled</th><th scope="col">Cron expression</th><th scope="col">Action</th></tr></thead>
+            <tbody><tr>
+              <td><input id="schedule-enabled" type="checkbox" aria-label="Enable scheduled runner" disabled></td>
+              <td><input id="schedule-expression" type="text" size="20" maxlength="255" required aria-label="Cron schedule for runner" aria-describedby="cron-help" autocomplete="off" spellcheck="false" disabled></td>
+              <td><button type="submit" class="primary" disabled>Update</button></td>
+            </tr></tbody>
+          </table>
+        </div>
+      </form>
+      <p id="cron-help" class="note">Five fields: minute, hour, day of month, month, day of week. Uses the server’s local timezone.</p>
+      <p class="note">Default: <code>*/5 * * * *</code> runs every five minutes. Disable the schedule and click Update to stop future runs.</p>
+      <p id="schedule-status" class="feedback" role="status" aria-live="polite">Loading runner schedule…</p>
+      <noscript><p class="note">Enable JavaScript to view and update the runner schedule.</p></noscript>
+    </section>
+    <section class="panel" id="hostnames" aria-labelledby="hostnames-heading">
+      <div class="panel-heading"><h2 id="hostnames-heading">Hostnames</h2><span class="badge">A records</span></div>
+      <p class="note">Adding a hostname starts the runner immediately to update managed names to this system’s public IPv4 address.</p>
+      <form id="add-hostname" novalidate>
+        <label for="hostname">New hostname
+          <span class="hostname-input"><input id="hostname" name="hostname" type="text" placeholder="e.g. wintermute" required maxlength="63" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="hostname-help hostname-feedback" disabled><span id="domain-suffix" class="domain-suffix">Loading…</span></span>
+        </label>
+        <button type="submit" class="primary" disabled>Add hostname</button>
+      </form>
+      <p class="note" id="hostname-help">Enter one label using letters, numbers, and hyphens. Start and end with a letter or number.</p>
+      <p id="hostname-feedback" class="feedback" role="status" aria-live="polite"></p>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Managed A records">
+        <table class="hostnames-table">
+          <thead><tr><th scope="col">Hostname</th><th scope="col">Type</th><th scope="col">IPv4 address</th><th scope="col">Status</th><th scope="col" class="actions">Actions</th></tr></thead>
+          <tbody id="hostname-rows"><tr><td colspan="5">Loading hostnames…</td></tr></tbody>
+        </table>
+      </div>
+      <noscript><p class="note">Enable JavaScript to view live status and manage hostnames.</p></noscript>
+    </section>
+    <section class="panel" id="activity" aria-labelledby="activity-heading">
+      <div class="panel-heading"><h2 id="activity-heading">Status messages</h2><span class="note">Latest 100 DNS changes</span></div>
+      <div class="table-wrap activity-wrap" tabindex="0" role="region" aria-label="Status message history">
+        <table class="activity-table">
+          <thead><tr><th scope="col">Time (local)</th><th scope="col">Source</th><th scope="col">Message</th></tr></thead>
+          <tbody id="activity-rows"><tr><td colspan="3">Loading DNS change history…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <footer>Bear &amp; Moose Dynamic DNS <span class="domain-name">Configured domain</span></footer>
+  </main>
+  <dialog id="delete-dialog" aria-labelledby="delete-heading" aria-describedby="delete-description">
+    <form method="dialog">
+      <h2 id="delete-heading">Delete hostname?</h2>
+      <p id="delete-description">Stop managing <strong id="delete-name"></strong>?</p>
+      <p class="note">Its existing GoDaddy A record and DNS change history will be retained.</p>
+      <div class="dialog-actions"><button value="cancel" autofocus>Cancel</button><button id="confirm-delete" value="delete" class="danger">Delete hostname</button></div>
+    </form>
+  </dialog>
+</body>
+</html>

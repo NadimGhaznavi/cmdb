@@ -6,6 +6,18 @@ title: Schema Notes
 
 This page records non-obvious database constraints and implementation decisions.
 
+## Character set and collation
+
+Fresh installations use `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+for the database, every table, and all character columns, including checksums.
+Connections explicitly use the same pair. Ordinary text comparisons follow
+this case-insensitive collation. MariaDB catalog identity uses an explicit
+binary comparison so discovery keeps distinct database names such as `Mixed`
+and `mixed` separate. Closed policy/status vocabularies and lowercase SHA-256
+checksums are validated with explicit binary comparisons.
+
+These changes target a fresh uninstall/install; no data migration is supplied.
+
 ## Backup schedules
 
 `BackupSchedule` is an application-specific entity, outside CWM, with its own
@@ -18,14 +30,14 @@ today or a DeployedComponent later. It does not inherit from ModelElement.
 | `id` | BIGINT UNSIGNED | Auto-increment primary key |
 | `modelElement` | BIGINT UNSIGNED | Required, unique reference to ModelElement |
 | `enabled` | BOOLEAN | False; restricted to 0 or 1 |
-| `frequency` | VARCHAR(16) | `daily`; only supported value |
 | `retention` | VARCHAR(16) | `1-week`; also accepts `2-weeks`, `1-month`, `forever` |
 
 All columns are non-null. Deleting a referenced ModelElement is blocked until
 its schedule is explicitly removed. Inventory discovery does not create schedule
 rows. Update saves policy values and manages the corresponding service-account
-cron entry. Daily execution is at noon in server-local time; retention is stored
-but not yet enforced. Manual execution is available through Backup Now.
+cron entry. The cron expression controls execution time, defaulting to noon
+daily in server-local time; retention is stored but not yet enforced.
+Manual execution is available through Backup Now.
 The table is included in the install schema; no record migration is added.
 
 ## Backup attempts
@@ -89,8 +101,9 @@ time. See
 ## Data packages and inherited names
 
 Database names are stored in `ModelElement.name`, inherited by relational
-`Catalog`. Names use a binary collation to preserve case distinctions, and are
-not globally unique: different server instances can host the same database name.
+`Catalog`. Discovery matches database names with a binary comparison to preserve
+case distinctions. Names are not globally unique: different server instances
+can host the same database name.
 The column is nullable for existing object kinds whose names are not collected.
 
 `Package` now has a shared-identity table because it is the declared target of
@@ -139,7 +152,7 @@ current uninstall/install workflow; no record migration is provided.
 
 `TaggedValue.modelElement` references the owning ModelElement. The unique key
 `(modelElement, tag)` enforces CWM's one-value-per-tag rule for an attached tag.
-Tag names use a binary collation so their casing is significant. TaggedValue
+Tag names use the standard case-insensitive collation. TaggedValue
 has its own technical ID; it does not inherit from ModelElement.
 
 Machine classification uses `tag="DeploymentEnvironment"` with `value="dev"`,
@@ -148,6 +161,10 @@ ModelElement identity (the same ID as Machine and Namespace). Update creates
 the tag or changes its value while preserving its ID. Unclassified removes
 only this tag; other tags and other machines' classifications are preserved.
 No additional schema column or table is required.
+Environment updates use the caller's transaction. Inventory discovery includes
+the gateway's hostname and environment in its inventory transaction; a failed
+batch rolls back those writes together. Web environment updates open their own
+transaction before calling the same domain operation.
 
 The scanner includes `VERSION_CODENAME` in software-definition matching. Hosts
 with matching release fields and codenames share the same definition and tag.

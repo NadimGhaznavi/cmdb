@@ -45,7 +45,7 @@ class DataManagerDb:
         for name in dict.fromkeys(databases):
             rows = self._db.query(
                 'SELECT s.id FROM `Catalog` s JOIN ModelElement me ON me.id=s.id '
-                'WHERE me.namespace=%s AND me.name=%s ORDER BY s.id LIMIT 1', (manager, name))
+                'WHERE me.namespace=%s AND BINARY me.name=BINARY %s ORDER BY s.id LIMIT 1', (manager, name))
             if rows:
                 identity = rows[0]['id']
             else:

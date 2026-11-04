@@ -4,19 +4,41 @@ from datetime import datetime
 import subprocess
 from threading import Event
 import unittest
-from unittest.mock import Mock, patch
+from database_fixtures import database_factory
+from unittest.mock import patch
+
+import pymysql
 
 from cmdb.activity.BackupManager import BackupManager
 
 
 class BackupManagerTests(unittest.TestCase):
+    def test_completion_write_failure_releases_target_for_next_request(self):
+        item = dict(modelElement=12, hostName=None, ipAddress='192.0.2.2', databaseName='app')
+        metadata = dict(pathname='host/db/app/file.dump', sizeBytes=42, checksum='a' * 64)
+        manager = BackupManager()
+        manager._active[12] = 23
+        try:
+            with patch('cmdb.activity.BackupManager.connect_database', side_effect=pymysql.OperationalError('offline')), \
+                    patch('cmdb.activity.BackupManager.SSHDb') as remote:
+                remote.return_value.backup_db.return_value = metadata
+                with self.assertLogs(level='ERROR'):
+                    self.assertFalse(manager._run(item, 23, datetime.now()))
+            self.assertNotIn(12, manager._active)
+            with patch.object(manager, '_prepare', return_value=(item, 24, datetime.now())), \
+                    patch.object(manager._executor, 'submit') as submit:
+                self.assertEqual(manager.request_backup(12), 24)
+                submit.assert_called_once()
+        finally:
+            manager.stop()
+
     def test_directory_backup_uses_host_files_path_and_records_metadata(self):
         item = dict(modelElement=12, hostName='wintermute.example', ipAddress='192.0.2.2',
                     kind='directory', applicationName='MyCount', componentName='Marketing Screenshots',
                     sourcePathname='/opt/prod/mycount/pages/marketing', pathname=None)
         metadata = dict(pathname='wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz',
                         sizeBytes=42, checksum='a' * 64)
-        with patch('cmdb.activity.BackupManager.DbMgr'), \
+        with patch('cmdb.activity.BackupManager.connect_database', new_callable=database_factory), \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \
                 patch('cmdb.activity.BackupManager.SSHFiles') as remote, \
                 patch('cmdb.activity.BackupManager.SSHDb') as database:
@@ -41,7 +63,7 @@ class BackupManagerTests(unittest.TestCase):
             self.assertEqual(args[:2], ('192.0.2.2', 'cmdb'))
             self.assertTrue(args[2].startswith('sally/db/cmdb/mariadb-sally-cmdb-'))
             return metadata
-        with patch('cmdb.activity.BackupManager.DbMgr') as db, \
+        with patch('cmdb.activity.BackupManager.connect_database', new_callable=database_factory) as db, \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \
                 patch('cmdb.activity.BackupManager.SSHDb') as remote:
             records.return_value.get.return_value = item
@@ -61,7 +83,7 @@ class BackupManagerTests(unittest.TestCase):
             self.assertEqual(db.return_value.close.call_count, 2)
 
     def test_failure_is_recorded_and_missing_target_never_runs(self):
-        with patch('cmdb.activity.BackupManager.DbMgr'), \
+        with patch('cmdb.activity.BackupManager.connect_database', new_callable=database_factory), \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \
                 patch('cmdb.activity.BackupManager.SSHDb') as remote:
             records.return_value.start.side_effect = LookupError('Backup target not found.')

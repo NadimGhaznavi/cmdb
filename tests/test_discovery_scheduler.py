@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from database_fixtures import database_factory
 from unittest.mock import patch
 
 from crontab import CronTab
@@ -31,7 +32,7 @@ class DiscoverySchedulerTests(unittest.TestCase):
         self.assertEqual([job.command for job in tab], ['/other', '/custom'])
 
     def test_invalid_settings_never_touch_database_or_cron(self):
-        with patch('cmdb.activity.DiscoveryScheduler.DbMgr') as db, \
+        with patch('cmdb.activity.DiscoveryScheduler.connect_database', new_callable=database_factory) as db, \
                 patch('cmdb.activity.DiscoveryScheduler.Cron') as cron:
             for enabled, expression in ((1, '* * * * *'), (True, '@daily'),
                                         (True, '99 * * * *'), (False, ''),
@@ -42,7 +43,7 @@ class DiscoverySchedulerTests(unittest.TestCase):
             cron.assert_not_called()
 
     def test_cron_failure_rolls_back_and_closes_connection(self):
-        with patch('cmdb.activity.DiscoveryScheduler.DbMgr') as db, \
+        with patch('cmdb.activity.DiscoveryScheduler.connect_database', new_callable=database_factory) as db, \
                 patch('cmdb.activity.DiscoveryScheduler.DiscoveryScheduleDb') as records, \
                 patch('cmdb.activity.DiscoveryScheduler.Cron') as cron:
             records.return_value.save.return_value = {'id': 1}
@@ -54,7 +55,7 @@ class DiscoverySchedulerTests(unittest.TestCase):
             db.return_value.close.assert_called_once()
 
     def test_deleted_or_disabled_policy_never_scans(self):
-        with patch('cmdb.activity.DiscoveryScheduler.DbMgr'), \
+        with patch('cmdb.activity.DiscoveryScheduler.connect_database', new_callable=database_factory), \
                 patch('cmdb.activity.DiscoveryScheduler.DiscoveryScheduleDb') as records, \
                 patch('cmdb.activity.DiscoveryScheduler.InventoryCoordinator') as worker:
             for policy in (None, {'enabled': 0}):
@@ -63,7 +64,7 @@ class DiscoverySchedulerTests(unittest.TestCase):
             worker.assert_not_called()
 
     def test_enabled_policy_scans_and_prunes_even_on_failure(self):
-        with patch('cmdb.activity.DiscoveryScheduler.DbMgr') as db, \
+        with patch('cmdb.activity.DiscoveryScheduler.connect_database', new_callable=database_factory) as db, \
                 patch('cmdb.activity.DiscoveryScheduler.DiscoveryScheduleDb') as records, \
                 patch('cmdb.activity.DiscoveryScheduler.InventoryCoordinator') as worker:
             records.return_value.get.return_value = {'enabled': 1}

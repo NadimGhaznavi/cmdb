@@ -1,0 +1,91 @@
+# BMFORGE_COMPONENT: bmforge.github-pages; spec_version: 0.1.0
+# Replace all project placeholders; shared presentation lives in the theme.
+remote_theme: "NadimGhaznavi/minimal-mistakes"
+minimal_mistakes_skin: "dark"
+
+title: "__PROJECT_TITLE__"
+title_separator: "-"
+name: "__PROJECT_TITLE__"
+description: "__PROJECT_DESCRIPTION__"
+locale: "en-US"
+url: "https://__SITE_HOST__"
+baseurl: "__SITE_BASEURL__"
+repository: "__GITHUB_OWNER__/__PROJECT_SLUG__"
+logo: "__PROJECT_LOGO__"
+
+mycount:
+  endpoint: "https://count.osoyalce.com/count"
+  site: "__PROJECT_SLUG__"
+multilingual:
+  enabled: true
+  default_lang: en
+
+author:
+  name: "__AUTHOR_NAME__"
+  bio: "Creator"
+  location: "__AUTHOR_LOCATION__"
+  email: "__AUTHOR_EMAIL__"
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/__GITHUB_OWNER__"
+    - label: "My Website"
+      icon: "fas fa-fw fa-link"
+      url: "__AUTHOR_WEBSITE__"
+footer:
+  since: "__START_YEAR__"
+
+include:
+  - pages
+# Add the application's source/package directories to this list.
+exclude:
+  - AGENTS.md
+  - README.md
+  - LICENSE
+  - scripts
+  - tests
+  - templates
+  - components
+  - skills
+  - vendor
+  - node_modules
+  - Gemfile
+  - Gemfile.lock
+  - pyproject.toml
+  - package.json
+  - package-lock.json
+encoding: "utf-8"
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  hard_wrap: false
+  auto_ids: true
+  toc_levels: 1..6
+sass:
+  style: compressed
+plugins:
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-feed
+  - jekyll-include-cache
+
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: single
+      classes: wide
+      author_profile: true
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      classes: wide
+      author_profile: true
+      read_time: false
+      share: true
+      related: true

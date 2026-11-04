@@ -134,14 +134,11 @@ import os
 from pathlib import Path
 from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 
 os.environ.update(DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV)))
-db = DbMgr()
-try:
+with connect_database() as db:
     db.query('SELECT 1 AS ready')
-finally:
-    db.close()
 PY
 )
 
@@ -162,18 +159,17 @@ from cmdb.interface.Network import Network
 
 opener = build_opener(ProxyHandler({}))
 host, port = Network.destination('http')
-for endpoint, expected in (('health', 'ok'), ('ready', 'ready')):
-    for attempt in range(30):
-        try:
-            with opener.open(f'http://{host}:{port}/{endpoint}', timeout=1) as response:
-                body = json.load(response)
-                if response.status == 200 and body == {'status': expected, 'service': 'cmdb-server'}:
-                    break
-        except (URLError, TimeoutError):
-            pass
-        time.sleep(1)
-    else:
-        raise SystemExit('Health check failed; inspect journalctl -u ' + DCMDB.SERVICE_UNIT)
+for attempt in range(30):
+    try:
+        with opener.open(f'http://{host}:{port}/health', timeout=1) as response:
+            body = json.load(response)
+            if response.status == 200 and body['status'] == 'ok':
+                break
+    except (URLError, TimeoutError):
+        pass
+    time.sleep(1)
+else:
+    raise SystemExit('Health check failed; inspect journalctl -u ' + DCMDB.SERVICE_UNIT)
 interface, port = Network.binding('http')
 print(f'CMDB server listening on: http://{interface}:{port}/')
 PY

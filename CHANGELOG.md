@@ -7,6 +7,49 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-04 @ 02:53
+
+### Summary
+
+Adopt BMForge's canonical MariaDB manager with CMDB-owned configuration,
+standard collations, and strict SQL mode. Report readiness through `/health`
+and keep inventory updates atomic while simplifying request, discovery, and
+backup handling.
+
+### Changed
+
+- Release active backup targets even when recording completion fails, so a later
+  request can start a new attempt.
+- Centralize bounded JSON request reading and return HTTP 408 consistently for
+  body-read timeouts; use connection contexts for deterministic cleanup.
+- Limit backup and patch lookups to the requested target, reuse database rows in
+  backup responses, and parse application constants once per discovery read.
+- Validate database credentials when loaded rather than for every connection.
+- Remove unused application record classes, the version helper, label entries, and the
+  obsolete backup frequency field; cron expressions determine scheduling.
+- Copy the pinned canonical `DbMgr` unchanged and resolve application connection
+  settings through `connect_database()` for HTTP, background jobs, and tooling.
+- Keep gateway environment updates inside the caller's inventory transaction,
+  preventing nested transactions from committing an incomplete batch.
+- Exercise the canonical constructor directly in database integration tests,
+  including rollback after a gateway inventory failure.
+- Replace the separate HTTP-only `/health` and database `/ready` probes with
+  one `/health` endpoint reporting component states and HTTP 503 on a database
+  failure; update deployment checks to use it.
+- Set `STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION` explicitly on each application
+  database connection.
+- Pin the database and all table defaults, remove binary/ASCII column overrides,
+  and set the application connection collation explicitly.
+- Keep exact MariaDB catalog identity and policy/status/checksum validation
+  explicit under the new case-insensitive text collation.
+- Exercise Unicode round trips and cross-database joins against disposable
+  MariaDB schemas.
+
+### Added
+
+- Attach pinned BMForge HTTP, MariaDB, visualization, GitHub Pages, and RCA
+  skills with a project-local manager and lock file.
+
 ## [1.11.1] - 2026-10-26 @ 05:48
 
 This release is named for the element **Iodine (I)**. Iodine is needed to make 

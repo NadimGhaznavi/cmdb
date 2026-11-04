@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.DatabaseEnvironment import DatabaseEnvironment
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.SSH import SSH
 
@@ -69,11 +69,10 @@ def main() -> int:
         raise SystemExit('Local machine identity is empty; cleanup stopped.')
     values = DatabaseEnvironment.read(Path(DCMDB.DATABASE_ENV))
     os.environ.update(values)
-    db = DbMgr()
     try:
-        addresses = [machine.ipAddress for machine in MachineDb(db).list_machines()]
+        with connect_database() as db:
+            addresses = [machine.ipAddress for machine in MachineDb(db).list_machines()]
     finally:
-        db.close()
         for name in values:
             os.environ.pop(name, None)
     account = pwd.getpwnam(DCMDB.SERVICE_USER)

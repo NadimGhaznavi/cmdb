@@ -6,7 +6,7 @@ import subprocess
 import time
 from uuid import UUID
 
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.PatchDb import PatchDb
 from cmdb.interface.SSHPatch import SSHPatch
 
@@ -17,11 +17,8 @@ def now():
 
 class PatchRunner:
     def record(self, method, *args):
-        db = DbMgr()
-        try:
+        with connect_database() as db:
             return getattr(PatchDb(db), method)(*args)
-        finally:
-            db.close()
 
     def execute(self, job):
         identity, address = job['id'], job['address']

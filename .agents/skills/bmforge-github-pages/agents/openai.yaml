@@ -1,0 +1,4 @@
+interface:
+  display_name: "BMForge GitHub Pages"
+  short_description: "Create consistent project documentation sites"
+  default_prompt: "Use $bmforge-github-pages to prepare this project’s GitHub Pages site using its logo and shared theme."

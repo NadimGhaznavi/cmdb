@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 from threading import Event
 import unittest
+from database_fixtures import database_factory
 from unittest.mock import Mock, patch
 
 from cmdb.activity.DatabaseManager import DatabaseManager
@@ -35,7 +36,7 @@ class DatabaseDeleteTests(unittest.TestCase):
     @patch('cmdb.activity.DatabaseManager.SSHDb')
     @patch('cmdb.activity.DatabaseManager.Scheduler')
     @patch('cmdb.activity.DatabaseManager.BackupDb')
-    @patch('cmdb.activity.DatabaseManager.DbMgr')
+    @patch('cmdb.activity.DatabaseManager.connect_database', new_callable=database_factory)
     def test_confirmed_delete_disables_schedule_and_unlinks_inventory(self, db, records, scheduler, remote):
         item = dict(modelElement=7, databaseName='app', ipAddress='192.0.2.1', scheduleId=2,
                     expression='0 12 * * *', retention='forever')
@@ -54,7 +55,7 @@ class DatabaseDeleteTests(unittest.TestCase):
     @patch('cmdb.activity.DatabaseManager.SSHDb')
     @patch('cmdb.activity.DatabaseManager.Scheduler')
     @patch('cmdb.activity.DatabaseManager.BackupDb')
-    @patch('cmdb.activity.DatabaseManager.DbMgr')
+    @patch('cmdb.activity.DatabaseManager.connect_database', new_callable=database_factory)
     def test_protected_mismatch_and_running_backup_do_not_drop(self, db, records, scheduler, remote):
         for name, confirmation, running, error in [('cmdb', 'cmdb', False, ValueError),
                 ('app', 'wrong', False, ValueError), ('app', 'app', True, RuntimeError)]:

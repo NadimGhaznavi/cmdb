@@ -20,10 +20,12 @@ class PatchDb:
         with self.db.transaction():
             # Serialize clicks for this machine while checking for an existing active job.
             self.db.query('SELECT id FROM Machine WHERE id=%s FOR UPDATE', (machine,))
-            host = next((h for h in self.hosts() if h['id'] == machine), None)
-            if host is None:
+            hosts = SoftwareDeploymentDb(self.db).debian_hosts(machine)
+            if not hosts:
                 raise LookupError('Debian host not found.')
-            job = host['job']
+            host = hosts[0]
+            jobs = self.db.query('SELECT id, status FROM Patch WHERE machine=%s ORDER BY id DESC LIMIT 1', (machine,))
+            job = jobs[0] if jobs else None
             if job and job['status'] in ('queued', 'patching', 'rebooting'):
                 return job['id']
             return self.db.insert('INSERT INTO Patch (machine, address) VALUES (%s, %s)', (machine, host['ipAddress']))

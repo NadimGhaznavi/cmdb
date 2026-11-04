@@ -9,7 +9,7 @@ from threading import Event, Lock
 from urllib.parse import quote
 
 from cmdb.interface.BackupDb import BackupDb
-from cmdb.interface.DbMgr import DbMgr
+from cmdb.interface.Database import connect_database
 from cmdb.interface.SSH import SSH
 from cmdb.interface.SSHDb import SSHDb
 from cmdb.interface.SSHFiles import SSHFiles
@@ -27,16 +27,13 @@ class BackupManager:
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='backup')
 
     def _prepare(self, target: int):
-        db = DbMgr()
-        try:
+        with connect_database() as db:
             inventory = BackupDb(db)
             with db.transaction():
                 started = now()
                 identity = inventory.start(target, started)
                 item = inventory.get(identity)
             return item, identity, started
-        finally:
-            db.close()
 
     def execute(self, target: int) -> bool:
         """Run one complete job in the calling process, including bookkeeping."""
@@ -54,43 +51,42 @@ class BackupManager:
             return identity
 
     def _run(self, item: dict, identity: int, started) -> bool:
-        result = None
-        error = None
         try:
-            host = quote((item['hostName'] or item['ipAddress']).split('.')[0]
-                         if item['hostName'] else item['ipAddress'], safe='-_.')
-            if item.get('kind') == 'directory':
-                application = quote(item['applicationName'].lower(), safe='-_.')
-                name = quote(PurePosixPath(item['sourcePathname']).name, safe='-_.')
-                filename = f"{host[:63]}-{application[:80]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.tgz"
-                pathname = f'{host}/files/{filename}'
-                result = SSHFiles(SSH()).backup_directory(item['ipAddress'], item['sourcePathname'], pathname)
-            else:
-                name = quote(item['databaseName'], safe='-_.')
-                filename = f"mariadb-{host[:63]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.dump"
-                pathname = f'{host}/db/{name}/{filename}'
-                result = SSHDb(SSH(), Event()).backup_db(item['ipAddress'], item['databaseName'], pathname)
-        except subprocess.CalledProcessError as failure:
-            error = (failure.stderr or f'Backup command exited with status {failure.returncode}.')[-4000:]
-        except subprocess.TimeoutExpired:
-            error = 'Backup command timed out; file outcome may be unknown.'
-        except Exception as failure:
-            logging.exception('Backup %s failed', identity)
-            error = str(failure)[:4000] or type(failure).__name__
-        try:
-            db = DbMgr()
+            result = None
+            error = None
             try:
-                BackupDb(db).finish(identity, max(now(), started), result=result, error=error)
-            finally:
-                db.close()
-        except Exception:
-            logging.exception('Could not record completion of backup %s', identity)
-            return False
-        with self._lock:
-            self._active.pop(item['modelElement'], None)
-        if error:
-            logging.error('Backup %s failed: %s', identity, error)
-        return error is None
+                host = quote((item['hostName'] or item['ipAddress']).split('.')[0]
+                             if item['hostName'] else item['ipAddress'], safe='-_.')
+                if item.get('kind') == 'directory':
+                    application = quote(item['applicationName'].lower(), safe='-_.')
+                    name = quote(PurePosixPath(item['sourcePathname']).name, safe='-_.')
+                    filename = f"{host[:63]}-{application[:80]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.tgz"
+                    pathname = f'{host}/files/{filename}'
+                    result = SSHFiles(SSH()).backup_directory(item['ipAddress'], item['sourcePathname'], pathname)
+                else:
+                    name = quote(item['databaseName'], safe='-_.')
+                    filename = f"mariadb-{host[:63]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.dump"
+                    pathname = f'{host}/db/{name}/{filename}'
+                    result = SSHDb(SSH(), Event()).backup_db(item['ipAddress'], item['databaseName'], pathname)
+            except subprocess.CalledProcessError as failure:
+                error = (failure.stderr or f'Backup command exited with status {failure.returncode}.')[-4000:]
+            except subprocess.TimeoutExpired:
+                error = 'Backup command timed out; file outcome may be unknown.'
+            except Exception as failure:
+                logging.exception('Backup %s failed', identity)
+                error = str(failure)[:4000] or type(failure).__name__
+            try:
+                with connect_database() as db:
+                    BackupDb(db).finish(identity, max(now(), started), result=result, error=error)
+            except Exception:
+                logging.exception('Could not record completion of backup %s', identity)
+                return False
+            if error:
+                logging.error('Backup %s failed: %s', identity, error)
+            return error is None
+        finally:
+            with self._lock:
+                self._active.pop(item['modelElement'], None)
 
     def stop(self) -> None:
         with self._lock:

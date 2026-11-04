@@ -1,39 +1,39 @@
 -- Adopted CWM classes and associations, followed by application-specific tables.
 CREATE TABLE IF NOT EXISTS ModelElement (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) COLLATE utf8mb4_bin NULL,
+    name VARCHAR(255) NULL,
     namespace BIGINT UNSIGNED NULL,
     UNIQUE KEY ModelElement_id_namespace_uq (id, namespace)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS Namespace (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT Namespace_ModelElement_fk FOREIGN KEY (id) REFERENCES ModelElement (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS Package (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT Package_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS Catalog (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT Catalog_Package_fk FOREIGN KEY (id) REFERENCES Package (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `Schema` (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT Schema_Package_fk FOREIGN KEY (id) REFERENCES Package (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS TaggedValue (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    tag VARCHAR(255) COLLATE utf8mb4_bin NOT NULL,
+    tag VARCHAR(255) NOT NULL,
     value TEXT NOT NULL,
     modelElement BIGINT UNSIGNED NULL,
     UNIQUE KEY TaggedValue_modelElement_tag_uq (modelElement, tag),
     CONSTRAINT TaggedValue_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Complete the parent reference after both tables exist. This is not a data migration.
 ALTER TABLE ModelElement
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS Machine (
     updatedOn TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     UNIQUE KEY Machine_ipAddress_uq (ipAddress),
     CONSTRAINT Machine_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS SoftwareSystem (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -58,12 +58,12 @@ CREATE TABLE IF NOT EXISTS SoftwareSystem (
     supplier VARCHAR(255) NULL,
     version VARCHAR(255) NULL,
     CONSTRAINT SoftwareSystem_Package_fk FOREIGN KEY (id) REFERENCES Package (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS Component (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT Component_Namespace_fk FOREIGN KEY (id) REFERENCES Namespace (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS DeployedComponent (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -76,12 +76,12 @@ CREATE TABLE IF NOT EXISTS DeployedComponent (
         FOREIGN KEY (id, machine) REFERENCES ModelElement (id, namespace),
     CONSTRAINT DeployedComponent_machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
     CONSTRAINT DeployedComponent_component_fk FOREIGN KEY (component) REFERENCES Component (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS DataManager (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT DataManager_DeployedComponent_fk FOREIGN KEY (id) REFERENCES DeployedComponent (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- The CWM DataManagerDataPackage association preserves both many-valued ends.
 CREATE TABLE IF NOT EXISTS DataManagerDataPackage (
@@ -90,12 +90,12 @@ CREATE TABLE IF NOT EXISTS DataManagerDataPackage (
     PRIMARY KEY (dataManager, dataPackage),
     CONSTRAINT DataManagerDataPackage_manager_fk FOREIGN KEY (dataManager) REFERENCES DataManager (id),
     CONSTRAINT DataManagerDataPackage_package_fk FOREIGN KEY (dataPackage) REFERENCES Package (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS DataProvider (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     CONSTRAINT DataProvider_DataManager_fk FOREIGN KEY (id) REFERENCES DataManager (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS ProviderConnection (
     id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS ProviderConnection (
     CONSTRAINT ProviderConnection_provider_fk FOREIGN KEY (dataProvider) REFERENCES DataProvider (id),
     CONSTRAINT ProviderConnection_manager_fk FOREIGN KEY (dataManager) REFERENCES DataManager (id),
     CONSTRAINT ProviderConnection_self_ck CHECK (dataProvider <> dataManager)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS DeployedComponentsUsage (
     usingComponents BIGINT UNSIGNED NOT NULL,
@@ -115,71 +115,69 @@ CREATE TABLE IF NOT EXISTS DeployedComponentsUsage (
     PRIMARY KEY (usingComponents, usedComponents),
     CONSTRAINT DeployedComponentsUsage_using_fk FOREIGN KEY (usingComponents) REFERENCES DeployedComponent (id),
     CONSTRAINT DeployedComponentsUsage_used_fk FOREIGN KEY (usedComponents) REFERENCES DeployedComponent (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Application policy referencing inventory, not a CWM class or subclass.
 CREATE TABLE IF NOT EXISTS BackupSchedule (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     modelElement BIGINT UNSIGNED NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    frequency VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'daily',
     expression VARCHAR(255) NOT NULL DEFAULT '0 12 * * *',
-    retention VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT '1-week',
+    retention VARCHAR(16) NOT NULL DEFAULT '1-week',
     UNIQUE KEY BackupSchedule_modelElement_uq (modelElement),
     CONSTRAINT BackupSchedule_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id),
     CONSTRAINT BackupSchedule_enabled_ck CHECK (enabled IN (0, 1)),
-    CONSTRAINT BackupSchedule_frequency_ck CHECK (frequency IN ('daily')),
-    CONSTRAINT BackupSchedule_retention_ck CHECK (retention IN ('1-week', '2-weeks', '1-month', 'forever'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CONSTRAINT BackupSchedule_retention_ck CHECK (BINARY retention IN ('1-week', '2-weeks', '1-month', 'forever'))
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Application-owned source snapshots and outcomes outlive inventory and schedules.
 CREATE TABLE IF NOT EXISTS Backup (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     modelElement BIGINT UNSIGNED NULL,
-    kind VARCHAR(16) COLLATE utf8mb4_bin NOT NULL,
+    kind VARCHAR(16) NOT NULL,
     hostName VARCHAR(255) NULL,
     ipAddress VARCHAR(45) NOT NULL,
     macAddress VARCHAR(17) NULL,
     environment VARCHAR(255) NULL,
     site VARCHAR(255) NULL,
-    databaseName VARCHAR(255) COLLATE utf8mb4_bin NULL,
-    applicationName VARCHAR(255) COLLATE utf8mb4_bin NULL,
-    componentName VARCHAR(255) COLLATE utf8mb4_bin NULL,
+    databaseName VARCHAR(255) NULL,
+    applicationName VARCHAR(255) NULL,
+    componentName VARCHAR(255) NULL,
     sourcePathname TEXT NOT NULL,
     softwareName VARCHAR(255) NULL,
     softwareVersion VARCHAR(255) NULL,
     startedOn DATETIME(6) NOT NULL,
     completedOn DATETIME(6) NULL,
-    status VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'running',
+    status VARCHAR(16) NOT NULL DEFAULT 'running',
     pathname TEXT NULL,
     sizeBytes BIGINT UNSIGNED NULL,
-    checksum VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    checksum VARCHAR(64) NULL,
     error TEXT NULL,
     KEY Backup_latest_success_idx (modelElement, status, completedOn),
     CONSTRAINT Backup_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id) ON DELETE SET NULL,
-    CONSTRAINT Backup_kind_ck CHECK (kind IN ('database', 'directory')),
+    CONSTRAINT Backup_kind_ck CHECK (BINARY kind IN ('database', 'directory')),
     CONSTRAINT Backup_source_ck CHECK (
         CHAR_LENGTH(ipAddress) > 0 AND CHAR_LENGTH(sourcePathname) > 0 AND
         ((kind = 'database' AND databaseName IS NOT NULL AND CHAR_LENGTH(databaseName) > 0) OR
          (kind = 'directory' AND componentName IS NOT NULL AND CHAR_LENGTH(componentName) > 0))),
-    CONSTRAINT Backup_status_ck CHECK (status IN ('running', 'succeeded', 'failed')),
+    CONSTRAINT Backup_status_ck CHECK (BINARY status IN ('running', 'succeeded', 'failed')),
     CONSTRAINT Backup_completion_ck CHECK (
         (status = 'running' AND completedOn IS NULL) OR
         (status IN ('succeeded', 'failed') AND completedOn IS NOT NULL AND completedOn >= startedOn)),
     CONSTRAINT Backup_checksum_ck CHECK (
-        checksum IS NULL OR (CHAR_LENGTH(checksum) = 64 AND checksum NOT REGEXP '[^0-9a-f]')),
+        checksum IS NULL OR (CHAR_LENGTH(checksum) = 64 AND checksum NOT REGEXP BINARY '[^0-9a-f]')),
     CONSTRAINT Backup_result_ck CHECK (
         (status = 'succeeded' AND pathname IS NOT NULL AND CHAR_LENGTH(pathname) > 0
          AND sizeBytes IS NOT NULL AND checksum IS NOT NULL AND error IS NULL) OR
         (status IN ('running', 'failed') AND sizeBytes IS NULL AND checksum IS NULL)),
     CONSTRAINT Backup_error_ck CHECK (status = 'failed' OR error IS NULL)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS Patch (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     machine BIGINT UNSIGNED NOT NULL,
     address VARCHAR(45) NOT NULL,
-    status VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'queued',
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
     createdOn DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     startedOn DATETIME(6) NULL,
     rebootOn DATETIME(6) NULL,
@@ -188,7 +186,7 @@ CREATE TABLE IF NOT EXISTS Patch (
     error TEXT NULL,
     KEY Patch_queue_idx (status, id),
     CONSTRAINT Patch_Machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
-    CONSTRAINT Patch_status_ck CHECK (status IN ('queued','patching','rebooting','succeeded','failed')),
+    CONSTRAINT Patch_status_ck CHECK (BINARY status IN ('queued','patching','rebooting','succeeded','failed')),
     CONSTRAINT Patch_completion_ck CHECK (
         (status IN ('queued','patching','rebooting') AND completedOn IS NULL) OR
         (status IN ('succeeded','failed') AND completedOn IS NOT NULL)),
@@ -196,7 +194,7 @@ CREATE TABLE IF NOT EXISTS Patch (
         (startedOn IS NOT NULL AND rebootOn IS NOT NULL AND bootId IS NOT NULL)),
     CONSTRAINT Patch_error_ck CHECK ((status='failed' AND error IS NOT NULL) OR
         (status<>'failed' AND error IS NULL))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS PatchSchedule (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -207,7 +205,7 @@ CREATE TABLE IF NOT EXISTS PatchSchedule (
     CONSTRAINT PatchSchedule_Machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
     CONSTRAINT PatchSchedule_enabled_ck CHECK (enabled IN (0,1)),
     CONSTRAINT PatchSchedule_expression_ck CHECK (enabled=0 OR CHAR_LENGTH(expression)>0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Application policy for the configured network, not a CWM class.
 CREATE TABLE IF NOT EXISTS DiscoverySchedule (
@@ -217,4 +215,4 @@ CREATE TABLE IF NOT EXISTS DiscoverySchedule (
     CONSTRAINT DiscoverySchedule_singleton_ck CHECK (id=1),
     CONSTRAINT DiscoverySchedule_enabled_ck CHECK (enabled IN (0,1)),
     CONSTRAINT DiscoverySchedule_expression_ck CHECK (CHAR_LENGTH(expression)>0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

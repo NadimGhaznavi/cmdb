@@ -1,0 +1,1402 @@
+"use strict";
+
+let refreshing = false;
+let backupFilesRequest = 0;
+let patchingTimer;
+let patchingRequest = 0;
+let patchReportRequest = 0;
+let initialUptimePending = false;
+
+function elapsedTime(seconds) {
+  const pad = value => String(value).padStart(2, "0");
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
+}
+
+function backupSize(bytes) {
+  if (bytes == null) return '';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+  let unit = 0;
+  while (bytes >= 1024 && unit < units.length - 1) {
+    bytes /= 1024;
+    unit += 1;
+  }
+  return `${unit === 0 ? bytes : bytes.toFixed(1)} ${units[unit]}`;
+}
+
+function filterBackupFiles() {
+  const scanned = document.querySelector('.backup-files-table').classList.contains('filesystem-scanned');
+  const filters = [...document.querySelectorAll('[data-backup-filter]')]
+    .filter(input => scanned || !input.closest('[data-field="fileStatus"]'))
+    .map(input => ({ column: Number(input.dataset.backupFilter), value: input.value.trim().toLowerCase() }));
+  const rows = [...document.querySelectorAll('#backup-files-rows tr')];
+  for (const row of rows) {
+    row.hidden = !filters.every(filter => row.cells[filter.column].textContent.toLowerCase().includes(filter.value));
+  }
+  document.getElementById('backup-files-no-matches').hidden = !rows.length || rows.some(row => !row.hidden);
+}
+
+async function loadBackupFiles() {
+  const request = ++backupFilesRequest;
+  document.querySelector('.backup-files-table').classList.remove('filesystem-scanned');
+  const status = document.getElementById("backup-files-status");
+  const body = document.getElementById("backup-files-rows");
+  const latest = document.getElementById("most-recent-backup");
+  status.textContent = "Loading backup files…";
+  try {
+    const response = await fetch("/api/backups/files", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error("Backup files are unavailable. Reopen Backups to try again.");
+    const { files, directory } = await response.json();
+    if (request !== backupFilesRequest) return;
+    const backupTime = files[0]?.backupTime || '';
+    latest.textContent = backupTime ? localTimestamp(backupTime).slice(0, 16) : '';
+    latest.dateTime = backupTime;
+    document.querySelector('#backup-directory span').textContent = directory;
+    body.replaceChildren();
+    for (const file of files) {
+      const row = document.createElement("tr");
+      row.dataset.backupId = file.id;
+      const timestamp = file.backupTime ? localTimestamp(file.backupTime) : '';
+      for (const value of [timestamp.slice(0, 10), timestamp.slice(11), file.elapsedSeconds == null ? '' : elapsedTime(file.elapsedSeconds), machineLabel(file), file.databaseName, file.filename, backupSize(file.sizeBytes)]) {
+        const cell = document.createElement("td");
+        cell.textContent = value ?? '';
+        row.append(cell);
+      }
+      const state = document.createElement('td');
+      state.dataset.field = 'fileStatus';
+      state.textContent = '';
+      const actions = document.createElement('td');
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', () => deleteBackupRecord(row, file));
+      actions.append(remove);
+      row.append(state, actions);
+      body.append(row);
+    }
+    status.textContent = files.length ? "" : "No backup files yet.";
+    filterBackupFiles();
+  } catch (error) {
+    if (request !== backupFilesRequest) return;
+    latest.textContent = '';
+    latest.removeAttribute('datetime');
+    body.replaceChildren();
+    filterBackupFiles();
+    status.textContent = error.message || "Backup files could not be loaded.";
+  }
+}
+
+async function scanBackupFiles() {
+  document.querySelector('.backup-files-table').classList.add('filesystem-scanned');
+  const button = document.getElementById('scan-backup-files');
+  const status = document.getElementById('backup-files-status');
+  const request = backupFilesRequest;
+  button.disabled = true;
+  status.textContent = 'Scanning backup files…';
+  for (const row of document.querySelectorAll('#backup-files-rows tr')) {
+    row.querySelector('[data-field="fileStatus"]').textContent = '';
+  }
+  filterBackupFiles();
+  try {
+    const response = await fetch('/api/backups/files/scan', { method: 'POST', signal: AbortSignal.timeout(45000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not scan backup files.');
+    if (request !== backupFilesRequest) return;
+    const statuses = new Map(result.files.map(file => [String(file.id), file.status]));
+    for (const row of document.querySelectorAll('#backup-files-rows tr')) {
+      const state = statuses.get(row.dataset.backupId) || '';
+      row.querySelector('[data-field="fileStatus"]').textContent = state;
+    }
+    filterBackupFiles();
+    status.textContent = 'Filesystem scan complete.';
+  } catch (error) {
+    if (request === backupFilesRequest) status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteBackupRecord(row, file) {
+  const dialog = document.getElementById('delete-backup-dialog');
+  document.getElementById('delete-backup-message').textContent = `Delete backup ${file.filename}? This removes the backup file and its record.`;
+  dialog.returnValue = 'cancel';
+  const confirmed = new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'delete'), { once: true });
+  });
+  dialog.showModal();
+  if (!await confirmed) return;
+  const button = row.querySelector('button');
+  const status = document.getElementById('backup-files-status');
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/backups/files/${file.id}`, { method: 'DELETE', signal: AbortSignal.timeout(45000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not delete the backup record.');
+    row.remove();
+    status.textContent = 'Backup deleted.';
+    loadBackups();
+    loadBackupFiles();
+  } catch (error) {
+    status.textContent = error.message;
+    button.disabled = false;
+  }
+}
+
+document.getElementById('scan-backup-files').addEventListener('click', scanBackupFiles);
+for (const input of document.querySelectorAll('[data-backup-filter]')) {
+  input.addEventListener('input', filterBackupFiles);
+}
+document.getElementById('clear-backup-filters').addEventListener('click', () => {
+  for (const input of document.querySelectorAll('[data-backup-filter]')) input.value = '';
+  filterBackupFiles();
+});
+
+function backupSettingsRow(item, host, allowDatabaseDelete = false) {
+  const row = document.getElementById('backup-row-template').content.cloneNode(true).querySelector('tr');
+  const name = item.kind === 'directory' ? item.componentName : item.databaseName;
+  row.dataset.modelElement = item.modelElement;
+  row.querySelector('[data-field="database"]').textContent = name;
+  for (const [field, label] of [['enabled', 'Enable backups'], ['retention', 'Retention'], ['expression', 'Cron schedule']]) {
+    row.querySelector(`[data-field="${field}"]`).setAttribute('aria-label', `${label} for ${name} on ${host}`);
+  }
+  row.querySelector('[data-field="enabled"]').checked = Boolean(item.enabled);
+  row.querySelector('[data-field="expression"]').value = item.expression || '0 12 * * *';
+  row.querySelector('[data-field="retention"]').value = item.retention || '1-week';
+  row.querySelector('[data-action="update"]').addEventListener('click', () => updateSchedule(row, item.modelElement));
+  row.querySelector('[data-field="lastBackup"]').textContent = item.lastBackup ? localTimestamp(item.lastBackup) : '---';
+  row.querySelector('[data-action="backup"]').addEventListener('click', () => backupNow(row, item.modelElement));
+  const remove = row.querySelector('[data-action="delete-database"]');
+  if (allowDatabaseDelete) {
+    remove.disabled = name.toLowerCase() === 'cmdb';
+    if (remove.disabled) remove.title = 'The CMDB database cannot be deleted.';
+    remove.addEventListener('click', () => deleteDatabase(row, item, host));
+  } else {
+    remove.remove();
+  }
+  if (item.latestBackup) row.dataset.backupId = item.latestBackup;
+  return row;
+}
+
+function renderApplicationBackups(items) {
+  const body = document.getElementById('application-backup-hosts');
+  body.replaceChildren();
+  const hosts = new Map();
+  for (const item of items) {
+    if (!hosts.has(item.machine)) hosts.set(item.machine, { host: machineLabel(item), applications: new Map() });
+    const applications = hosts.get(item.machine).applications;
+    if (!applications.has(item.application)) applications.set(item.application, { name: item.applicationName, items: [] });
+    applications.get(item.application).items.push(item);
+  }
+  for (const { host, applications } of [...hosts.values()].sort((left, right) => left.host.localeCompare(right.host))) {
+    const hostSection = document.createElement('details');
+    hostSection.className = 'backup-host';
+    const heading = document.createElement('summary');
+    heading.textContent = `${host} (${applications.size})`;
+    hostSection.append(heading);
+    for (const application of [...applications.values()].sort((left, right) => left.name.localeCompare(right.name))) {
+      const section = document.getElementById('backup-host-template').content.cloneNode(true);
+      section.querySelector('summary').textContent = application.name;
+      section.querySelector('.backup-empty').remove();
+      section.querySelector('table').setAttribute('aria-label', `${application.name} backups on ${host}`);
+      section.querySelector('.backup-table-scroll').setAttribute('aria-label', `${application.name} backup settings on ${host}`);
+      const headers = section.querySelector('thead tr');
+      headers.firstElementChild.textContent = 'Component';
+      const settingsHeader = headers.children[1];
+      for (const label of ['Type', 'Location']) {
+        const cell = document.createElement('th');
+        cell.scope = 'col';
+        cell.textContent = label;
+        headers.insertBefore(cell, settingsHeader);
+      }
+      for (const item of application.items.sort((left, right) =>
+        (left.componentName || left.databaseName).localeCompare(right.componentName || right.databaseName))) {
+        const row = backupSettingsRow(item, host);
+        const type = document.createElement('td');
+        type.textContent = item.kind === 'directory' ? 'Directory' : 'Database';
+        const location = document.createElement('td');
+        location.textContent = item.kind === 'directory' ? item.pathname : item.databaseName;
+        row.children[0].after(type, location);
+        section.querySelector('tbody').append(row);
+      }
+      hostSection.append(section);
+    }
+    body.append(hostSection);
+  }
+  for (const row of body.querySelectorAll('tr[data-backup-id]')) {
+    const identity = row.dataset.backupId;
+    delete row.dataset.backupId;
+    watchBackup(row, identity);
+  }
+  document.getElementById('application-backups-status').textContent = hosts.size ? '' : 'No declared application components or databases discovered yet.';
+}
+
+async function loadBackups() {
+  const status = document.getElementById("backups-status");
+  const body = document.getElementById("backup-hosts");
+  body.replaceChildren();
+  document.getElementById("application-backup-hosts").replaceChildren();
+  document.getElementById("application-backups-status").textContent = "Loading application backups…";
+  status.textContent = "Loading databases…";
+  try {
+    const response = await fetch("/api/backups", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error("Databases are unavailable. Return to Inventory and try again.");
+    const { databases, hosts: databaseHosts, applications = [] } = await response.json();
+    renderApplicationBackups(applications);
+    const hosts = new Map(databaseHosts.map(host => [host.machine, host]));
+    const groups = new Map(databaseHosts.map(host => [host.machine, []]));
+    for (const database of databases) {
+      hosts.set(database.machine, database);
+      if (!groups.has(database.machine)) groups.set(database.machine, []);
+      groups.get(database.machine).push(database);
+    }
+    const sortedHosts = [...groups.keys()].sort((left, right) =>
+      machineLabel(hosts.get(left)).localeCompare(machineLabel(hosts.get(right))));
+    const template = document.getElementById("backup-host-template");
+    for (const id of sortedHosts) {
+      const names = groups.get(id).sort((left, right) => left.databaseName.localeCompare(right.databaseName));
+      const host = machineLabel(hosts.get(id));
+      const section = template.content.cloneNode(true);
+      section.querySelector("summary").textContent = `${host} - ${names.length} DB${names.length === 1 ? "" : "s"}`;
+      section.querySelector("table").setAttribute("aria-label", `${host} database backups`);
+      section.querySelector(".backup-table-scroll").setAttribute("aria-label", `${host} backup settings`);
+      for (const database of names) {
+        section.querySelector("tbody").append(backupSettingsRow(database, host, true));
+      }
+      section.querySelector(".backup-empty").hidden = names.length > 0;
+      section.querySelector(".backup-table-scroll").hidden = names.length === 0;
+      body.append(section);
+      for (const row of body.querySelectorAll("tr[data-backup-id]")) {
+        const identity = row.dataset.backupId;
+        delete row.dataset.backupId;
+        watchBackup(row, identity);
+      }
+    }
+    status.textContent = groups.size ? "" : "No databases discovered yet.";
+  } catch (error) {
+    status.textContent = error.message || "Databases could not be loaded. Return to Inventory and try again.";
+    document.getElementById("application-backups-status").textContent = status.textContent;
+  }
+}
+
+async function deleteDatabase(row, database, host) {
+  const confirmation = window.prompt(`Permanently drop database ${database.databaseName} on ${host}? This deletes its data. Type the database name to confirm:`);
+  if (confirmation === null) return;
+  const status = row.querySelector('.backup-row-status');
+  if (confirmation !== database.databaseName) {
+    updateText(status, 'Database name did not match. Nothing was deleted.');
+    return;
+  }
+  const controls = [...row.querySelectorAll('button, input, select')];
+  const states = controls.map(control => control.disabled);
+  controls.forEach(control => { control.disabled = true; });
+  updateText(status, 'Deleting database…');
+  try {
+    const response = await fetch(`/api/databases/${database.modelElement}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmation }), signal: AbortSignal.timeout(60000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not delete database.');
+    await loadBackups();
+  } catch (error) {
+    updateText(status, error.message);
+    controls.forEach((control, index) => { control.disabled = states[index]; });
+  }
+}
+
+async function updateSchedule(row, modelElement) {
+  const button = row.querySelector('[data-action="update"]');
+  const enabled = row.querySelector('[data-field="enabled"]');
+  const retention = row.querySelector('[data-field="retention"]');
+  const expression = row.querySelector('[data-field="expression"]');
+  const status = row.querySelector('.schedule-row-status');
+  const settings = { modelElement, enabled: enabled.checked, expression: expression.value, retention: retention.value };
+  button.disabled = enabled.disabled = retention.disabled = expression.disabled = true;
+  status.textContent = "Saving schedule…";
+  try {
+    const response = await fetch('/api/backup-schedules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not save the schedule.");
+    for (const shared of document.querySelectorAll(`#backups-page tr[data-model-element="${modelElement}"]`)) {
+      shared.querySelector('[data-field="enabled"]').checked = Boolean(result.schedule.enabled);
+      shared.querySelector('[data-field="expression"]').value = result.schedule.expression;
+      shared.querySelector('[data-field="retention"]').value = result.schedule.retention;
+    }
+    status.textContent = result.schedule.enabled ? "Schedule saved." : "Schedule disabled.";
+  } catch (error) {
+    status.textContent = `${error.message} Reopen Backups to check saved settings before retrying.`;
+  } finally {
+    button.disabled = enabled.disabled = retention.disabled = expression.disabled = false;
+  }
+}
+
+async function backupNow(row, modelElement) {
+  const button = row.querySelector('[data-action="backup"]');
+  const status = row.querySelector(".backup-row-status");
+  button.disabled = true;
+  status.textContent = "Processing backup job...";
+  try {
+    const response = await fetch("/api/backups", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modelElement }), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not start the backup.");
+    await watchBackup(row, result.backupId, true);
+  } catch (error) {
+    status.textContent = `${error.message} Reopen Backups to check the recorded status before retrying.`;
+    button.disabled = false;
+  }
+}
+
+async function watchBackup(row, identity, refreshFiles = false) {
+  const button = row.querySelector('[data-action="backup"]');
+  const status = row.querySelector(".backup-row-status");
+  button.disabled = true;
+  try {
+    while (row.isConnected) {
+      const response = await fetch(`/api/backups/${identity}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+      const backup = await response.json();
+      if (!response.ok) throw new Error(backup.error || "Could not read backup status.");
+      if (backup.status === "succeeded") {
+        for (const shared of document.querySelectorAll(`#backups-page tr[data-model-element="${row.dataset.modelElement}"]`)) {
+          shared.querySelector('[data-field="lastBackup"]').textContent = localTimestamp(backup.completedOn);
+        }
+        status.textContent = "Backup completed.";
+        if (refreshFiles) loadBackupFiles();
+        return;
+      }
+      if (backup.status === "failed") {
+        status.textContent = `Backup failed: ${backup.error || "Unknown error."}`;
+        return;
+      }
+      status.textContent = "Processing backup job...";
+      refreshFiles = true;
+      button.textContent = "Backing up…";
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  } catch (error) {
+    status.textContent = `${error.message} Reopen Backups to check again.`;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Backup Now";
+  }
+}
+
+document.getElementById('add-application-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = document.getElementById('add-application');
+  if (button.disabled) return;
+  const input = document.getElementById('application-name');
+  const name = input.value.trim();
+  const status = document.getElementById('add-application-status');
+  if (!name) {
+    status.textContent = 'Enter an application name.';
+    input.focus();
+    return;
+  }
+  button.disabled = true;
+  input.disabled = true;
+  status.textContent = 'Adding application…';
+  try {
+    const response = await fetch('/api/applications', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Application could not be added.');
+    status.textContent = `Application “${result.name}” added; discovery queued…`;
+    await waitForScan(result.scanId);
+    status.textContent = `Discovery complete for “${result.name}”. See Status Messages for results.`;
+    input.value = '';
+    await Promise.all([loadRegisteredApplications(), loadApplications()]);
+  } catch (error) {
+    status.textContent = error.message || 'Application could not be added.';
+  } finally {
+    button.disabled = false;
+    input.disabled = false;
+  }
+});
+
+let applicationsRequest = 0;
+let registeredApplicationsRequest = 0;
+
+async function deleteApplication(row, application, button, status) {
+  if (button.disabled) return;
+  const name = application.name || application.subtype || application.type || 'Application';
+  let message = `Delete “${name}” (ID ${application.id}) from the CMDB? Its recorded deployments will also be removed. This does not uninstall software from hosts. It can be rediscovered or manually re-added.`;
+  if (application.type === 'DBMS') message += ' Backup history and files will be kept, and related backup schedules will be disabled.';
+  if (!window.confirm(message)) return;
+  button.disabled = true;
+  status.textContent = 'Deleting…';
+  try {
+    const response = await fetch(`/api/applications/${application.id}`, {
+      method: 'DELETE', signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Application could not be deleted.');
+    row.remove();
+    await Promise.all([loadRegisteredApplications(), loadApplications()]);
+  } catch (error) {
+    status.textContent = error.message || 'Application could not be deleted. Refresh before retrying.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function loadRegisteredApplications() {
+  const request = ++registeredApplicationsRequest;
+  const status = document.getElementById('registered-applications-status');
+  const body = document.getElementById('registered-application-rows');
+  body.replaceChildren();
+  status.textContent = 'Loading registered applications…';
+  try {
+    const response = await fetch('/api/applications', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Registered applications are unavailable. Reopen Applications to try again.');
+    const { applications } = await response.json();
+    if (request !== registeredApplicationsRequest) return;
+    for (const application of applications) {
+      const row = document.createElement('tr');
+      for (const field of ['id', 'name', 'type', 'subtype', 'supplier', 'version']) {
+        const cell = document.createElement('td');
+        cell.textContent = field === 'type' && application[field] === 'application'
+          ? 'Application' : application[field] ?? '—';
+        row.append(cell);
+      }
+      const actions = document.createElement('td');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Delete';
+      button.setAttribute('aria-label', `Delete ${application.name || application.subtype || application.type || 'application'} (ID ${application.id})`);
+      const rowStatus = document.createElement('span');
+      rowStatus.className = 'backup-row-status';
+      rowStatus.setAttribute('role', 'status');
+      button.addEventListener('click', () => deleteApplication(row, application, button, rowStatus));
+      actions.append(button, rowStatus);
+      row.append(actions);
+      body.append(row);
+    }
+    status.textContent = applications.length ? '' : 'No registered applications recorded yet.';
+  } catch (error) {
+    if (request !== registeredApplicationsRequest) return;
+    status.textContent = error.message || 'Registered applications could not be loaded.';
+  }
+}
+
+let applicationRows = [];
+let applicationSort = 'host';
+let applicationDescending = false;
+const applicationCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+function renderApplications() {
+  const body = document.getElementById('application-rows');
+  body.replaceChildren();
+  const compare = (left, right, field) => applicationCollator.compare(left[field] ?? '', right[field] ?? '');
+  const rows = [...applicationRows].sort((left, right) => {
+    const order = compare(left, right, applicationSort) || compare(left, right, 'host')
+      || compare(left, right, 'application') || compare(left, right, 'version')
+      || compare(left, right, 'pathname');
+    return applicationDescending ? -order : order;
+  });
+  for (const application of rows) {
+    const row = document.createElement('tr');
+    for (const value of [application.host, application.application, application.version, application.pathname]) {
+      const cell = document.createElement('td');
+      cell.textContent = value ?? '—';
+      row.append(cell);
+    }
+    body.append(row);
+  }
+  for (const button of document.querySelectorAll('[data-application-sort]')) {
+    const selected = button.dataset.applicationSort === applicationSort;
+    if (selected) button.closest('th').setAttribute('aria-sort', applicationDescending ? 'descending' : 'ascending');
+    else button.closest('th').removeAttribute('aria-sort');
+    button.querySelector('span').textContent = selected ? (applicationDescending ? ' ▼' : ' ▲') : '';
+  }
+}
+
+for (const button of document.querySelectorAll('[data-application-sort]')) {
+  button.addEventListener('click', () => {
+    const field = button.dataset.applicationSort;
+    applicationDescending = field === applicationSort ? !applicationDescending : false;
+    applicationSort = field;
+    renderApplications();
+  });
+}
+
+async function loadApplications() {
+  const request = ++applicationsRequest;
+  const status = document.getElementById('applications-status');
+  applicationRows = [];
+  renderApplications();
+  status.textContent = 'Loading applications…';
+  try {
+    const response = await fetch('/api/machines', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Applications are unavailable. Reopen Applications to try again.');
+    const { machines, softwareDeployments } = await response.json();
+    if (request !== applicationsRequest) return;
+    const hosts = new Map(machines.map(machine => [machine.id, machine]));
+    applicationRows = softwareDeployments.filter(deployment => !deployment.componentName).map(deployment => {
+      const name = deployment.name || deployment.subtype || deployment.type || 'Unknown application';
+      return {
+        host: hosts.has(deployment.machine) ? machineLabel(hosts.get(deployment.machine)) : `Machine ${deployment.machine}`,
+        application: name[0].toUpperCase() + name.slice(1),
+        version: deployment.version,
+        pathname: deployment.pathname,
+      };
+    });
+    renderApplications();
+    status.textContent = applicationRows.length ? '' : 'No deployed applications recorded yet.';
+  } catch (error) {
+    if (request !== applicationsRequest) return;
+    status.textContent = error.message || 'Applications could not be loaded. Reopen Applications to try again.';
+  }
+}
+
+let networkPorts = [];
+let networkPortsRequest = 0;
+let networkSort = 'host';
+let networkDescending = false;
+
+function renderNetworkPorts() {
+  const body = document.getElementById('network-port-rows');
+  const filters = [...document.querySelectorAll('[data-network-filter]')].map(input => {
+    const pattern = (input.value.trim() || '*').split('*')
+      .map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+    return { field: input.dataset.networkFilter, pattern: new RegExp(`^${pattern}$`, 'i') };
+  });
+  const compare = (left, right, field) => field === 'portNumber'
+    ? left.portNumber - right.portNumber : applicationCollator.compare(left[field], right[field]);
+  const rows = networkPorts.filter(port => filters.every(filter => filter.pattern.test(String(port[filter.field]))))
+    .sort((left, right) => {
+      const order = compare(left, right, networkSort) || compare(left, right, 'host')
+        || compare(left, right, 'application') || compare(left, right, 'serviceName')
+        || compare(left, right, 'portNumber');
+      return networkDescending ? -order : order;
+    });
+  body.replaceChildren();
+  for (const port of rows) {
+    const row = document.createElement('tr');
+    for (const value of [port.host, port.application, port.serviceName, port.portNumber]) {
+      const cell = document.createElement('td');
+      cell.textContent = value;
+      row.append(cell);
+    }
+    body.append(row);
+  }
+  for (const button of document.querySelectorAll('[data-network-sort]')) {
+    const selected = button.dataset.networkSort === networkSort;
+    if (selected) button.closest('th').setAttribute('aria-sort', networkDescending ? 'descending' : 'ascending');
+    else button.closest('th').removeAttribute('aria-sort');
+    button.querySelector('span').textContent = selected ? (networkDescending ? ' ▼' : ' ▲') : '';
+  }
+  document.getElementById('network-ports-status').textContent = networkPorts.length
+    ? (rows.length ? '' : 'No matching ports.') : 'No ports recorded yet.';
+}
+
+for (const button of document.querySelectorAll('[data-network-sort]')) {
+  button.addEventListener('click', () => {
+    const field = button.dataset.networkSort;
+    networkDescending = field === networkSort ? !networkDescending : false;
+    networkSort = field;
+    renderNetworkPorts();
+  });
+}
+for (const input of document.querySelectorAll('[data-network-filter]')) {
+  input.addEventListener('input', renderNetworkPorts);
+}
+
+async function loadNetworkPorts() {
+  const request = ++networkPortsRequest;
+  const status = document.getElementById('network-ports-status');
+  networkPorts = [];
+  renderNetworkPorts();
+  status.textContent = 'Loading ports…';
+  try {
+    const response = await fetch('/api/network/ports', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Network ports are unavailable. Reopen Network to try again.');
+    const { ports } = await response.json();
+    if (request !== networkPortsRequest) return;
+    networkPorts = ports.map(port => ({ ...port, host: machineLabel(port) }));
+    renderNetworkPorts();
+  } catch (error) {
+    if (request !== networkPortsRequest) return;
+    status.textContent = error.message || 'Network ports could not be loaded. Reopen Network to try again.';
+  }
+}
+
+async function loadDiscovery() {
+  const status = document.getElementById('discovery-status');
+  const enabled = document.getElementById('discovery-enabled');
+  const expression = document.getElementById('discovery-expression');
+  const update = document.getElementById('update-discovery');
+  enabled.disabled = expression.disabled = update.disabled = true;
+  status.textContent = 'Loading discovery settings…';
+  try {
+    const response = await fetch('/api/discovery', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not load discovery settings.');
+    document.getElementById('discovery-target').textContent = result.target;
+    enabled.checked = Boolean(result.schedule.enabled);
+    expression.value = result.schedule.expression;
+    enabled.disabled = expression.disabled = update.disabled = false;
+    status.textContent = '';
+  } catch (error) {
+    status.textContent = error.message || 'Could not load discovery settings. Reopen Discovery to retry.';
+  }
+}
+
+async function saveDiscoverySchedule() {
+  const button = document.getElementById('update-discovery');
+  const status = document.getElementById('discovery-status');
+  button.disabled = true;
+  status.textContent = 'Saving discovery schedule…';
+  try {
+    const response = await fetch('/api/discovery-schedules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: document.getElementById('discovery-enabled').checked,
+        expression: document.getElementById('discovery-expression').value }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save discovery schedule.');
+    document.getElementById('discovery-expression').value = result.schedule.expression;
+    status.textContent = result.schedule.enabled ? 'Discovery schedule saved.' : 'Scheduled discovery disabled.';
+  } catch (error) {
+    status.textContent = error.message || 'Could not save discovery schedule. Retry the update.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById('update-discovery').addEventListener('click', saveDiscoverySchedule);
+document.getElementById('scan-discovery').addEventListener('click', () => refreshMachines(null, false, true));
+
+function showPage() {
+  clearTimeout(patchingTimer);
+  ++patchingRequest;
+  const page = ['network', 'applications', 'patching', 'backups', 'discovery'].includes(window.location.hash.slice(1))
+    ? window.location.hash.slice(1) : 'inventory';
+  const backups = page === 'backups';
+  const patching = page === 'patching';
+  initialUptimePending = patching;
+  for (const name of ['inventory', 'network', 'applications', 'patching', 'backups', 'discovery']) {
+    document.getElementById(`${name}-heading`).hidden = page !== name;
+    document.getElementById(`${name}-page`).hidden = page !== name;
+    const link = document.getElementById(name === 'backups' ? 'page-link' : `${name}-link`);
+    if (page === name) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  document.getElementById('inventory-footer').hidden = page !== 'inventory';
+  document.title = page === 'inventory' ? 'CMDB' : `${page[0].toUpperCase() + page.slice(1)} — CMDB`;
+  if (page === 'applications') {
+    loadApplications();
+    loadRegisteredApplications();
+  }
+  if (page === 'discovery') loadDiscovery();
+  if (page === 'network') loadNetworkPorts();
+  if (patching) loadPatchingHosts();
+  if (backups) {
+    loadBackups();
+    loadBackupFiles();
+  }
+}
+
+function updateText(element, value) {
+  if (element.textContent !== value) element.textContent = value;
+}
+
+function updatePatchRows(body, items, render) {
+  const existing = new Map([...body.rows].map(row => [row.dataset.id, row]));
+  items.forEach((item, index) => {
+    const key = String(item.id);
+    let row = existing.get(key);
+    const isNew = !row;
+    if (isNew) {
+      row = document.createElement('tr');
+      row.dataset.id = key;
+    }
+    render(row, item, isNew);
+    if (body.rows[index] !== row) body.insertBefore(row, body.rows[index] || null);
+    existing.delete(key);
+  });
+  for (const row of existing.values()) row.remove();
+}
+
+async function queuePatch(row, identity) {
+  const button = row.querySelector('[data-action="patch"]');
+  const status = row.querySelector('.patch-row-status');
+  updateText(status, 'Queuing patch job…');
+  button.disabled = true;
+  row.dataset.submitting = 'true';
+  clearTimeout(patchingTimer);
+  ++patchingRequest;
+  try {
+    const response = await fetch('/api/patching', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ machine: identity }), signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not queue patch job.');
+    updateText(status, 'Queued');
+    delete row.dataset.submitting;
+    if (window.location.hash === '#patching') loadPatchingHosts();
+  } catch (error) {
+    updateText(status, `${error.message} Reopen Patching to check job status.`);
+    delete row.dataset.submitting;
+    button.disabled = false;
+  }
+}
+
+async function loadPatchingHosts() {
+  clearTimeout(patchingTimer);
+  loadPatchReport();
+  const request = ++patchingRequest;
+  const status = document.getElementById('patching-status');
+  const body = document.getElementById('patching-hosts');
+  try {
+    const response = await fetch('/api/patching/hosts', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Debian hosts are unavailable. Retrying…');
+    const { hosts } = await response.json();
+    if (request !== patchingRequest) return;
+    hosts.sort((left, right) => machineLabel(left).localeCompare(machineLabel(right)));
+    updatePatchRows(body, hosts, (row, host, isNew) => {
+      if (isNew) {
+        const name = document.createElement('td');
+        const uptime = document.createElement('td');
+        uptime.dataset.field = 'uptime';
+        uptime.textContent = '---';
+        const enabledCell = document.createElement('td');
+        const enabled = document.createElement('input');
+        enabled.type = 'checkbox';
+        enabled.dataset.field = 'scheduleEnabled';
+        enabled.setAttribute('aria-label', `Enable scheduled patching for ${machineLabel(host)}`);
+        enabled.addEventListener('change', () => { row.dataset.scheduleDirty = 'true'; });
+        enabledCell.append(enabled);
+        const scheduleCell = document.createElement('td');
+        const expression = document.createElement('input');
+        expression.type = 'text';
+        expression.size = 20;
+        expression.maxLength = 255;
+        expression.dataset.field = 'expression';
+        expression.setAttribute('aria-label', `Cron schedule for ${machineLabel(host)}`);
+        expression.addEventListener('input', () => { row.dataset.scheduleDirty = 'true'; });
+        scheduleCell.append(expression);
+        const actions = document.createElement('td');
+        const buttons = document.createElement('div');
+        buttons.className = 'backup-actions';
+        const update = document.createElement('button');
+        update.type = 'button';
+        update.textContent = 'Update';
+        update.dataset.action = 'schedule';
+        update.addEventListener('click', () => savePatchSchedule(row, host.id));
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.action = 'patch';
+        button.textContent = 'Patch Now';
+        button.addEventListener('click', () => queuePatch(row, host.id));
+        const progress = document.createElement('td');
+        progress.className = 'patch-row-status';
+        progress.setAttribute('role', 'status');
+        buttons.append(update, button);
+        actions.append(buttons);
+        row.append(name, uptime, enabledCell, scheduleCell, actions, progress);
+      }
+      updateText(row.cells[0], machineLabel(host));
+      if (!row.dataset.scheduleDirty && !row.dataset.scheduleSaving) {
+        const enabled = row.querySelector('[data-field="scheduleEnabled"]');
+        enabled.checked = Boolean(host.schedule?.enabled);
+        setCronExpression(row, host.schedule?.expression ?? '0 13 * * 1');
+      }
+      const button = row.querySelector('[data-action="patch"]');
+      const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);
+      if (button.disabled !== disabled) button.disabled = disabled;
+      const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
+      const jobState = JSON.stringify(host.job ? [host.job.id, host.job.status, host.job.error] : null);
+      if (jobState !== row.patchJobState) {
+        row.patchJobState = jobState;
+        const active = ['queued', 'patching', 'rebooting'].includes(host.job?.status);
+        // A repeated poll is not a new message; historical outcomes live in Patch Report.
+        if (host.job && (!isNew || active)) {
+          updateText(row.querySelector('.patch-row-status'), labels[host.job.status] + (host.job.error ? `: ${host.job.error}` : ''));
+        }
+      }
+    });
+    updateText(status, hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.');
+    if (initialUptimePending) {
+      initialUptimePending = false;
+      refreshUptime();
+    }
+    if (hosts.some(host => ['queued', 'patching', 'rebooting'].includes(host.job?.status))) {
+      patchingTimer = setTimeout(loadPatchingHosts, 5000);
+    }
+  } catch (error) {
+    if (request !== patchingRequest) return;
+    updateText(status, error.message);
+    patchingTimer = setTimeout(loadPatchingHosts, 5000);
+  }
+}
+
+function setCronExpression(row, value) {
+  const expression = row.querySelector('[data-field="expression"]');
+  if (expression.value !== value) expression.value = value;
+}
+
+async function savePatchSchedule(row, machine) {
+  const enabled = row.querySelector('[data-field="scheduleEnabled"]');
+  const expression = row.querySelector('[data-field="expression"]');
+  const button = row.querySelector('[data-action="schedule"]');
+  const status = row.querySelector('.patch-row-status');
+  row.dataset.scheduleSaving = 'true';
+  enabled.disabled = button.disabled = true;
+  expression.disabled = true;
+  updateText(status, 'Saving schedule…');
+  try {
+    const response = await fetch('/api/patch-schedules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ machine, enabled: enabled.checked, expression: expression.value }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save patch schedule.');
+    enabled.checked = Boolean(result.schedule.enabled);
+    setCronExpression(row, result.schedule.expression);
+    delete row.dataset.scheduleDirty;
+    // Discard any host response started before this save completed.
+    ++patchingRequest;
+    updateText(status, enabled.checked ? 'Schedule saved.' : 'Schedule disabled.');
+    if (window.location.hash === '#patching') loadPatchingHosts();
+  } catch (error) {
+    updateText(status, error.message);
+  } finally {
+    delete row.dataset.scheduleSaving;
+    enabled.disabled = button.disabled = false;
+    expression.disabled = false;
+  }
+}
+
+async function refreshUptime() {
+  const button = document.getElementById('refresh-uptime');
+  if (button.disabled) return;
+  const status = document.getElementById('uptime-status');
+  const rows = [...document.querySelectorAll('#patching-hosts tr')];
+  let failures = 0;
+  const count = rows.length;
+  button.disabled = true;
+  updateText(status, 'Refreshing uptime…');
+  async function worker() {
+    while (rows.length) {
+      const row = rows.shift();
+      const cell = row.querySelector('[data-field="uptime"]');
+      const rowStatus = row.querySelector('.patch-row-status');
+      updateText(rowStatus, 'Refreshing uptime…');
+      try {
+        const response = await fetch(`/api/patching/hosts/${row.dataset.id}/uptime`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw new Error('Uptime unavailable');
+        const { uptimeSeconds: seconds } = await response.json();
+        const uptime = seconds < 60 ? `${Math.floor(seconds)} secs`
+          : seconds < 3600 ? `${Math.floor(seconds / 60)} min`
+          : seconds < 86400 ? `${(seconds / 3600).toFixed(1)} hours`
+          : `${(seconds / 86400).toFixed(1)} days`;
+        updateText(cell, uptime);
+        updateText(rowStatus, 'Uptime refreshed');
+      } catch (error) {
+        failures++;
+        updateText(cell, 'Unavailable');
+        updateText(rowStatus, 'Host unavailable');
+      }
+    }
+  }
+  try {
+    await Promise.all(Array.from({ length: Math.min(4, count) }, worker));
+    updateText(status, !count ? 'No Debian hosts to refresh.' : failures ? `Uptime refreshed; ${failures} host(s) unavailable.` : 'Uptime refreshed.');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById('refresh-uptime').addEventListener('click', refreshUptime);
+
+async function loadPatchReport() {
+  const request = ++patchReportRequest;
+  const status = document.getElementById('patch-report-status');
+  const body = document.getElementById('patch-report-rows');
+  try {
+    const response = await fetch('/api/patching/report', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Patch report is unavailable. Reopen Patching to try again.');
+    const { runs } = await response.json();
+    if (request !== patchReportRequest) return;
+    updatePatchRows(body, runs, (row, run, isNew) => {
+      if (isNew) {
+        for (let index = 0; index < 5; index++) row.append(document.createElement('td'));
+      }
+      const values = [localTimestamp(run.patchTime), machineLabel(run),
+        run.elapsedSeconds == null ? '---' : elapsedTime(run.elapsedSeconds),
+        { queued: 'Queued', patching: 'Patching', rebooting: 'Rebooting', succeeded: 'Succeeded', failed: 'Failed' }[run.status],
+        run.error || '---'];
+      values.forEach((value, index) => updateText(row.cells[index], value));
+    });
+    updateText(status, runs.length ? 'Most recent 100 patch runs, newest first.' : 'No patch runs yet.');
+  } catch (error) {
+    if (request !== patchReportRequest) return;
+    updateText(status, error.message);
+  }
+}
+
+window.addEventListener("hashchange", showPage);
+showPage();
+
+async function waitForScan(scanId) {
+  while (true) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const response = await fetch(`/api/scan?scanId=${scanId}`, {
+      cache: 'no-store', signal: AbortSignal.timeout(15000),
+    });
+    const scan = await response.json();
+    if (!response.ok) throw new Error(scan.error || 'Could not check the scan.');
+    if (scan.completedScanId >= scanId) {
+      if (scan.error) throw new Error(scan.error);
+      return;
+    }
+  }
+}
+
+async function refreshMachines(address = null, applicationsOnly = false, discoveryPage = false) {
+  if (refreshing) return;
+  refreshing = true;
+  const refresh = document.getElementById("refresh-button");
+  const rescan = document.getElementById("rescan-machine");
+  const applications = document.getElementById("rescan-applications");
+  const discovery = document.getElementById("scan-discovery");
+  const status = document.getElementById(discoveryPage ? "discovery-scan-status" : applicationsOnly ? "application-scan-status" : "graph-status");
+  refresh.disabled = true;
+  rescan.disabled = true;
+  applications.disabled = true;
+  discovery.disabled = true;
+  const button = discoveryPage ? discovery : applicationsOnly ? applications : address ? rescan : refresh;
+  button.textContent = "Scanning…";
+  status.textContent = applicationsOnly ? "Scanning applications…"
+    : address ? `Scanning ${address}…` : "Scanning the LAN…";
+  try {
+    const endpoint = applicationsOnly ? "/api/applications/scan"
+      : address ? `/api/machines/${address}/scan` : "/api/scan";
+    const response = await fetch(endpoint, { method: "POST", signal: AbortSignal.timeout(15000) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not start a scan.");
+    await waitForScan(result.scanId);
+    if (address) sessionStorage.setItem('rescan-machine', address);
+    window.location.reload();
+  } catch (error) {
+    status.textContent = error.message || "Scan failed. Try again.";
+  } finally {
+    refreshing = false;
+    refresh.disabled = false;
+    rescan.disabled = false;
+    discovery.disabled = false;
+    discovery.textContent = "Scan Now";
+    applications.disabled = false;
+    applications.textContent = "Re-Scan Applications";
+    rescan.textContent = "Re-Scan";
+    refresh.textContent = "Re-Scan Network";
+  }
+}
+
+document.getElementById("refresh-button").addEventListener("click", () => refreshMachines());
+document.getElementById("rescan-applications").addEventListener("click", () => refreshMachines(null, true));
+document.getElementById("rescan-machine").addEventListener("click", event => {
+  refreshMachines(event.currentTarget.dataset.address);
+});
+
+function machineLabel(machine) {
+  const shortName = machine.hostName ? machine.hostName.split(".")[0] : "";
+  return shortName ? shortName.charAt(0).toUpperCase() + shortName.slice(1) : machine.ipAddress;
+}
+
+function localTimestamp(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const pad = number => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} `
+    + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function softwareLabel(system) {
+  const name = system.name || system.subtype || system.type || "Software";
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
+  const version = system.subtype === "MariaDB"
+    ? system.version?.match(/^(?:5\.5\.5-)?(\d+\.\d+\.\d+)/)?.[1] || system.version
+    : system.version;
+  return title + (system.codename ? ` (${system.codename})` : "")
+    + (version ? ` ${version}` : "");
+}
+
+function renderDatabases(cell, names) {
+  const systemNames = ["mysql", "information_schema", "performance_schema", "sys"];
+  const isSystem = name => systemNames.includes(name.toLowerCase());
+  const userDatabases = names.filter(name => !isSystem(name));
+  const systemDatabases = names.filter(isSystem).sort((left, right) =>
+    systemNames.indexOf(left.toLowerCase()) - systemNames.indexOf(right.toLowerCase()));
+  for (const group of [userDatabases, systemDatabases]) {
+    for (const name of group) {
+      const line = document.createElement("div");
+      line.textContent = name;
+      cell.append(line);
+    }
+    if (group === userDatabases && group.length) cell.append(document.createElement("hr"));
+  }
+}
+
+function compareSoftware(left, right) {
+  const order = system => ["OS", "linux"].includes(system.type) ? 0
+    : system.type === "DBMS" && system.subtype === "MariaDB" ? 1 : 2;
+  const name = system => system.name || system.subtype || system.type || "Software";
+  return order(left) - order(right)
+    || name(left).localeCompare(name(right), undefined, { sensitivity: "base" });
+}
+
+async function loadMachines() {
+  const theme = getComputedStyle(document.documentElement);
+  const palette = Object.fromEntries(["background", "surface", "text", "border", "selection", "danger",
+    "software-surface", "software-unnamed", "software-selection", "software-danger"]
+    .map(color => [color, theme.getPropertyValue(`--${color}`).trim()]));
+  const status = document.getElementById("graph-status");
+  const details = document.getElementById("machine-details");
+  const selectionDetails = document.getElementById("selection-details");
+  const softwareDetails = document.getElementById("software-details");
+  const environment = document.getElementById("machine-environment");
+  const hostname = document.getElementById("detail-hostName");
+  const update = document.getElementById("update-machine");
+  const environmentStatus = document.getElementById("machine-environment-status");
+  let selectedMachine = null;
+  let selectedNode = null;
+  try {
+    if (typeof cytoscape !== "function") {
+      throw new Error("The machine graph could not be loaded. Refresh to try again.");
+    }
+    const response = await fetch("/api/machines", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("Machines are unavailable. Refresh to try again.");
+    }
+    const { machines, softwareDeployments = [] } = await response.json();
+    const labelFont = "bold 16px Arial";
+    const labelContext = document.createElement("canvas").getContext("2d");
+    labelContext.font = labelFont;
+    const labels = [...machines.map(machineLabel), ...softwareDeployments
+      .filter(system => machines.some(machine => machine.id === system.machine)).map(softwareLabel)];
+    const nodeWidth = Math.ceil(Math.max(0, ...labels.flatMap(label => label.split("\n")
+      .map(line => labelContext.measureText(line).width)))) + 24;
+    const nodeHeight = 32;
+    const groups = document.getElementById("machine-groups");
+    const graphs = [];
+    const sections = [];
+    const machineEnvironment = machine => {
+      const value = machine.taggedValue?.find(tag => tag.tag === "DeploymentEnvironment")?.value;
+      return ["prod", "qa", "dev"].includes(value) ? value : "unclassified";
+    };
+    for (const [value, title] of [["prod", "Production"], ["qa", "Quality Assurance"],
+      ["dev", "Development"], ["unclassified", "Unclassified"]]) {
+      const section = document.createElement("details");
+      section.className = "machine-group";
+      section.open = true;
+      const summary = document.createElement("summary");
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      const count = document.createElement("span");
+      count.className = "machine-group-count";
+      const container = document.createElement("div");
+      container.className = "machine-group-graph";
+      container.setAttribute("aria-label", `${title} machines`);
+      const empty = document.createElement("p");
+      empty.className = "machine-group-empty";
+      empty.textContent = "No machines in this environment.";
+      summary.append(heading, count);
+      section.append(summary, container, empty);
+      groups.append(section);
+      sections.push({ value, section, count, container, empty });
+    }
+    function renderGroups() {
+      for (const graph of graphs) graph.destroy();
+      graphs.length = 0;
+      for (const group of sections) {
+        const members = machines.filter(machine => machineEnvironment(machine) === group.value);
+        group.count.textContent = `Machines (${members.length})`;
+        group.empty.hidden = Boolean(members.length);
+        group.container.hidden = !members.length;
+        if (!members.length) continue;
+        const elements = [];
+        members.forEach(machine => {
+          const center = { x: 0, y: 0 };
+          const systems = softwareDeployments.filter(system => system.machine === machine.id && !system.componentName)
+            .sort(compareSoftware);
+          elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
+            classes: machine.reachable === false ? "machine down" : "machine", position: center });
+          systems.forEach((system, offset) => {
+            elements.push({ data: { ...system, id: `deployment-${system.id}`,
+              parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
+              grabbable: false,
+              position: { x: center.x, y: center.y + (offset - (systems.length - 1) / 2) * (nodeHeight + 12) } });
+          });
+        });
+        const graph = cytoscape({
+          container: group.container,
+          elements,
+          style: [
+            { selector: "node", style: {
+              "background-color": palette.surface, "border-color": palette.border, "border-width": 2,
+              "shape": "round-rectangle", "width": nodeWidth, "height": nodeHeight,
+              "label": "data(label)", "color": palette.text, "font-family": "Arial",
+              "font-size": 16, "font-weight": "bold", "text-valign": "center", "text-halign": "center",
+              "text-wrap": "wrap", "text-max-width": nodeWidth - 24,
+            } },
+            { selector: "node:selected", style: {
+              "background-color": palette.selection, "border-color": palette.selection, "border-width": 3,
+              "color": palette.text,
+            } },
+            { selector: ".machine[!hostName]", style: {
+              "background-color": palette.text, "border-color": palette.border, "color": palette.background,
+            } },
+            { selector: ".machine[!hostName]:selected", style: {
+              "background-color": palette.selection, "border-color": palette.selection, "color": palette.text,
+            } },
+            { selector: ".machine:parent", style: {
+              "padding": 24,
+              "text-valign": "top", "text-margin-y": 18,
+            } },
+            { selector: ".software", style: {
+              "background-color": palette["software-surface"], "border-color": palette.border, "color": palette.text,
+              "font-weight": "normal",
+            } },
+            { selector: ".machine[!hostName] > .software", style: {
+              "background-color": palette["software-unnamed"], "color": palette.background,
+            } },
+            { selector: ".machine.down", style: {
+              "background-color": palette.danger, "border-color": palette.border, "color": palette.text,
+            } },
+            { selector: ".machine.down > .software", style: {
+              "background-color": palette["software-danger"], "border-color": palette.border, "color": palette.text,
+            } },
+            { selector: ".machine.down:selected", style: {
+              "border-color": palette.selection, "border-width": 3,
+            } },
+            { selector: ".machine:selected > .software", style: {
+              "background-color": palette["software-selection"], "border-color": palette.selection, "color": palette.text,
+            } },
+            { selector: ".machine.down:selected > .software", style: {
+              "background-color": palette["software-danger"],
+            } },
+            { selector: ".software:selected", style: {
+              "background-color": palette["software-selection"], "border-color": palette.selection,
+              "border-width": 3, "color": palette.text,
+            } },
+          ],
+          layout: { name: "preset", padding: 40 },
+          selectionType: "single",
+          minZoom: 0.1,
+          maxZoom: 1,
+          autoungrabify: true,
+          userZoomingEnabled: false,
+          userPanningEnabled: false,
+        });
+        graphs.push(graph);
+        graph.on("unselect", "node", event => {
+          if (selectedNode === event.target) {
+            selectedNode = null;
+            selectedMachine = null;
+            selectionDetails.hidden = true;
+          }
+        });
+        graph.on("tap", "node", event => {
+          selectNode(event.target);
+        });
+        layoutGroup(group, graph);
+      }
+    }
+    function layoutGroup(group, graph) {
+      if (!group.section.open || !group.container.clientWidth) return;
+      const nodes = graph.nodes(".machine");
+      const boxes = nodes.map(node => node.boundingBox());
+      const cellWidth = Math.max(nodeWidth, ...boxes.map(box => box.w)) + 40;
+      const cellHeight = Math.max(nodeHeight, ...boxes.map(box => box.h)) + 40;
+      const width = group.container.clientWidth;
+      const columns = Math.max(1, Math.floor(width / cellWidth));
+      const rows = Math.ceil(nodes.length / columns);
+      nodes.forEach((node, index) => {
+        const box = boxes[index];
+        const position = node.position();
+        node.position({
+          x: position.x + (index % columns + 0.5) * cellWidth - (box.x1 + box.x2) / 2,
+          y: position.y + (Math.floor(index / columns) + 0.5) * cellHeight - (box.y1 + box.y2) / 2,
+        });
+      });
+      group.container.style.height = `${Math.ceil(rows * cellHeight * Math.min(1, width / cellWidth))}px`;
+      graph.resize();
+      graph.fit(undefined, 20);
+    }
+    function selectNode(node) {
+      for (const graph of graphs) graph.nodes().unselect();
+      node.select();
+      selectedNode = node;
+      selectionDetails.hidden = false;
+      details.hidden = node.hasClass("software");
+      if (details.hidden) {
+        selectedMachine = null;
+        renderSoftwareDetails([node.data()], true);
+        return;
+      }
+      selectedMachine = node;
+      environment.value = node.data("taggedValue")?.find(tag => tag.tag === "DeploymentEnvironment")?.value
+        ?? "unclassified";
+      environmentStatus.textContent = "";
+      hostname.value = node.data("hostName") ?? "";
+      for (const field of ["ipAddress", "macAddress", "createdOn", "updatedOn"]) {
+        const value = field === "createdOn" || field === "updatedOn"
+          ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
+        document.getElementById(`detail-${field}`).textContent = value;
+      }
+      details.open = true;
+      document.getElementById("rescan-machine").dataset.address = node.id();
+      document.getElementById("machine-heading").textContent = `Machine: ${machineLabel(node.data())}`;
+      const systems = node.children(".software").map(child => child.data()).sort(compareSoftware);
+      renderSoftwareDetails(systems);
+    }
+    function renderSoftwareDetails(systems, open = false) {
+      softwareDetails.replaceChildren();
+      const template = document.getElementById("software-detail-template");
+      for (const system of systems) {
+        const section = template.content.cloneNode(true);
+        section.querySelector("details").open = open;
+        const type = system.name || system.type || "Unknown";
+        const title = type === "linux" ? "Linux" : type === "DBMS" ? "RDBMS" : type;
+        section.querySelector("summary").textContent = `Software System: ${title}`;
+        for (const cell of section.querySelectorAll("[data-field]")) {
+          if (cell.dataset.field === "codename" && system.subtype === "MariaDB") {
+            cell.closest("tr").remove();
+          } else if (cell.dataset.field === "databases") {
+            if (system.name && system.databases?.length) {
+              cell.textContent = system.databases.join(", ");
+            } else if (system.subtype !== "MariaDB") {
+              cell.closest("tr").remove();
+            } else if (system.databases?.length) {
+              renderDatabases(cell, system.databases);
+            } else {
+              cell.textContent = "—";
+            }
+          } else {
+            cell.textContent = cell.dataset.field === "type" && system.type === "application"
+              ? "Application" : system[cell.dataset.field] ?? "—";
+          }
+        }
+        const components = softwareDeployments.filter(component => component.componentName
+          && component.machine === system.machine && component.softwareSystem === system.softwareSystem);
+        const componentTable = section.querySelector("[data-components]");
+        if (components.length) {
+          const body = componentTable.querySelector("tbody");
+          for (const component of components) {
+            const row = document.createElement("tr");
+            const name = document.createElement("td");
+            name.textContent = component.componentName;
+            const path = document.createElement("td");
+            const link = document.createElement("a");
+            link.textContent = component.pathname.split("/").filter(Boolean).pop() || "/";
+            link.title = component.pathname;
+            link.href = `file://${component.pathname.split("/").map(encodeURIComponent).join("/")}`;
+            path.append(link);
+            row.append(name, path);
+            body.append(row);
+          }
+        } else {
+          componentTable.remove();
+        }
+        softwareDetails.append(section);
+      }
+    }
+    update.addEventListener("click", async () => {
+      if (!selectedMachine || update.disabled) return;
+      const node = selectedMachine;
+      const value = environment.value;
+      const hostName = hostname.value.trim();
+      const machine = machines.find(machine => machine.id === node.data("machineId"));
+      let hostnameSaved = false;
+      let saved = false;
+      let message;
+      update.disabled = true;
+      environment.disabled = true;
+      hostname.disabled = true;
+      environmentStatus.textContent = "Saving…";
+      try {
+        if (hostName !== (machine.hostName ?? "")) {
+          const response = await fetch("/api/machines/hostname", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ipAddress: machine.ipAddress, hostName }),
+            signal: AbortSignal.timeout(15000),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Could not save the hostname. Try again.");
+          machine.hostName = result.machine.hostName;
+          machine.updatedOn = result.machine.updatedOn;
+          hostnameSaved = true;
+        }
+        const response = await fetch("/api/machines/environment", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ machine: node.data("machineId"), environment: value }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save the environment. Try again.");
+        const tags = (node.data("taggedValue") || []).filter(tag => tag.tag !== "DeploymentEnvironment");
+        if (result.environment !== "unclassified") {
+          tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
+        }
+        machine.taggedValue = tags;
+        saved = true;
+        message = "Machine details saved.";
+      } catch (error) {
+        message = (hostnameSaved ? "Host name saved. " : "")
+          + (error.message || "Could not save the machine details. Try again.");
+      } finally {
+        const selectedId = selectedNode?.id() ?? "";
+        const savedSelectedMachine = selectedMachine === node;
+        if (hostnameSaved || saved) {
+          renderGroups();
+          const selected = graphs.map(graph => graph.getElementById(selectedId)).find(node => node.length);
+          if (selected) selectNode(selected);
+        }
+        if (savedSelectedMachine) {
+          environment.value = value;
+          hostname.value = saved ? machine.hostName ?? "" : hostName;
+          environmentStatus.textContent = message;
+        }
+        update.disabled = false;
+        environment.disabled = false;
+        hostname.disabled = false;
+      }
+    });
+    renderGroups();
+    const observer = new ResizeObserver(() => {
+      for (const graph of graphs) {
+        layoutGroup(sections.find(group => group.container === graph.container()), graph);
+      }
+    });
+    for (const group of sections) {
+      observer.observe(group.container);
+      group.section.addEventListener("toggle", () => {
+        const graph = graphs.find(graph => graph.container() === group.container);
+        if (graph) layoutGroup(group, graph);
+      });
+    }
+    const rescanned = sessionStorage.getItem('rescan-machine');
+    sessionStorage.removeItem('rescan-machine');
+    const restored = graphs.map(graph => graph.getElementById(rescanned || '')).find(node => node.length);
+    if (restored) selectNode(restored);
+    status.textContent = machines.length ? "" : "No machines discovered yet.";
+  } catch (error) {
+    status.textContent = error.message || "Machines could not be loaded. Refresh to try again.";
+  }
+}
+
+const lastRefresh = document.getElementById("last-refresh");
+lastRefresh.textContent = localTimestamp(lastRefresh.dateTime);
+loadMachines();

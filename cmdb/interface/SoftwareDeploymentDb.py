@@ -38,16 +38,16 @@ class SoftwareDeploymentDb:
             "JOIN `Catalog` s ON s.id = dp.dataPackage "
             "JOIN ModelElement me ON me.id = s.id "
             "WHERE me.name IS NOT NULL "
-            "UNION "
+            "UNION ALL "
             "SELECT u.usingComponents AS dataManager, me.name FROM DeployedComponentsUsage u "
             "JOIN DataProvider p ON p.id = u.usedComponents "
             "JOIN DataManagerDataPackage dp ON dp.dataManager = p.id "
             "JOIN Catalog c ON c.id = dp.dataPackage JOIN ModelElement me ON me.id = c.id "
             "WHERE me.name IS NOT NULL ORDER BY dataManager, name"
         ):
-            databases.setdefault(row["dataManager"], []).append(row["name"])
+            databases.setdefault(row["dataManager"], set()).add(row["name"])
         for deployment in deployments:
-            deployment["databases"] = databases.get(deployment["id"], [])
+            deployment["databases"] = sorted(databases.get(deployment["id"], ()))
         return deployments
 
     def record_application(self, machine: int, application: int, pathname: str, version: str,
@@ -193,7 +193,7 @@ class SoftwareDeploymentDb:
                 'INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)',
                 (identity, pathname, machine, component))
 
-    def debian_hosts(self) -> list[dict]:
+    def debian_hosts(self, machine: int | None = None) -> list[dict]:
         """List machines whose deployed operating system is identified as Debian."""
         return self._db.query(
             "SELECT DISTINCT m.id, m.hostName, m.ipAddress FROM Machine m "
@@ -201,7 +201,8 @@ class SoftwareDeploymentDb:
             "JOIN Component c ON c.id=dc.component JOIN ModelElement me ON me.id=c.id "
             "JOIN SoftwareSystem ss ON ss.id=me.namespace "
             "WHERE dc.pathname='/' AND ss.type='linux' AND ss.subtype='debian' "
-            "ORDER BY m.hostName, m.ipAddress")
+            + ("AND m.id=%s " if machine is not None else "")
+            + "ORDER BY m.hostName, m.ipAddress", (machine,) if machine is not None else ())
 
     def record_operating_system(self, machine: int, system: SoftwareSystem) -> None:
         """Refresh the scanner's OS deployment at / within the caller's transaction.

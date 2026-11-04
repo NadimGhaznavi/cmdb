@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-04 @ 03:28
+
 ### Summary
 
 Persist machine reachability as the `IsOnline` tagged value collected during

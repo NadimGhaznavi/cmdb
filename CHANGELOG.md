@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-06 @ 18:48
+
 ### Summary
 
 Capture comprehensive IP-only Nmap evidence for responding unclassified devices

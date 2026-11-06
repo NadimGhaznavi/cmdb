@@ -617,6 +617,39 @@ class ServerTests(unittest.TestCase):
             connection.close()
 
     @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
+    def test_raw_scan_page_returns_verbatim_plain_text_without_running_scanner(self, factory):
+        output = '<script>alert(1)</script>\n443/tcp open https\n東京\n'
+        factory.return_value.query.return_value = [{'value': output}]
+        scanner = self.server.inventory_coordinator = Mock()
+        connection = HTTPConnection(*self.server.server_address)
+        try:
+            connection.request('GET', '/machines/7/raw-scan')
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.getheader('Content-Type'), 'text/plain; charset=utf-8')
+            self.assertEqual(response.getheader('X-Content-Type-Options'), 'nosniff')
+            self.assertEqual(response.getheader('Cache-Control'), 'no-store')
+            self.assertEqual(response.read().decode(), output)
+        finally:
+            connection.close()
+        self.assertEqual(factory.return_value.query.call_args.args[1], (7, 'RawScanData'))
+        factory.return_value.close.assert_called_once()
+        scanner.request_scan.assert_not_called()
+
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
+    def test_raw_scan_page_missing_records_invalid_ids_and_database_failure(self, factory):
+        for identity in ('0', '-1', 'invalid', '7/8', str(2**64), '9' * 21):
+            with self.subTest(identity=identity):
+                self.assertEqual(self.get(f'/machines/{identity}/raw-scan')[0], 404)
+        factory.assert_not_called()
+        factory.return_value.query.return_value = []
+        self.assertEqual(self.get('/machines/7/raw-scan')[0], 404)
+        factory.return_value.query.side_effect = pymysql.OperationalError('private details')
+        status, body = self.get('/machines/7/raw-scan')
+        self.assertEqual(status, 503)
+        self.assertNotIn(b'private details', body)
+
+    @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
     def test_save_machine_environment_and_clear_tag(self, factory):
         db = factory.return_value
         db.query.return_value = [{'id': 7}]
@@ -634,6 +667,9 @@ class ServerTests(unittest.TestCase):
                 else:
                     self.assertIn('ON DUPLICATE KEY UPDATE', sql)
                     self.assertEqual(params, (7, 'DeploymentEnvironment', value))
+                    self.assertEqual(db.execute.call_args_list[0].args,
+                                     ('DELETE FROM TaggedValue WHERE modelElement = %s AND tag = %s',
+                                      (7, 'RawScanData')))
                 db.transaction.assert_called_once()
                 db.close.assert_called_once()
 

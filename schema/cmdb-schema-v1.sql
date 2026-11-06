@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `Schema` (
 CREATE TABLE IF NOT EXISTS TaggedValue (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     tag VARCHAR(255) NOT NULL,
-    value TEXT NOT NULL,
+    value LONGTEXT NOT NULL,
     modelElement BIGINT UNSIGNED NULL,
     UNIQUE KEY TaggedValue_modelElement_tag_uq (modelElement, tag),
     CONSTRAINT TaggedValue_ModelElement_fk FOREIGN KEY (modelElement) REFERENCES ModelElement (id)

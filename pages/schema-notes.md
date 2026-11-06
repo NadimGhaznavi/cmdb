@@ -174,6 +174,14 @@ the gateway's hostname and environment in its inventory transaction; a failed
 batch rolls back those writes together. Web environment updates open their own
 transaction before calling the same domain operation.
 
+Unclassified machines can own a `RawScanData` tag containing Nmap's normal text
+output. Fresh schemas use `LONGTEXT` for `TaggedValue.value` so captures can
+exceed 64 KiB. Successful raw scans replace the value; incomplete scans preserve
+an existing value and only save partial output when no capture exists. The value
+survives offline discovery and is deleted when the machine is classified as dev,
+qa, or prod. Both writes lock the owning Machine row so a late scan result cannot
+restore a deleted capture. Existing schemas are not migrated automatically.
+
 The scanner includes `VERSION_CODENAME` in software-definition matching. Hosts
 with matching release fields and codenames share the same definition and tag.
 A changed codename selects or creates a separate definition rather than changing

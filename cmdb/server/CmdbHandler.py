@@ -134,6 +134,21 @@ class CmdbHandler(BaseHTTPRequestHandler):
             records = [machine_record(machine) for machine in machines]
             self.respond(200, json.dumps({"machines": records, "softwareDeployments": deployments})
                          .encode("utf-8"), "application/json")
+        elif path.startswith('/machines/') and path.endswith('/raw-scan'):
+            identity = path.removeprefix('/machines/').removesuffix('/raw-scan')
+            if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
+                self.respond(404, b'Raw scan data not found.\n', 'text/plain; charset=utf-8')
+                return
+            try:
+                with connect_database() as db:
+                    output = MachineDb(db).raw_scan(int(identity))
+            except pymysql.MySQLError:
+                self.respond(503, b'Raw scan data is unavailable.\n', 'text/plain; charset=utf-8')
+                return
+            if output is None:
+                self.respond(404, b'Raw scan data not found.\n', 'text/plain; charset=utf-8')
+            else:
+                self.respond(200, output.encode('utf-8'), 'text/plain; charset=utf-8')
         elif path == '/api/backups' or path.startswith('/api/backups/'):
             try:
                 with connect_database() as db:

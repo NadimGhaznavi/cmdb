@@ -68,8 +68,9 @@ cmdb ALL=(cmdbagent) NOPASSWD: /bin/sh
 ```
 
 This grants the `cmdb` user passwordless root access to Nmap with unrestricted
-arguments. The Nmap interface uses python-nmap's `sudo=True` option, with the
-executable fixed to `/usr/bin/nmap`. The service sets `NoNewPrivileges=false`
+arguments. Structured scans use python-nmap's `sudo=True` option; raw captures
+run `sudo -n /usr/bin/nmap` directly to retain normal output and partial results.
+Both use the fixed `/usr/bin/nmap` executable. The service sets `NoNewPrivileges=false`
 to allow sudo; the Python server itself continues to run as `cmdb`.
 
 Application files are copied to `/opt/prod/cmdb`, with Python dependencies in

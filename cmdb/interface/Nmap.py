@@ -1,5 +1,7 @@
-"""Run network scans through python-nmap."""
+"""Run structured and raw-output Nmap scans."""
 
+from ipaddress import ip_address
+import subprocess
 from typing import Any
 
 import nmap
@@ -29,3 +31,18 @@ class Nmap:
         return self._scanner.scan(
             hosts=hosts, ports=ports, arguments=arguments, timeout=timeout, sudo=True,
         )
+
+    def scan_raw(self, address: str, *, timeout: int) -> str:
+        """Capture normal Nmap output, including partial output on failure."""
+        target = ip_address(address)
+        command = ['sudo', '-n', '/usr/bin/nmap', '-n', '-Pn', '-A', '-p-',
+                   '--version-all', '--reason', '-v', '--host-timeout', f'{timeout}s',
+                   '--script-timeout', '30s', '-oN', '-']
+        if target.version == 6:
+            command.append('-6')
+        command.append(str(target))
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                timeout=timeout + 30, check=True)
+        if b'due to host timeout' in result.stdout:
+            raise subprocess.TimeoutExpired(command, timeout, output=result.stdout)
+        return result.stdout.decode('utf-8', errors='replace')

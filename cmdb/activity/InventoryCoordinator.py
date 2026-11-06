@@ -17,6 +17,7 @@ from cmdb.activity.sources.HostSource import HostSource
 from cmdb.activity.sources.MariaDBSource import MariaDBSource
 from cmdb.activity.sources.NetworkSource import NetworkSource
 from cmdb.activity.sources.NmapOSSource import NmapOSSource
+from cmdb.activity.sources.RawScanSource import RawScanSource
 from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.Database import connect_database
 from cmdb.interface.MachineDb import MachineDb
@@ -50,6 +51,7 @@ class InventoryCoordinator(Thread):
         self._protected_applications = set()
         self._network = NetworkSource()
         self._nmap_os = NmapOSSource()
+        self._raw_scan = RawScanSource()
         self._host = HostSource(self._stop_requested)
         self._mariadb = MariaDBSource(self._stop_requested)
         self._application = ApplicationSource()
@@ -153,6 +155,15 @@ class InventoryCoordinator(Thread):
                 machine.hostName = 'GATEWAY' if machine.ipAddress == gateway else hostnames.get(machine.id)
         if not machines or self._stop_requested.is_set():
             return
+        for machine in stored:
+            environment = next((tag.value for tag in machine.taggedValue
+                                if tag.tag == 'DeploymentEnvironment'), None)
+            if machine.ipAddress in up_hosts and environment not in ('dev', 'qa', 'prod'):
+                if self._stop_requested.is_set():
+                    return
+                self._collect_raw_scan(machine)
+        if self._stop_requested.is_set():
+            return
         scan_error = None
         try:
             observations = self._nmap_os.collect([machine.ipAddress for machine in machines])
@@ -172,6 +183,27 @@ class InventoryCoordinator(Thread):
             self._collect_applications(machine, applications)
         if scan_error is not None:
             raise scan_error
+
+    def _collect_raw_scan(self, machine: Machine) -> None:
+        self.status_messages.append(f'{machine.ipAddress}: raw scan started.')
+        complete = True
+        try:
+            output = self._raw_scan.collect(machine.ipAddress)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+            complete = False
+            partial = (error.output or b'').decode('utf-8', errors='replace')
+            reason = 'timed out' if isinstance(error, subprocess.TimeoutExpired) else 'failed'
+            output = f'{partial}\n[CMDB: raw scan {reason}; output may be incomplete.]\n'
+        except (nmap.PortScannerError, OSError):
+            self.status_messages.append(f'{machine.ipAddress}: raw scan failed; previous data retained.')
+            return
+        with inventory_database() as db:
+            saved = MachineDb(db).record_raw_scan(machine.id, output, overwrite=complete)
+        if saved:
+            message = 'raw scan complete.' if complete else 'raw scan incomplete; existing data retained when available.'
+            self.status_messages.append(f'{machine.ipAddress}: {message}')
+        else:
+            self.status_messages.append(f'{machine.ipAddress}: raw scan discarded; machine classified or removed.')
 
     def _collect_host(self, machine: Machine) -> None:
         try:

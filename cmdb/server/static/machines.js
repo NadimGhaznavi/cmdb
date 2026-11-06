@@ -1247,6 +1247,9 @@ async function loadMachines() {
         ?? "unclassified";
       environmentStatus.textContent = "";
       hostname.value = node.data("hostName") ?? "";
+      const rawScan = node.data("taggedValue")?.some(tag => tag.tag === "RawScanData");
+      document.getElementById("raw-scan-row").hidden = !rawScan;
+      document.getElementById("raw-scan-link").href = `/machines/${node.data("machineId")}/raw-scan`;
       for (const field of ["ipAddress", "macAddress", "createdOn", "updatedOn"]) {
         const value = field === "createdOn" || field === "updatedOn"
           ? localTimestamp(node.data(field)) : node.data(field) ?? "—";
@@ -1343,7 +1346,8 @@ async function loadMachines() {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not save the environment. Try again.");
-        const tags = (node.data("taggedValue") || []).filter(tag => tag.tag !== "DeploymentEnvironment");
+        const tags = (node.data("taggedValue") || []).filter(tag => tag.tag !== "DeploymentEnvironment"
+          && (result.environment === "unclassified" || tag.tag !== "RawScanData"));
         if (result.environment !== "unclassified") {
           tags.push({ tag: "DeploymentEnvironment", value: result.environment, modelElement: node.data("machineId") });
         }

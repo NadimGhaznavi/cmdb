@@ -37,3 +37,4 @@ class DCMDB:
     DISCOVERY_CRON: Final[str] = "*/5 * * * *"
     SCAN_TIMEOUT_SECONDS: Final[int] = 30
     OS_SCAN_TIMEOUT_SECONDS: Final[int] = 180
+    RAW_SCAN_TIMEOUT_SECONDS: Final[int] = 300

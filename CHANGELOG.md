@@ -7,6 +7,27 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Summary
+
+Capture comprehensive IP-only Nmap evidence for responding unclassified devices
+before OS and SSH inventory, so their details remain available after they leave
+the network.
+
+### Added
+
+- Store raw scan output in the machine's `RawScanData` tagged value and expose a
+  `raw scan data` link in its details sidebar, opening a plain-text output page.
+- Scan all TCP ports with service/version detection, OS detection, default
+  scripts, and traceroute, without DNS resolution, bounded to five minutes per host.
+- Preserve existing captures on scan failures or offline discovery; retain partial
+  output when no previous capture exists and report incomplete scans in Status Messages.
+
+### Changed
+
+- Delete captured evidence when assigning dev, qa, or prod, and prevent in-flight
+  scans from restoring evidence after classification or machine deletion.
+- Use `LONGTEXT` for tagged values in fresh schemas to retain large scan output.
+
 ## [1.13.0] - 2026-11-04 @ 03:28
 
 ### Summary

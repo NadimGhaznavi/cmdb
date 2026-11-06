@@ -56,11 +56,35 @@ class MachineDb:
             )
         else:
             self._db.execute(
+                'DELETE FROM TaggedValue WHERE modelElement = %s AND tag = %s',
+                (machine_id, 'RawScanData'),
+            )
+            self._db.execute(
                 'INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s) '
                 'ON DUPLICATE KEY UPDATE value = VALUES(value)',
                 (machine_id, 'DeploymentEnvironment', environment),
             )
         return True
+
+    def record_raw_scan(self, machine_id: int, output: str, *, overwrite: bool = True) -> bool:
+        """Save evidence only while unclassified, locking against classification/deletion."""
+        if not self._db.query('SELECT id FROM Machine WHERE id = %s FOR UPDATE', (machine_id,)):
+            return False
+        if self._db.query(
+                'SELECT id FROM TaggedValue WHERE modelElement = %s AND tag = %s '
+                "AND value IN ('dev', 'qa', 'prod')", (machine_id, 'DeploymentEnvironment')):
+            return False
+        update = 'value = VALUES(value)' if overwrite else 'id = id'
+        self._db.execute(
+            'INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s) '
+            f'ON DUPLICATE KEY UPDATE {update}', (machine_id, 'RawScanData', output))
+        return True
+
+    def raw_scan(self, machine_id: int) -> str | None:
+        rows = self._db.query(
+            'SELECT tv.value FROM TaggedValue tv JOIN Machine m ON m.id = tv.modelElement '
+            'WHERE m.id = %s AND tv.tag = %s', (machine_id, 'RawScanData'))
+        return rows[0]['value'] if rows else None
 
     def delete_machine(self, machine_id: int) -> tuple[list[int], list[int]] | None:
         """Remove a machine and its owned inventory in the caller's transaction.

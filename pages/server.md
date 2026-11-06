@@ -13,6 +13,7 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `/` | Boxed machine graph with clickable nodes and stored machine details. |
 | `DELETE /api/machines/<id>` | Removes one machine, its deployed components, owned database inventory, and backup/patch schedules and cron entries; retains backup history and files. Returns HTTP 404 for a missing ID. |
 | `/api/machines` | Reads machines from MariaDB as JSON; HTTP 503 when the database is unavailable. |
+| `GET /machines/<id>/raw-scan` | Displays stored unclassified-device scan output as plain text; HTTP 404 when no capture exists. |
 | `GET /api/network/ports` | Reports stored listener declarations by host, application, service name, and integer port number; HTTP 503 when the database is unavailable. |
 | `POST /api/applications` | Registers a named SoftwareSystem and queues its discovery; returns HTTP 201 with id, name, and scanId. |
 | `DELETE /api/applications/<id>` | Removes one registered SoftwareSystem and its application deployments; returns HTTP 404 for a missing ID. |
@@ -155,6 +156,14 @@ inventory steps for that host alone, then reloads with the machine selected.
 Requests made during an active workload wait in the same queue.
 Other machines' reachability results are preserved by a single-host scan.
 
+Responding Unclassified machines receive a comprehensive Nmap scan immediately
+after discovery, before the OS and SSH follow-ups. The details sidebar offers a
+`raw scan data` link when captured output is available, including while the
+machine is offline. The link opens the stored output as plain text. Assigning
+Dev, QA, or Prod deletes that machine's `RawScanData` tagged value; returning it
+to Unclassified allows the next responding inventory scan to capture it again.
+Classification or deletion during a scan prevents the result from being saved.
+
 Delete follows Update on the same row and asks for confirmation. It removes the
 machine and its deployed components from CMDB, including owned database catalogs,
 connection and usage links, tags, patch records, and backup/patch schedules with
@@ -292,7 +301,8 @@ Python environment.
 [python-nmap](https://pypi.org/project/python-nmap/). Install the Python
 dependencies above and ensure the `nmap` executable is installed on the scanning
 host at `/usr/bin/nmap`; the Python package does not install that executable.
-Scans use sudo through python-nmap. Installation grants the `cmdb` account
+Structured scans use sudo through python-nmap; raw captures invoke Nmap directly
+through noninteractive sudo. Installation grants the `cmdb` account
 passwordless root access to Nmap with unrestricted arguments, enabling LAN ARP
 discovery and MAC collection. See
 [installation]({{ site.baseurl }}{% link pages/installation.md %}) for the sudoers
@@ -347,7 +357,21 @@ the previous result. Hosts outside the scanned subnet and hosts awaiting the
 first successful scan keep their usual colors.
 
 After committing machine discovery and closing its database connection, the
-worker runs a separate OS scan against the responding IPs using
+worker captures each responding unclassified host using
+`sudo -n /usr/bin/nmap -n -Pn -A -p- --version-all --reason -v --host-timeout 300s --script-timeout 30s -oN - <IP>`.
+The target must be an IP address; `-n` disables DNS resolution. The scan covers
+TCP ports 1–65535, service/version probes, OS detection, default scripts, and
+traceroute; it does not scan UDP ports. IPv6 targets also use `-6`.
+`RAW_SCAN_TIMEOUT_SECONDS` defaults to `300`; an outer process timeout stops
+waiting after `330` seconds. Captured stdout and stderr are stored verbatim in the
+machine's `RawScanData` tag. Each successful scan replaces the previous capture.
+Timeouts and nonzero exits retain any existing capture; when none exists, partial
+output is saved with an incomplete marker. Launch failures preserve existing
+data. Failures appear in Status Messages and do not prevent the normal OS/SSH
+inventory. Offline discovery leaves captured data intact. Application-only scans
+do not run these raw scans.
+
+The worker then runs a separate OS scan against the responding IPs using
 `-O -n --osscan-limit --max-os-tries 1`. It uses Nmap's default TCP port set;
 port results are not stored. `OS_SCAN_TIMEOUT_SECONDS` defaults to `180`.
 [Nmap OS detection](https://nmap.org/book/man-os-detection.html) works best with
@@ -389,6 +413,7 @@ inventory records:
 | Source | Observation |
 | --- | --- |
 | NetworkSource | Responding IPs and available MAC addresses |
+| RawScanSource | Comprehensive Nmap output for responding unclassified hosts |
 | NmapOSSource | Unambiguous Nmap OS classifications |
 | HostSource | Hostname, interface MAC address, and host-reported OS release |
 | MariaDBSource | MariaDB version, data directory, and schema names |

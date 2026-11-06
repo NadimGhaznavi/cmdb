@@ -36,10 +36,11 @@ class InventoryCoordinatorTests(TestCase):
         self.MachineDb.return_value.list_machines.return_value = [Machine('192.0.2.7', id=7)]
         self.MachineDb.return_value.upsert.return_value = 7
         self.worker = InventoryCoordinator()
-        for name in ('_network', '_nmap_os', '_host', '_mariadb', '_application'):
+        for name in ('_network', '_raw_scan', '_nmap_os', '_host', '_mariadb', '_application'):
             setattr(self.worker, name, Mock())
         self.worker._network.collect.return_value = [Machine('192.0.2.7')]
         self.worker._nmap_os.collect.return_value = []
+        self.worker._raw_scan.collect.return_value = 'Nmap scan report for 192.0.2.7\n'
         self.worker._host.ensure_access.return_value = True
         self.worker._host.collect.return_value = {
             'hostname': 'SALLY.Example.COM', 'mac_address': None, 'system': None}
@@ -94,6 +95,7 @@ class InventoryCoordinatorTests(TestCase):
             return read
         system = SoftwareSystem(type='OS', subtype='Linux', version='6.X')
         self.worker._network.collect.side_effect = collect('network', [Machine('192.0.2.7')])
+        self.worker._raw_scan.collect.side_effect = collect('raw-scan', 'raw output')
         self.worker._nmap_os.collect.side_effect = collect('nmap-os', [('192.0.2.7', system)])
         self.worker._host.ensure_access.side_effect = collect('access', True)
         self.worker._host.collect.side_effect = collect('host', {
@@ -102,7 +104,8 @@ class InventoryCoordinatorTests(TestCase):
         self.worker._mariadb.collect.side_effect = collect('mariadb', observation)
         self.worker._application.collect.side_effect = collect('application', ('observed', '/opt/prod/mycount', SoftwareSystem(version='1.2.3'), (), (), None))
         self.worker.scan_inventory()
-        self.assertEqual(order, ['network', 'nmap-os', 'access', 'host', 'mariadb', 'application'])
+        self.assertEqual(order, ['network', 'raw-scan', 'nmap-os', 'access', 'host', 'mariadb', 'application'])
+        self.MachineDb.return_value.record_raw_scan.assert_called_once_with(7, 'raw output', overwrite=True)
         self.DataManagerDb.return_value.record_mariadb.assert_called_once_with(7, **observation)
         self.MachineDb.return_value.update_discovered_mac.assert_called_once_with(7, 'AA:BB:CC:DD:EE:FF')
         self.assertEqual(self.SoftwareDeploymentDb.return_value.record_operating_system.call_count, 2)
@@ -110,6 +113,51 @@ class InventoryCoordinatorTests(TestCase):
             7, 17, '/opt/prod/mycount', '1.2.3',
             type=None, subtype=None, supplier=None, codename=None, components=(), databases=(), network=None)
         self.assertEqual(self.worker.status_messages.snapshot()[-1]['message'], 'sally: MyCount 1.2.3')
+
+    def test_raw_scans_include_existing_unclassified_hosts_and_skip_classified_or_absent_hosts(self):
+        stored = [Machine(f'192.0.2.{identity}', id=identity, taggedValue=tags)
+                  for identity, tags in (
+                      (7, []), (8, [TaggedValue(tag='DeploymentEnvironment', value='unexpected')]),
+                      (9, [TaggedValue(tag='DeploymentEnvironment', value='dev')]),
+                      (10, [TaggedValue(tag='DeploymentEnvironment', value='qa')]),
+                      (11, [TaggedValue(tag='DeploymentEnvironment', value='prod')]),
+                      (12, []))]
+        self.MachineDb.return_value.list_machines.return_value = stored
+        self.worker._network.collect.return_value = stored[:-1]
+        self.worker.scan_inventory()
+        self.assertEqual([call.args for call in self.worker._raw_scan.collect.call_args_list],
+                         [('192.0.2.7',), ('192.0.2.8',)])
+        self.worker._raw_scan.collect.reset_mock()
+        self.worker.scan_applications()
+        self.worker._raw_scan.collect.assert_not_called()
+
+    def test_raw_scan_timeout_or_failure_saves_partial_without_replacing_existing_evidence(self):
+        for error in (subprocess.TimeoutExpired('nmap', 300, output=b'open port 443'),
+                      subprocess.CalledProcessError(1, 'nmap', output=b'open port 443')):
+            with self.subTest(error=error):
+                self.worker._raw_scan.collect.side_effect = error
+                self.MachineDb.return_value.record_raw_scan.reset_mock()
+                self.worker.scan_inventory()
+                args, kwargs = self.MachineDb.return_value.record_raw_scan.call_args
+                self.assertEqual(args[0], 7)
+                self.assertIn('open port 443', args[1])
+                self.assertIn('incomplete', args[1])
+                self.assertEqual(kwargs, {'overwrite': False})
+                self.assertTrue(any('raw scan incomplete' in row['message']
+                                    for row in self.worker.status_messages.snapshot()))
+        self.assertEqual(self.worker._host.collect.call_count, 2)
+
+    def test_raw_scan_launch_failure_preserves_data_and_continues_host_inventory(self):
+        self.worker._raw_scan.collect.side_effect = OSError('unavailable')
+        self.worker.scan_inventory()
+        self.MachineDb.return_value.record_raw_scan.assert_not_called()
+        self.worker._host.collect.assert_called_once()
+
+    def test_shutdown_after_raw_scan_preserves_capture_and_skips_followups(self):
+        self.worker._raw_scan.collect.side_effect = lambda address: self.worker._stop_requested.set() or 'captured'
+        self.worker.scan_inventory()
+        self.MachineDb.return_value.record_raw_scan.assert_called_once_with(7, 'captured', overwrite=True)
+        self.worker._nmap_os.collect.assert_not_called()
 
     def test_os_timeout_still_collects_host_database_and_applications(self):
         self.worker._nmap_os.collect.side_effect = nmap.PortScannerTimeout('timeout')

@@ -328,6 +328,47 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         with self.db.transaction():
             self.assertFalse(self.machines.update_discovered_online(999999, True))
 
+    def test_raw_scan_storage_large_output_retention_and_classification_cleanup(self):
+        first = self.machines.upsert(Machine('192.0.2.7'))
+        second = self.machines.upsert(Machine('192.0.2.8'))
+        output = '443/tcp open https 東京\n' * 5000
+        self.assertGreater(len(output.encode()), 65535)
+        with self.db.transaction():
+            self.assertTrue(self.machines.record_raw_scan(first, output))
+            self.assertTrue(self.machines.record_raw_scan(second, 'other host'))
+        self.assertEqual(self.machines.raw_scan(first), output)
+        with self.db.transaction():
+            self.machines.record_raw_scan(first, 'incomplete', overwrite=False)
+            self.machines.update_discovered_online(first, False)
+        self.assertEqual(self.machines.raw_scan(first), output)
+        with self.db.transaction():
+            self.machines.record_raw_scan(first, 'new capture')
+        self.assertEqual(self.machines.raw_scan(first), 'new capture')
+        for environment in ('dev', 'qa', 'prod'):
+            with self.db.transaction():
+                self.machines.update_environment(first, environment)
+                self.assertFalse(self.machines.record_raw_scan(first, 'late result'))
+            self.assertIsNone(self.machines.raw_scan(first))
+            self.assertEqual(self.machines.raw_scan(second), 'other host')
+            with self.db.transaction():
+                self.machines.update_environment(first, 'unclassified')
+                self.machines.record_raw_scan(first, 'capture again')
+        with self.assertRaisesRegex(RuntimeError, 'rollback'):
+            with self.db.transaction():
+                self.machines.update_environment(first, 'prod')
+                raise RuntimeError('rollback')
+        self.assertEqual(self.machines.raw_scan(first), 'capture again')
+        with self.db.transaction():
+            self.assertFalse(self.machines.record_raw_scan(999999, 'removed host'))
+        self.assertIsNone(self.machines.raw_scan(999999))
+
+    def test_first_incomplete_raw_scan_is_saved_but_does_not_replace_evidence(self):
+        identity = self.machines.upsert(Machine('192.0.2.7'))
+        with self.db.transaction():
+            self.machines.record_raw_scan(identity, 'partial output', overwrite=False)
+            self.machines.record_raw_scan(identity, 'later failure', overwrite=False)
+        self.assertEqual(self.machines.raw_scan(identity), 'partial output')
+
     def test_scan_observations_persist_for_existing_offline_and_new_online_machines(self):
         with self.db.transaction():
             offline = self.machines.upsert(Machine('192.0.2.7'))
@@ -335,6 +376,7 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         worker = InventoryCoordinator()
         worker._network.collect = Mock(return_value=[Machine('192.0.2.8')])
         worker._nmap_os.collect = Mock(return_value=[])
+        worker._raw_scan.collect = Mock(return_value='raw scan output')
         worker._host.ensure_access = Mock(return_value=False)
         with patch('cmdb.activity.InventoryCoordinator.connect_database', return_value=self.db), \
                 patch.object(self.db, 'close'), \
@@ -343,7 +385,8 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
             worker.scan_inventory()
         records = {record.ipAddress: record for record in self.machines.list_machines()}
         self.assertEqual({tag.tag: tag.value for tag in records['192.0.2.7'].taggedValue}, {'IsOnline': 'false'})
-        self.assertEqual({tag.tag: tag.value for tag in records['192.0.2.8'].taggedValue}, {'IsOnline': 'true'})
+        self.assertEqual({tag.tag: tag.value for tag in records['192.0.2.8'].taggedValue},
+                         {'IsOnline': 'true', 'RawScanData': 'raw scan output'})
         self.assertEqual(records['192.0.2.7'].id, offline)
         self.assertEqual(records['192.0.3.7'].id, outside)
         self.assertEqual(records['192.0.3.7'].taggedValue, [])

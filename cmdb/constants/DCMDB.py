@@ -7,8 +7,8 @@ class DCMDB:
     CMDB_TYPE: Final[str] = "application"
     CMDB_SUBTYPE: Final[str] = "Metadata Repo"
     CMDB_SUPPLIER: Final[str] = "Nadim-Daniel"
-    CMDB_CODENAME: Final[str] = "Apophis"
-    VERSION: Final[str] = "1.13.0"
+    CMDB_CODENAME: Final[str] = "Hapi"
+    VERSION: Final[str] = "1.14.0"
     CMDB_DATABASES: Final[tuple[tuple[str, str], ...]] = (("CMDB", "cmdb"),)
     CMDB_NETWORK: Final[tuple[tuple[str, str, int], ...]] = (
         ("http", "0.0.0.0", 14444),
@@ -37,3 +37,4 @@ class DCMDB:
     DISCOVERY_CRON: Final[str] = "*/5 * * * *"
     SCAN_TIMEOUT_SECONDS: Final[int] = 30
     OS_SCAN_TIMEOUT_SECONDS: Final[int] = 180
+    RAW_SCAN_TIMEOUT_SECONDS: Final[int] = 300

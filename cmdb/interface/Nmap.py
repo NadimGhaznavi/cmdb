@@ -33,16 +33,16 @@ class Nmap:
         )
 
     def scan_raw(self, address: str, *, timeout: int) -> str:
-        """Capture normal Nmap output, including partial output on failure."""
+        """Capture common TCP ports and basic service details within one short budget."""
         target = ip_address(address)
-        command = ['sudo', '-n', '/usr/bin/nmap', '-n', '-Pn', '-A', '-p-',
-                   '--version-all', '--reason', '-v', '--host-timeout', f'{timeout}s',
-                   '--script-timeout', '30s', '-oN', '-']
+        command = ['sudo', '-n', '/usr/bin/nmap', '-n', '-Pn', '-sV', '--version-light',
+                   '--top-ports', '1000', '-T4', '--max-retries', '1', '--reason', '-v',
+                   '--stats-every', '5s', '--host-timeout', f'{timeout}s']
         if target.version == 6:
             command.append('-6')
         command.append(str(target))
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                timeout=timeout + 30, check=True)
+                                timeout=timeout, check=True)
         if b'due to host timeout' in result.stdout:
             raise subprocess.TimeoutExpired(command, timeout, output=result.stdout)
         return result.stdout.decode('utf-8', errors='replace')

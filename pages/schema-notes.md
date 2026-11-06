@@ -174,7 +174,7 @@ the gateway's hostname and environment in its inventory transaction; a failed
 batch rolls back those writes together. Web environment updates open their own
 transaction before calling the same domain operation.
 
-Unclassified machines can own a `RawScanData` tag containing Nmap's normal text
+Unclassified machines can own a `RawScanData` tag containing Nmap's text
 output. Fresh schemas use `LONGTEXT` for `TaggedValue.value` so captures can
 exceed 64 KiB. Successful raw scans replace the value; incomplete scans preserve
 an existing value and only save partial output when no capture exists. The value

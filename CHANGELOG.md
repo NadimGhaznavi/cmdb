@@ -7,6 +7,21 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Summary
+
+Bound automatic unclassified-device captures to 30 seconds and scan common TCP
+ports with lightweight service detection so transient devices do not hold up
+inventory for minutes.
+
+### Changed
+
+- Replace all-port, exhaustive version, OS, default-script, and traceroute scanning with
+  the 1,000 most common TCP ports, lightweight service probes, and one retry.
+- Keep DNS resolution disabled and apply the same 30-second limit to the Nmap
+  host scan and subprocess wait, removing the additional 30-second grace period.
+- Capture interactive output and five-second progress updates so interrupted
+  scans can retain early port observations instead of only a scan header.
+
 ## [1.14.0] - 2026-11-06 @ 18:48
 
 ### Summary

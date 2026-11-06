@@ -132,7 +132,7 @@ class InventoryCoordinatorTests(TestCase):
         self.worker._raw_scan.collect.assert_not_called()
 
     def test_raw_scan_timeout_or_failure_saves_partial_without_replacing_existing_evidence(self):
-        for error in (subprocess.TimeoutExpired('nmap', 300, output=b'open port 443'),
+        for error in (subprocess.TimeoutExpired('nmap', 30, output=b'open port 443'),
                       subprocess.CalledProcessError(1, 'nmap', output=b'open port 443')):
             with self.subTest(error=error):
                 self.worker._raw_scan.collect.side_effect = error

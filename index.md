@@ -2,42 +2,45 @@
 title: Configuration Management Database
 ---
 
-The **CMDB** project grew out of the operational requirements of a small lab. It includes the following features.
+The **CMDB** project grew out of the operational requirements of a small Linux lab. It discovers machines and deployed applications on a local network, maintains an inventory of the results, and provides tools for patching and backups.
 
 ## Machine Discovery
 
-The CMDB scans the LAN for machines and maintains a database inventory of the results. The default gateway is treated as a special device and is classified as PROD and assigned the CMDB name `GATEWAY`.
+CMDB scans the local area network (LAN) for machines and maintains a persistent inventory of the results. Subsequent scans refresh the observed status of inventoried devices. The default gateway is treated as a special device: it is named `GATEWAY` and automatically classified as **PROD**.
 
 ## Application Discovery
 
-The CMDB is part of the [Bear & Moose](https://www.osoyalce.com/) family of software. This includes [BMForge](https://bmforge.osoyalce.com). The BMForge project is basically a SDLC framework that integrates AI into the workflow. BMForge software includes tags for the CMDB discovery process. In this way, the CMDB can detect if a registered application is deployed on the network.
+CMDB is part of the [Bear & Moose](https://www.osoyalce.com/) family of software, which includes [BMForge](https://bmforge.osoyalce.com/), a software development life cycle (SDLC) framework that integrates AI into the development workflow. Applications built with BMForge can include `CMDB_*` declarations that make their deployments discoverable by CMDB.
 
-Registering a new BMForge application in the CMDB is trivial. The new application name is entered and that's it. The CMDB will proceed to scan all of the registered devices to see if the application is installed. It simply appears in the CNDB inventory.
+Registering an application is straightforward: enter its name on the **Applications** page. CMDB checks the inventoried machines for an installed copy and, when one is detected, automatically records the deployment in its inventory.
 
-BMForge applications have a unique name, a specific version number, and a unique release codename. These are discovered and displayed by the CMDB.
+Discovered application details include the name and version, along with any declared release codename, software classification, data components, and database references.
 
 ### Application Ports
 
-Many applications listen on specific port numbers. If the application is a BMForge project, then the application will include this information. The CMDB scans this from deployed BMForge applications and uses it to display the port numbers that are currently in use within the LAN environment.
+Applications can declare their default network listeners through `CMDB_NETWORK`. CMDB collects those declarations from deployed applications and displays the associated host, application, service name, and port number on the **Network** page.
+
+These are **declared listener defaults**, not a live measurement of which ports are currently open.
 
 ## Machine Classification
 
-The CMDB application defines 4 categories of machines: PROD, QA, DEV, and Unclassified. All discovered machines are initially put into the unclassified category. When the CMDB discovers an unclassified device it performs a more intensive scan for services and saves the results. These results are available on the CMDB Inventory page, in the details pane, when an unclassified machine is selected. This helps to identify devices like printers, cell phones etc.
+CMDB groups machines into four categories: **PROD**, **QA**, **DEV**, and **Unclassified**. Newly discovered machines begin as Unclassified, with the exception of the default gateway.
+
+When CMDB finds an unclassified device, it performs a more intensive Nmap service scan and saves the raw output. The evidence is available from the device's details pane on the **Inventory** page, helping administrators identify printers, tablets, phones, and other unfamiliar equipment before assigning a classification.
 
 ## Patching
 
-The CMDB includes a simple patching interface that supports Debian Linux. Discovered Debian machines automatically appear on the **Patching** screen. The CMDB provides an interface to define a cron job to execute automatic, scheduled patching.
+CMDB includes a patching interface for Debian Linux. Discovered Debian machines automatically appear on the **Patching** page, where an administrator can run a patch job on demand or configure automatic, cron-scheduled patching for each host.
 
-Patching is a blanket `apt -y update` and is followed by a reboot.
+A patch job refreshes package information, installs available package upgrades, removes obsolete packages, and then reboots the machine. CMDB verifies that the host has returned after the reboot and records the outcome.
 
 ## Backups
 
-A machine appears on the **Backups** page when it contains an eligible backup target:
+Machines with eligible backup targets appear on the **Backups** page. CMDB supports both on-demand backups and per-target, cron-scheduled backups with configurable retention.
 
-- Hosts with MariaDB automatically appear in the CMDB.
-- The CMDB support per-database, cron driven, scheduled backups.
-- The CMDB supports automatic configuration of BMForge application backups, including application databases.
-- Backup Vault: successful backup records remain visible even after the machine is removed from the inventory.
+- **MariaDB:** CMDB discovers MariaDB instances and their eligible user databases, which can be backed up individually.
+- **Application data:** Applications declaring filesystem components and database references through `CMDB_COMPONENTS` and `CMDB_DATABASES` make those backup targets available for configuration.
+- **Backup Vault:** Successful database dumps and application directory archives are listed in the vault. Backup records and files remain available even after the associated machine is removed from the inventory.
 
 ---
 

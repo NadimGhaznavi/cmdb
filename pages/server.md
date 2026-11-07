@@ -156,7 +156,7 @@ inventory steps for that host alone, then reloads with the machine selected.
 Requests made during an active workload wait in the same queue.
 Other machines' reachability results are preserved by a single-host scan.
 
-Responding Unclassified machines receive a comprehensive Nmap scan immediately
+Responding Unclassified machines receive a short port and service scan immediately
 after discovery, before the OS and SSH follow-ups. The details sidebar offers a
 `raw scan data` link when captured output is available, including while the
 machine is offline. The link opens the stored output as plain text. Assigning
@@ -358,12 +358,16 @@ first successful scan keep their usual colors.
 
 After committing machine discovery and closing its database connection, the
 worker captures each responding unclassified host using
-`sudo -n /usr/bin/nmap -n -Pn -A -p- --version-all --reason -v --host-timeout 300s --script-timeout 30s -oN - <IP>`.
-The target must be an IP address; `-n` disables DNS resolution. The scan covers
-TCP ports 1–65535, service/version probes, OS detection, default scripts, and
-traceroute; it does not scan UDP ports. IPv6 targets also use `-6`.
-`RAW_SCAN_TIMEOUT_SECONDS` defaults to `300`; an outer process timeout stops
-waiting after `330` seconds. Captured stdout and stderr are stored verbatim in the
+`sudo -n /usr/bin/nmap -n -Pn -sV --version-light --top-ports 1000 -T4 --max-retries 1 --reason -v --stats-every 5s --host-timeout 30s <IP>`.
+The target must be an IP address; `-n` disables DNS resolution. The scan checks
+the 1,000 most common TCP ports with lightweight service/version probes and one
+port-probe retry. OS detection, default-script scanning, traceroute, and UDP
+scanning are omitted from this capture. Service detection can still run Nmap's
+version-identification scripts. IPv6 targets also use `-6`.
+`RAW_SCAN_TIMEOUT_SECONDS` defaults to `30`, bounding both the host scan and the
+subprocess wait without an additional grace period. Interactive text output
+includes discovered ports and progress every five seconds, retaining observations
+if collection is interrupted. Captured stdout and stderr are stored verbatim in the
 machine's `RawScanData` tag. Each successful scan replaces the previous capture.
 Timeouts and nonzero exits retain any existing capture; when none exists, partial
 output is saved with an incomplete marker. Launch failures preserve existing
@@ -413,7 +417,7 @@ inventory records:
 | Source | Observation |
 | --- | --- |
 | NetworkSource | Responding IPs and available MAC addresses |
-| RawScanSource | Comprehensive Nmap output for responding unclassified hosts |
+| RawScanSource | Short IP-only TCP port and service scan for responding unclassified hosts |
 | NmapOSSource | Unambiguous Nmap OS classifications |
 | HostSource | Hostname, interface MAC address, and host-reported OS release |
 | MariaDBSource | MariaDB version, data directory, and schema names |

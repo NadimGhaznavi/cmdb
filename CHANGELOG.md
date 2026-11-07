@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.14.2] - 2026-11-06 @ 19:28
+
 ### Changed
 
 - Prefix new directory-backup filenames with `files-`, matching the `mariadb-`

@@ -111,11 +111,11 @@ application is running; they do not provide an application-consistent snapshot.
 The directory backup path is:
 
 ```text
-/imports/disk1/backups/<host>/files/<host>-<application>-<directory>-YYYY-MM-DD_HH:MM:SS.tgz
+/imports/disk1/backups/<host>/files/files-<host>-<application>-<directory>-YYYY-MM-DD_HH:MM:SS.tgz
 ```
 
 For example, MyCount's `pages/marketing` directory on Wintermute produces
-`wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz`.
+`wintermute/files/files-wintermute-mycount-marketing-2026-10-07_15:53:01.tgz`.
 The application name is lowercased and the directory name is the final path
 segment; unsafe filename characters are percent-encoded. Timestamps use UTC.
 Directory jobs use the same timeout, temporary-file publication, shared-filesystem

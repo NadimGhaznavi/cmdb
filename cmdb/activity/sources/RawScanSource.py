@@ -1,4 +1,4 @@
-"""Collect comprehensive IP-only Nmap output for an unclassified host."""
+"""Collect a short IP-only port and service scan for an unclassified host."""
 
 from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.Nmap import Nmap

@@ -12,23 +12,23 @@ from cmdb.interface.Nmap import Nmap
 class NmapTests(unittest.TestCase):
     @patch('cmdb.interface.Nmap.subprocess.run')
     @patch('cmdb.interface.Nmap.nmap.PortScanner')
-    def test_raw_scan_is_ip_only_comprehensive_and_preserves_output(self, factory, run):
+    def test_raw_scan_is_ip_only_bounded_and_preserves_output(self, factory, run):
         output = b'Nmap scan report for 192.0.2.7\n443/tcp open https\n\xff'
         run.return_value.stdout = output
         scanner = Nmap()
-        self.assertEqual(scanner.scan_raw('192.0.2.7', timeout=300), output.decode('utf-8', errors='replace'))
+        self.assertEqual(scanner.scan_raw('192.0.2.7', timeout=30), output.decode('utf-8', errors='replace'))
         command = run.call_args.args[0]
-        self.assertEqual(command, ['sudo', '-n', '/usr/bin/nmap', '-n', '-Pn', '-A', '-p-',
-                                   '--version-all', '--reason', '-v', '--host-timeout', '300s',
-                                   '--script-timeout', '30s', '-oN', '-', '192.0.2.7'])
+        self.assertEqual(command, ['sudo', '-n', '/usr/bin/nmap', '-n', '-Pn', '-sV', '--version-light',
+                                   '--top-ports', '1000', '-T4', '--max-retries', '1', '--reason', '-v',
+                                   '--stats-every', '5s', '--host-timeout', '30s', '192.0.2.7'])
         self.assertEqual(run.call_args.kwargs,
-                         {'stdout': subprocess.PIPE, 'stderr': subprocess.STDOUT, 'timeout': 330, 'check': True})
+                         {'stdout': subprocess.PIPE, 'stderr': subprocess.STDOUT, 'timeout': 30, 'check': True})
         run.reset_mock()
         for target in ('example.com', '192.0.2.0/24', '192.0.2.7 --script all', ''):
             with self.subTest(target=target), self.assertRaises(ValueError):
-                scanner.scan_raw(target, timeout=300)
+                scanner.scan_raw(target, timeout=30)
         run.assert_not_called()
-        scanner.scan_raw('2001:db8::7', timeout=300)
+        scanner.scan_raw('2001:db8::7', timeout=30)
         self.assertEqual(run.call_args.args[0][-2:], ['-6', '2001:db8::7'])
 
     @patch('cmdb.interface.Nmap.subprocess.run')
@@ -37,8 +37,18 @@ class NmapTests(unittest.TestCase):
         output = b'Skipping host 192.0.2.7 due to host timeout\n'
         run.return_value.stdout = output
         with self.assertRaises(subprocess.TimeoutExpired) as caught:
-            Nmap().scan_raw('192.0.2.7', timeout=300)
+            Nmap().scan_raw('192.0.2.7', timeout=30)
         self.assertEqual(caught.exception.output, output)
+
+    @patch('cmdb.interface.Nmap.subprocess.run')
+    @patch('cmdb.interface.Nmap.nmap.PortScanner')
+    def test_raw_scan_process_timeout_preserves_partial_output(self, factory, run):
+        error = subprocess.TimeoutExpired('nmap', 30, output=b'Discovered open port 443/tcp\n')
+        run.side_effect = error
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            Nmap().scan_raw('192.0.2.7', timeout=30)
+        self.assertIs(caught.exception, error)
+        self.assertEqual(caught.exception.output, b'Discovered open port 443/tcp\n')
 
     @patch("cmdb.interface.Nmap.nmap.PortScanner")
     def test_returns_library_results_and_accepts_scan_options(self, factory):

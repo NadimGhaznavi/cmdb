@@ -138,13 +138,15 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                 patch('cmdb.interface.Cron.CronTab', return_value=tab), \
                 patch('cmdb.activity.BackupManager.SSHFiles') as remote:
             remote.return_value.backup_directory.return_value = dict(
-                pathname='wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz',
+                pathname='wintermute/files/files-wintermute-mycount-marketing-2026-10-07_15:53:01.tgz',
                 sizeBytes=42, checksum='a' * 64)
             scheduler = Scheduler()
             policy = scheduler.update(target, True, '15 3 * * 0', '2-weeks')
             self.assertEqual(len(tab), 1)
             self.assertTrue(scheduler.run(policy['id']))
             remote.return_value.backup_directory.assert_called_once()
+            self.assertTrue(remote.return_value.backup_directory.call_args.args[2].startswith(
+                'wintermute/files/files-wintermute-mycount-marketing-'))
             archive = BackupDb(self.db).files()[0]
             self.assertEqual(archive['sizeBytes'], 42)
             self.assertTrue(archive['pathname'].startswith('wintermute/files/'))

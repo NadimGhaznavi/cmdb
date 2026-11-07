@@ -36,7 +36,7 @@ class BackupManagerTests(unittest.TestCase):
         item = dict(modelElement=12, hostName='wintermute.example', ipAddress='192.0.2.2',
                     kind='directory', applicationName='MyCount', componentName='Marketing Screenshots',
                     sourcePathname='/opt/prod/mycount/pages/marketing', pathname=None)
-        metadata = dict(pathname='wintermute/files/wintermute-mycount-marketing-2026-10-07_15:53:01.tgz',
+        metadata = dict(pathname='wintermute/files/files-wintermute-mycount-marketing-2026-10-07_15:53:01.tgz',
                         sizeBytes=42, checksum='a' * 64)
         with patch('cmdb.activity.BackupManager.connect_database', new_callable=database_factory), \
                 patch('cmdb.activity.BackupManager.BackupDb') as records, \

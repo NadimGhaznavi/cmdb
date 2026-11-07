@@ -60,7 +60,7 @@ class BackupManager:
                 if item.get('kind') == 'directory':
                     application = quote(item['applicationName'].lower(), safe='-_.')
                     name = quote(PurePosixPath(item['sourcePathname']).name, safe='-_.')
-                    filename = f"{host[:63]}-{application[:80]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.tgz"
+                    filename = f"files-{host[:63]}-{application[:80]}-{name[:80]}-{started:%Y-%m-%d_%H:%M:%S}.tgz"
                     pathname = f'{host}/files/{filename}'
                     result = SSHFiles(SSH()).backup_directory(item['ipAddress'], item['sourcePathname'], pathname)
                 else:

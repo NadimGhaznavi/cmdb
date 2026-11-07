@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-11-06 @ 19:00
+
 ### Summary
 
 Bound automatic unclassified-device captures to 30 seconds and scan common TCP

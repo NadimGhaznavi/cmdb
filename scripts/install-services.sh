@@ -44,6 +44,7 @@ command -v ssh >/dev/null
 command -v ssh-keygen >/dev/null
 command -v crontab >/dev/null
 [[ -x /usr/bin/nmap ]] || { printf 'Install /usr/bin/nmap before deploying CMDB.\n' >&2; exit 1; }
+python3 -B scripts/install-agent.py
 
 # Validate the complete rule before atomically installing it.
 python3 -B - <<'PY'
@@ -60,12 +61,7 @@ if re.fullmatch(r'[a-z_][a-z0-9_]*', DCMDB.AGENT_USER) is None or DCMDB.AGENT_US
     raise SystemExit('Invalid CMDB inventory account name.')
 rule = Path('sudoers/cmdb-nmap').read_text().replace('@USER@', DCMDB.SERVICE_USER)
 rule = rule.replace('@AGENT@', DCMDB.AGENT_USER)
-rule += ''.join(f'{DCMDB.SERVICE_USER} ALL=(root) NOPASSWD: /bin/sh '
-                f'{DCMDB.BASE_DIR}/cmdb/interface/scripts/patch-host.sh {action}\n'
-                for action in ('probe', 'patch', 'reboot', 'verify'))
 target = Path('/etc/sudoers.d/cmdb-nmap')
-rule += (f'{DCMDB.SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/python3 '
-         f'{DCMDB.BASE_DIR}/cmdb/interface/scripts/drop-database.py *\n')
 target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
 with NamedTemporaryFile(mode='w', prefix='.cmdb-nmap-', dir=target.parent, delete=False) as stream:
     candidate = Path(stream.name)
@@ -88,7 +84,6 @@ if [[ -e /etc/systemd/system/cmdb-patch.service ]]; then
 fi
 usermod --home "$account_home" "$account"
 scripts/install-ssh.sh
-python3 -B scripts/install-agent.py
 
 printf 'Installing Python dependencies...\n'
 if [[ ! -x $install_dir/.venv/bin/python ]]; then

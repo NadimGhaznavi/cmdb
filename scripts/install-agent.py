@@ -1,4 +1,4 @@
-"""Provision the local inventory identity during install or upgrade."""
+"""Verify the FreeIPA inventory identity and provision its local MariaDB access."""
 
 import os
 from pathlib import Path
@@ -14,14 +14,13 @@ from cmdb.interface.SSHDb import provisioning_sql
 def main() -> None:
     if os.geteuid() != 0:
         raise SystemExit("Run through the root installer.")
+    if any(line.partition(':')[0] == DCMDB.AGENT_USER
+           for line in Path('/etc/passwd').read_text().splitlines()):
+        raise SystemExit("Remove the local cmdbagent account before using the FreeIPA identity; see CHANGELOG.md.")
     try:
         pwd.getpwnam(DCMDB.AGENT_USER)
     except KeyError:
-        subprocess.run(['useradd', '--system', '--create-home', '--home-dir', DCMDB.AGENT_HOME,
-                        '--shell', '/bin/sh', '--password', '*NP*', DCMDB.AGENT_USER], check=True)
-    public_key = Path(DCMDB.SSH_KEY + '.pub').read_text().strip()
-    script = Path(__file__).resolve().parents[1] / 'cmdb/activity/scripts/provision-agent.sh'
-    subprocess.run(['/bin/sh', str(script), DCMDB.AGENT_USER, public_key], check=True)
+        raise SystemExit("FreeIPA cmdbagent must resolve on this host before installation; see CHANGELOG.md.") from None
     subprocess.run(['mariadb', '--no-defaults', '--protocol=socket', '--skip-ssl', '--user=root', '--batch'],
                    input=provisioning_sql(), text=True, check=True)
     subprocess.run(['runuser', '-u', DCMDB.AGENT_USER, '--', 'mariadb', '--no-defaults',

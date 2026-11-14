@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+import shlex
 from threading import Event
 import unittest
 from database_fixtures import database_factory
@@ -32,6 +33,18 @@ class DatabaseDeleteTests(unittest.TestCase):
             SSHDb(ssh, Event()).drop_db('192.0.2.1', 'CMDB')
         ssh.run.assert_not_called()
         ssh.is_local.assert_not_called()
+
+    def test_drop_uses_agent_sudo_and_keeps_database_name_as_one_argument(self):
+        ssh = Mock()
+        name = "app'; touch /tmp/injected; #"
+        for host in ('127.0.0.1', '192.0.2.1'):
+            SSHDb(ssh, Event()).drop_db(host, name)
+            call = ssh.run.call_args
+            command = shlex.split(call.args[1])
+            self.assertEqual(call.args[0], host)
+            self.assertEqual(command[:4], ['sudo', '-n', 'python3', '-c'])
+            self.assertEqual(command[-1], name)
+            self.assertNotIn('user', call.kwargs)
 
     @patch('cmdb.activity.DatabaseManager.SSHDb')
     @patch('cmdb.activity.DatabaseManager.Scheduler')

@@ -7,6 +7,22 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Changed
+
+- Use FreeIPA-managed `cmdbagent` for host access, with passwordless sudo for
+  MariaDB setup/deletion, patching, and reboots. Keep the local `cmdb` daemon unchanged.
+- Remove local agent provisioning and legacy account-transition tooling.
+
+### One-time setup
+
+Create IPA user `cmdbagent` with `/bin/sh` and the existing CMDB public key
+(`/var/lib/cmdb/.ssh/id_ed25519.pub`). Allow SSH and sudo on the eight managed
+hosts, with an IPA sudo rule granting passwordless root access (`!authenticate`).
+Hosts must retrieve IPA identities, SSH keys, and sudo rules through SSSD.
+Sweep the hosts to delete local `cmdbagent` accounts and homes
+(`userdel --remove cmdbagent`), and any remaining local group of that name. Then run
+`sudo scripts/upgrade.sh`; install/discovery provisions MariaDB socket access.
+
 ## [1.14.2] - 2026-11-06 @ 19:28
 
 ### Changed

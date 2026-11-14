@@ -51,12 +51,8 @@ private key. An invalid or encrypted existing private key causes installation
 to fail without replacing it. The service can write its SSH directory under
 the otherwise read-only system filesystem configuration.
 
-Remote accounts and public-key authorization are not configured by the installer.
-The scanner's SSH follow-up can provision remote `cmdb` access when root already
-accepts this public key.
-The same key supports remote `cmdbagent` or root login when authorized by the remote
-account. Selecting remote root in the SSH interface requires no additional local
-sudoers rule or separate key.
+FreeIPA manages `cmdbagent` and its public-key authorization. Managed hosts retrieve
+the key through SSSD; discovery does not create Linux accounts or install keys.
 See [SSH interface]({{ site.baseurl }}{% link pages/ssh.md %}) for usage.
 
 Installation and upgrade validate and install `/etc/sudoers.d/cmdb-nmap`, owned
@@ -201,13 +197,14 @@ status commands, and development startup.
 
 ## Inventory account
 
-Install and upgrade retain the `cmdb` service identity and SSH key, and provision
-local `cmdbagent` with home `/var/lib/cmdbagent`. The sudo rule also permits
-`cmdb` to execute local inventory commands as `cmdbagent`. Remote discovery
-uses `cmdbagent` with the existing key. See the
-[one-time remote account cleanup]({{ site.baseurl }}{% link pages/ssh.md %}#account-transition)
-for removing the old remote `cmdb` accounts and homes after upgrade.
-Uninstall retains both local accounts and their homes.
+Install and upgrade retain the local `cmdb` service identity and SSH key.
+The FreeIPA-managed `cmdbagent` identity must resolve on the application host;
+installation rejects a same-name local account. The sudo rule permits `cmdb`
+to execute local host commands as `cmdbagent`. Remote discovery uses `cmdbagent`
+with the existing key. FreeIPA supplies the agent's noninteractive root sudo
+privileges for host setup, database deletion, patching, and reboots.
+The one-time setup is recorded in the
+[changelog]({{ site.baseurl }}{% link CHANGELOG.md %}#unreleased).
 
 
 The installer also provisions MariaDB's `cmdbagent@localhost` using socket
@@ -225,7 +222,7 @@ See [manual backups]({{ site.baseurl }}{% link pages/backups.md %}).
 
 ## Debian patch runner
 
-Installation also enables `cmdb-patch.service`, independent of the web service, and
-installs fixed local sudo actions for patching and rebooting. The normal installer
+Installation also enables `cmdb-patch.service`, independent of the web service.
+Local and remote patch actions run as `cmdbagent` through sudo. The normal installer
 creates its job storage. Uninstall stops both services. See
 [Debian patching]({{ site.baseurl }}{% link pages/patching.md %}) for execution and recovery behavior.

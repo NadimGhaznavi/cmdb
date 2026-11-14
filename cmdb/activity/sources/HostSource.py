@@ -1,10 +1,8 @@
 """Collect hostname, interface MAC and OS release through the host command interface."""
 
-from pathlib import Path
 import ipaddress
 import json
 import re
-import shlex
 import socket
 import subprocess
 from threading import Event
@@ -35,22 +33,8 @@ class HostSource:
                 pass
         try:
             self._run(address, "true")
-        except subprocess.CalledProcessError as error:
-            if self._ssh.is_local(address):
-                raise
-            # A changed host key must not trigger account provisioning.
-            if "REMOTE HOST IDENTIFICATION HAS CHANGED" in (error.stderr or ""):
-                return False
-            public_key = Path(DCMDB.SSH_KEY + ".pub").read_text().strip()
-            if (not public_key.startswith("ssh-ed25519 ") or "\n" in public_key
-                    or "\r" in public_key):
-                raise ValueError("Expected the local cmdb Ed25519 public key.")
-            if re.fullmatch(r"[a-z_][a-z0-9_]*", DCMDB.AGENT_USER) is None:
-                raise ValueError("Invalid service account name.")
-            script = (Path(__file__).parent.parent / "scripts" / "provision-agent.sh").read_text()
-            command = "sh -s -- " + shlex.join([DCMDB.AGENT_USER, public_key])
-            self._run(address, command, user="root", input=script)
-            self._run(address, "true")
+        except subprocess.CalledProcessError:
+            return False
         return True
 
     def _run(self, address: str, command: str, **options) -> subprocess.CompletedProcess[str]:

@@ -180,28 +180,25 @@ class HostSourceTests(TestCase):
         self.remote = self.source._ssh.run
         self.port = patch('cmdb.activity.sources.HostSource.socket.create_connection').start()
         self.addCleanup(patch.stopall)
-        directory = TemporaryDirectory()
-        self.addCleanup(directory.cleanup)
-        key = Path(directory.name) / 'id_ed25519'
-        Path(str(key) + '.pub').write_text('ssh-ed25519 AAAATEST cmdb\n')
-        patch.object(DCMDB, 'SSH_KEY', str(key)).start()
-
-    def test_remote_provisioning_retests_agent_before_collection(self):
-        self.remote.side_effect = [denied(), result(), result(), result('worker'), result('[]'), result('')]
+    def test_existing_agent_access_allows_collection_without_provisioning(self):
+        self.remote.side_effect = [result(), result('worker'), result('[]'), result('')]
         self.assertTrue(self.source.ensure_access('192.0.2.7'))
         observation = self.source.collect('192.0.2.7')
         self.assertEqual(observation['hostname'], 'worker')
         calls = self.remote.call_args_list
-        self.assertEqual(calls[1].kwargs['user'], 'root')
-        self.assertIn('authorized_keys', calls[1].kwargs['input'])
-        self.assertEqual(calls[2].args[1], 'true')
-        self.assertNotIn('user', calls[2].kwargs)
+        self.assertEqual(calls[0].args[1], 'true')
+        self.assertTrue(all('user' not in call.kwargs for call in calls))
+
+    def test_denied_login_never_falls_back_to_root(self):
+        self.remote.side_effect = denied()
+        self.assertFalse(self.source.ensure_access('192.0.2.7'))
+        self.remote.assert_called_once()
+        self.assertNotIn('user', self.remote.call_args.kwargs)
 
     def test_local_access_skips_port_and_never_provisions(self):
         self.source._ssh.is_local.return_value = True
         self.remote.side_effect = denied()
-        with self.assertRaises(subprocess.CalledProcessError):
-            self.source.ensure_access('192.0.2.7')
+        self.assertFalse(self.source.ensure_access('192.0.2.7'))
         self.port.assert_not_called()
         self.remote.assert_called_once()
 

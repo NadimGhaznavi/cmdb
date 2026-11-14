@@ -6,7 +6,7 @@ The **CMDB** project grew out of the operational requirements of a small Linux l
 
 ## Machine Discovery
 
-CMDB scans the local area network (LAN) for machines and maintains a persistent inventory of the results. Subsequent scans refresh the observed status of inventoried devices. The default gateway is treated as a special device: it is named `GATEWAY` and automatically classified as **PROD**.
+CMDB scans the local area network (LAN) for machines and maintains a persistent inventory of the results. Subsequent scans refresh the observed status of inventoried devices. The default gateway is treated as a special device: it is named `GATEWAY` (it can be renamed) and automatically classified as **PROD**.
 
 ## Application Discovery
 
@@ -20,13 +20,15 @@ Discovered application details include the name and version, along with any decl
 
 Applications can declare their default network listeners through `CMDB_NETWORK`. CMDB collects those declarations from deployed applications and displays the associated host, application, service name, and port number on the **Network** page.
 
-These are **declared listener defaults**, not a live measurement of which ports are currently open.
+The goal is to rationalize and report on application listener port numbers across machines.
+
+These are **declared listener defaults**, not a live measurement of which ports are currently open. 
 
 ## Machine Classification
 
 CMDB groups machines into four categories: **PROD**, **QA**, **DEV**, and **Unclassified**. Newly discovered machines begin as Unclassified, with the exception of the default gateway.
 
-When CMDB finds an unclassified device, it performs a more intensive Nmap service scan and saves the raw output. The evidence is available from the device's details pane on the **Inventory** page, helping administrators identify printers, tablets, phones, and other unfamiliar equipment before assigning a classification.
+When CMDB finds an unclassified device, it performs a more intensive Nmap service scan and saves the raw output. The evidence is available from the device's details pane on the **Inventory** page, helping administrators identify printers, tablets, phones, and other unfamiliar equipment before assigning a classification and/or hostname label.
 
 ## Patching
 
@@ -48,7 +50,6 @@ Machines with eligible backup targets appear on the **Backups** page. CMDB suppo
 
 ## Links
 
-* [Port Numbers]({{ site.baseurl }}{% link pages/port-numbers.md %})
 * [autofs]({{ site.baseurl }}{% link autofs.md %})
 * [/opt/prod/xmrig/xmrig-mode.sh]({{ site.baseurl }}{% link pages/xmrig-mode.sh.md %})
 

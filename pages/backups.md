@@ -169,8 +169,8 @@ See [mariadb-dump](https://mariadb.com/docs/server/clients-and-utilities/backup-
 Every database host must provide the backup directory and allow `cmdbagent` to
 write to it. For NFS mounts, ownership and permissions must work with the NFS
 server's UID/GID mapping. Installation does not change NFS configuration.
-Install/upgrade grants the local agent database dump privileges. Remote agents
-with old grants are reprovisioned through the existing root SSH path.
+Install/upgrade grants the local agent database dump privileges. Discovery repairs
+missing grants through `cmdbagent` using noninteractive sudo.
 
 The host-side command is limited to `DCMDB.BACKUP_TIMEOUT_SECONDS` (3600 seconds).
 Normal failures clean up temporary files and record the error. A force kill or

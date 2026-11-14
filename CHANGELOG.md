@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-14 @ 17:45
+
 ### Fixed
 
 - Bootstrap the local service account and SSH key during IPA setup so a fresh

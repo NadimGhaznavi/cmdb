@@ -1,6 +1,7 @@
 """Patch workflow checks; no real package changes or reboots."""
 
 from datetime import timedelta
+import os
 import subprocess
 import unittest
 from unittest.mock import Mock, patch
@@ -71,19 +72,31 @@ class PatchRunnerTests(unittest.TestCase):
         remote.return_value.run.assert_not_called()
         self.assertIn('interrupted', runner.record.call_args.args[2])
 
-    @patch('cmdb.interface.SSHPatch.subprocess.run')
     @patch('cmdb.interface.SSHPatch.SSH')
-    def test_local_actions_use_only_installed_helper_and_remote_uses_root(self, ssh, run):
-        ssh.return_value.is_local.return_value = True
-        run.return_value.stdout = OLD
-        self.assertEqual(SSHPatch().run('127.0.0.1', 'probe'), OLD)
-        self.assertEqual(run.call_args.args[0], ['/usr/bin/sudo', '-n', '/bin/sh',
-                         '/opt/prod/cmdb/cmdb/interface/scripts/patch-host.sh', 'probe'])
-        ssh.return_value.is_local.return_value = False
-        SSHPatch().run('192.0.2.1', 'patch')
-        self.assertEqual(ssh.return_value.run.call_args.kwargs['user'], 'root')
+    def test_actions_use_agent_sudo_and_preserve_the_host_timeout(self, ssh):
+        ssh.return_value.run.return_value.stdout = OLD
+        for action, timeout in (('probe', 60), ('patch', 7200), ('reboot', 60), ('verify', 60)):
+            self.assertEqual(SSHPatch().run('192.0.2.1', action), OLD)
+            call = ssh.return_value.run.call_args
+            self.assertEqual(call.args[1], f'sudo -n timeout --kill-after=10 {timeout} /bin/sh -s -- {action}')
+            self.assertNotIn('user', call.kwargs)
+            self.assertIn('apt-get', call.kwargs['input'])
+            self.assertEqual(call.kwargs['timeout'], timeout + 30)
         with self.assertRaises(ValueError):
             SSHPatch().run('127.0.0.1', 'patch; reboot')
+
+    @patch('cmdb.interface.SSH.subprocess.run')
+    @patch('cmdb.interface.SSH.pwd.getpwnam')
+    @patch('cmdb.interface.SSH.SSH.is_local', return_value=True)
+    def test_local_patch_switches_to_agent_before_using_its_sudo(self, local, account, run):
+        account.return_value.pw_uid = os.geteuid() + 1
+        run.return_value.stdout = OLD
+        self.assertEqual(SSHPatch().run('127.0.0.1', 'probe'), OLD)
+        argv = run.call_args.args[0]
+        self.assertEqual(argv, ['/usr/bin/sudo', '-n', '-H', '-u', 'cmdbagent', '--', '/bin/sh', '-c',
+                               'sudo -n timeout --kill-after=10 60 /bin/sh -s -- probe'])
+        self.assertIn('apt-get', run.call_args.kwargs['input'])
+
 
 class PatchScriptTests(unittest.TestCase):
     def test_package_commands_fail_before_upgrade_and_never_reboot_implicitly(self):

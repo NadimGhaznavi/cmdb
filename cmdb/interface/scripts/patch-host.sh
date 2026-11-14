@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fixed actions only; installed root-owned for local sudo and sent over root SSH remotely.
+# Fixed actions only; executed as root through the inventory agent's sudo access.
 set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH

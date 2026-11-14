@@ -15,13 +15,97 @@ permalink: /CHANGELOG/
 
 ### One-time setup
 
-Create IPA user `cmdbagent` with `/bin/sh` and the existing CMDB public key
-(`/var/lib/cmdb/.ssh/id_ed25519.pub`). Allow SSH and sudo on the eight managed
-hosts, with an IPA sudo rule granting passwordless root access (`!authenticate`).
-Hosts must retrieve IPA identities, SSH keys, and sudo rules through SSSD.
-Sweep the hosts to delete local `cmdbagent` accounts and homes
-(`userdel --remove cmdbagent`), and any remaining local group of that name. Then run
-`sudo scripts/upgrade.sh`; install/discovery provisions MariaDB socket access.
+Run `scripts/setup-ipa-agent.py` on **Neuromancer, the CMDB server**, from a
+separate checkout containing this change. Use your normal administrator login,
+the system `/usr/bin/python3` with the FreeIPA client installed, and the existing
+CMDB key at `/var/lib/cmdb/.ssh/id_ed25519`. The private key stays on Neuromancer.
+The local `cmdb` service account is retained.
+
+Preview the migration without executing commands:
+
+```sh
+/usr/bin/python3 scripts/setup-ipa-agent.py --ssh-user nadim
+```
+
+The default targets are Bingo, Islands, Kermit, Neuromancer, Paris, Phoebe,
+Sally, and Wintermute in `lab.osoyalce.com`. `nadim` is an example administrator
+login; choose an existing account with SSH access and passwordless `sudo -n`
+on every target. Administrator SSH host keys must already be trusted. Each host
+must already be enrolled in IPA and have SSSD, its SSH-key and sudo helpers,
+OpenSSH server, and Python 3 installed. The script checks these prerequisites
+before creating directory objects or changing host configuration.
+
+Pause CMDB schedules and let active backup, discovery, and patch jobs finish.
+The script refuses to remove a local agent account while it has running
+processes. Obtain Linux sudo access and a separate IPA administrator ticket,
+then apply:
+
+```sh
+sudo -v
+kinit admin
+/usr/bin/python3 scripts/setup-ipa-agent.py --ssh-user nadim --apply
+```
+
+Run the script as your administrator login, without putting `sudo` before
+Python: it uses your Kerberos ticket for IPA and elevates individual Linux
+commands. It creates or updates:
+
+- IPA user `cmdbagent`, with `/bin/sh`, `/home/cmdbagent`, and the existing CMDB
+  public key. Existing IPA UID/GID and other public keys are preserved.
+- Host group `cmdb-agent-hosts`, containing the selected hosts.
+- HBAC rule `cmdb-agent-access`, permitting `sshd`, `sudo`, and `sudo-i` for
+  `cmdbagent` on that host group.
+- Sudo rule `cmdb-agent-root`, permitting all commands as root without a password
+  (`!authenticate`), scoped to `cmdbagent` and that host group.
+
+On each target it configures SSSD SSH/sudo responders, IPA sudo policy lookup,
+and OpenSSH's `sss_ssh_authorizedkeys` lookup. It preserves other SSSD settings
+and existing NSS sources. Hosts managed by authselect must already have sudo
+lookup enabled; if preflight reports it missing, run this on that host first:
+
+```sh
+sudo authselect enable-feature with-sudo
+```
+
+The script backs up changed configuration, local account records, and the old
+agent home under a private, root-owned
+`/var/backups/cmdb-ipa-agent/<timestamp>/` directory on each host. It verifies
+the qualified IPA identity, public key, and noninteractive root sudo before
+removing a same-name local account/group and creating the IPA user's local
+home. It then tests SSH from the local `cmdb` service account with the existing
+private key. A failed SSH syntax check restores the configuration files;
+other completed steps are retained. Correct the reported problem and rerun
+`--apply`; existing objects created by the script are reused. Conflicting
+same-name IPA rules are rejected for inspection.
+
+Files outside the old agent home retain their existing numeric ownership.
+The script reports each removed account's UID/GID. Reconcile any old-agent-owned
+backup directories and files on the storage server before resuming backups;
+the script does not recursively change ownership on shared storage.
+
+After cutting the release, deploy from the released checkout and verify again:
+
+```sh
+sudo scripts/upgrade.sh
+/usr/bin/python3 scripts/setup-ipa-agent.py --ssh-user nadim --check
+```
+
+Upgrade provisions local MariaDB socket access and the `cmdb` to `cmdbagent`
+sudo rule; discovery provisions remote MariaDB socket access. `--check` verifies
+the existing directory policy, host integration, CMDB-key logins, and local
+`cmdb` to `cmdbagent` to root access without changing configuration or accounts.
+Resume schedules after these checks pass.
+
+For a smaller initial rollout, provide explicit enrolled FQDNs, including the
+CMDB server, and repeat the same host list with `--apply` and `--check`:
+
+```sh
+/usr/bin/python3 scripts/setup-ipa-agent.py --ssh-user nadim \
+  --hosts neuromancer.lab.osoyalce.com bingo.lab.osoyalce.com
+```
+
+When expanding the rollout, include every host already in the script's host
+group. It refuses to silently remove existing host membership.
 
 ## [1.14.2] - 2026-11-06 @ 19:28
 

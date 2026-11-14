@@ -7,6 +7,17 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Fixed
+
+- Bootstrap the local service account and SSH key during IPA setup so a fresh
+  deployment does not require an earlier installation to create the key.
+- Wait for SSSD to load newly created IPA SSH/sudo policy before replacing
+  a local agent account.
+- Accept both Debian and Fedora capitalization in effective SSH configuration
+  output when verifying IPA public-key access.
+- Clarify that the deployment operator, host SSH authentication, and IPA
+  administrative ticket are separate; document SSH-agent use for remote setup.
+
 ## [2.0.0] - 2026-11-14 @ 16:16
 
 ### Changed

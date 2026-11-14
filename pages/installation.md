@@ -23,6 +23,10 @@ sudo systemctl enable --now mariadb
 
 ## Install
 
+First complete the [inventory account setup](#inventory-account), which creates
+the FreeIPA agent identity and verifies access to the managed hosts. It can
+bootstrap the service account and key before the application's first install.
+
 From the checkout:
 
 ```sh
@@ -197,16 +201,45 @@ status commands, and development startup.
 
 ## Inventory account
 
+Enroll the CMDB server and managed hosts in FreeIPA first. The CMDB server
+needs the FreeIPA Python client in its system Python. Each host needs Python 3,
+SSSD with its SSH and sudo helpers, and OpenSSH server. The operator needs
+noninteractive SSH and passwordless sudo on every selected host.
+
+Run host setup as the existing operator, such as `nadim`. The `--ssh-user`
+option selects the SSH login; IPA uses the shell's Kerberos ticket. Creating
+the IPA user and access rules requires an IPA administrator ticket. It does
+not require granting new IPA administration roles to the SSH operator.
+
+When connecting from a management workstation with an SSH agent, forward it
+to the trusted CMDB server so host SSH continues to authenticate as `nadim`
+even while the shell holds an IPA administrator ticket:
+
+```sh
+ssh -A nadim@neuromancer.lab.osoyalce.com
+cd /opt/dev/cmdb
+sudo -v
+kinit admin
+/usr/bin/python3 scripts/setup-ipa-agent.py --ssh-user nadim --apply
+sudo scripts/install.sh
+/usr/bin/python3 scripts/setup-ipa-agent.py --ssh-user nadim --check
+```
+
+After host preflight, the setup helper creates the local `cmdb` service account
+and its SSH key on a fresh server, or reuses the existing account and key.
+It checks administrator SSH access and host prerequisites before creating
+IPA policy. It waits up to
+60 seconds for SSSD to load new policy before replacing a local agent account.
+The final `--check` verifies all hosts and the deployed application's local
+privilege chain. Existing key and account replacement details are in the
+[2.0.0 setup notes]({{ site.baseurl }}{% link CHANGELOG.md %}#one-time-setup).
+
 Install and upgrade retain the local `cmdb` service identity and SSH key.
 The FreeIPA-managed `cmdbagent` identity must resolve on the application host;
 installation rejects a same-name local account. The sudo rule permits `cmdb`
 to execute local host commands as `cmdbagent`. Remote discovery uses `cmdbagent`
 with the existing key. FreeIPA supplies the agent's noninteractive root sudo
 privileges for host setup, database deletion, patching, and reboots.
-The one-time setup is recorded in the
-[changelog]({{ site.baseurl }}{% link CHANGELOG.md %}#unreleased).
-
-
 The installer also provisions MariaDB's `cmdbagent@localhost` using socket
 authentication and grants `SHOW DATABASES`, `SELECT`, `SHOW VIEW`, `TRIGGER`,
 and `EVENT` for inventory and dumps. It verifies access as Linux

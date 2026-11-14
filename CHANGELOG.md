@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-14 @ 16:16
+
 ### Changed
 
 - Use FreeIPA-managed `cmdbagent` for host access, with passwordless sudo for

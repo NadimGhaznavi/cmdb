@@ -7,8 +7,8 @@ class DCMDB:
     CMDB_TYPE: Final[str] = "application"
     CMDB_SUBTYPE: Final[str] = "Metadata Repo"
     CMDB_SUPPLIER: Final[str] = "Nadim-Daniel"
-    CMDB_CODENAME: Final[str] = "Qebehsenuef"
-    VERSION: Final[str] = "1.14.2"
+    CMDB_CODENAME: Final[str] = "Nefertum"
+    VERSION: Final[str] = "2.0.0"
     CMDB_DATABASES: Final[tuple[tuple[str, str], ...]] = (("CMDB", "cmdb"),)
     CMDB_NETWORK: Final[tuple[tuple[str, str, int], ...]] = (
         ("http", "0.0.0.0", 14444),
@@ -18,7 +18,6 @@ class DCMDB:
     CONFIG_FILE: Final[str] = "conf/cmdb.json"
     SERVICE_USER: Final[str] = "cmdb"
     AGENT_USER: Final[str] = "cmdbagent"
-    AGENT_HOME: Final[str] = "/var/lib/cmdbagent"
     SERVICE_HOME: Final[str] = "/var/lib/cmdb"
     SSH_DIR: Final[str] = SERVICE_HOME + "/.ssh"
     SSH_KEY: Final[str] = SSH_DIR + "/id_ed25519"

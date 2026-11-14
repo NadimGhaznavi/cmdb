@@ -51,16 +51,20 @@ class SSHDbTests(TestCase):
                 self.db.backup_db('host', database, path)
         self.ssh.run.assert_not_called()
 
-    def test_provisions_then_retests_as_agent(self):
-        self.ssh.run.side_effect = [result('MariaDB'), DENIED, result(), result(READY)]
-        self.assertTrue(self.db.ensure_agent('host'))
-        calls = self.ssh.run.call_args_list
-        self.assertEqual(calls[2].kwargs['user'], 'root')
-        self.assertEqual(calls[2].kwargs['input'], provisioning_sql())
-        for call in calls[1:]:
-            self.assertIn('--protocol=socket --skip-ssl', call.args[1])
-        self.assertIn('IDENTIFIED VIA unix_socket', calls[2].kwargs['input'])
-        self.assertNotIn('user', calls[3].kwargs)
+    def test_provisions_through_agent_sudo_then_retests_as_agent(self):
+        for local in (False, True):
+            with self.subTest(local=local):
+                self.ssh.reset_mock()
+                self.ssh.is_local.return_value = local
+                self.ssh.run.side_effect = [result('MariaDB'), DENIED, result(), result(READY)]
+                self.assertTrue(self.db.ensure_agent('host'))
+                calls = self.ssh.run.call_args_list
+                self.assertTrue(all('user' not in call.kwargs for call in calls))
+                self.assertEqual(calls[2].args[1].count('sudo -n mariadb'), 2)
+                self.assertEqual(calls[2].kwargs['input'], provisioning_sql())
+                for call in calls[1:]:
+                    self.assertIn('--protocol=socket --skip-ssl', call.args[1])
+                self.assertIn('IDENTIFIED VIA unix_socket', calls[2].kwargs['input'])
 
     def test_missing_grant_triggers_repair(self):
         self.ssh.run.side_effect = [result('MariaDB'), result('cmdbagent@localhost\tMariaDB\nGRANT USAGE'),
@@ -68,13 +72,7 @@ class SSHDbTests(TestCase):
         self.assertTrue(self.db.ensure_agent('host'))
         self.assertEqual(self.ssh.run.call_count, 4)
 
-    def test_local_provisioning_is_left_to_installer(self):
-        self.ssh.is_local.return_value = True
-        self.ssh.run.side_effect = [result('MariaDB'), DENIED]
-        self.assertFalse(self.db.ensure_agent('host'))
-        self.assertEqual(self.ssh.run.call_count, 2)
-
-    def test_missing_server_denied_root_and_retest_failures_are_optional(self):
+    def test_missing_server_denied_sudo_and_retest_failures_are_optional(self):
         for responses in ([DENIED], [result('MySQL')], [result('MariaDB'), DENIED, DENIED],
                           [result('MariaDB'), DENIED, result(), DENIED]):
             self.ssh.run.side_effect = responses

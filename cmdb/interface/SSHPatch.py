@@ -1,9 +1,7 @@
-"""Run the same fixed patch actions locally or over administrative SSH."""
+"""Run fixed patch actions as the inventory agent through noninteractive sudo."""
 
 from pathlib import Path
-import subprocess
 
-from cmdb.constants.DCMDB import DCMDB
 from cmdb.interface.SSH import SSH
 
 
@@ -13,13 +11,7 @@ class SSHPatch:
             raise ValueError('Invalid patch action.')
         ssh = SSH()
         timeout = 7200 if action == 'patch' else 60
-        if ssh.is_local(address):
-            script = str(Path(DCMDB.BASE_DIR) / 'cmdb/interface/scripts/patch-host.sh')
-            result = subprocess.run(['/usr/bin/sudo', '-n', '/bin/sh', script, action],
-                                    stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                                    timeout=timeout, check=True)
-        else:
-            script = (Path(__file__).parent / 'scripts/patch-host.sh').read_text()
-            result = ssh.run(address, f'timeout --kill-after=10 {timeout} sh -s -- {action}',
-                             user='root', input=script, timeout=timeout + 30)
+        script = (Path(__file__).parent / 'scripts/patch-host.sh').read_text()
+        result = ssh.run(address, f'sudo -n timeout --kill-after=10 {timeout} /bin/sh -s -- {action}',
+                         input=script, timeout=timeout + 30)
         return result.stdout

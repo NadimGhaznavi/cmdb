@@ -34,7 +34,7 @@ class SSHDb:
         if not database or '\0' in database or database.lower() in ('mysql', 'information_schema', 'performance_schema', 'sys'):
             raise ValueError('Select a user database to back up.')
         if not self.ensure_agent(host):
-            raise RuntimeError('Database backup access is unavailable. Upgrade the local agent or check remote root provisioning.')
+            raise RuntimeError('Database backup access is unavailable. Check cmdbagent login and sudo access.')
         script = (Path(__file__).parent / 'scripts/backup-db.sh').read_text()
         command = 'timeout --signal=TERM --kill-after=10 ' + str(DCMDB.BACKUP_TIMEOUT_SECONDS)
         command += ' sh -s -- ' + shlex.join([DCMDB.BACKUP_DIR, pathname, database, DCMDB.AGENT_USER])
@@ -51,13 +51,8 @@ class SSHDb:
                 or database.lower() in ('cmdb', 'mysql', 'information_schema', 'performance_schema', 'sys')):
             raise ValueError('This database cannot be deleted.')
         script = Path(__file__).parent / 'scripts/drop-database.py'
-        if self._ssh.is_local(host):
-            installed = str(Path(DCMDB.BASE_DIR) / 'cmdb/interface/scripts/drop-database.py')
-            subprocess.run(['/usr/bin/sudo', '-n', '/usr/bin/python3', installed, database],
-                           stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True, timeout=40)
-        else:
-            self._ssh.run(host, shlex.join(['python3', '-c', script.read_text(), database]),
-                          user='root', timeout=40, connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
+        self._ssh.run(host, shlex.join(['sudo', '-n', 'python3', '-c', script.read_text(), database]),
+                      timeout=40, connect_timeout=DCMDB.SSH_CONNECT_TIMEOUT_SECONDS)
 
     def _run(self, host: str, command: str, **options):
         if self._stop_requested.is_set():
@@ -109,16 +104,13 @@ class SSHDb:
                 return False
             if self._ready(host):
                 return True
-            # Local administrative setup is owned by install/upgrade.
-            if self._ssh.is_local(host):
-                return False
             command = (
-                'set -eu; version=$(mariadb --no-defaults --protocol=socket --skip-ssl --user=root '
+                'set -eu; version=$(sudo -n mariadb --no-defaults --protocol=socket --skip-ssl --user=root '
                 '--batch --skip-column-names -e "SELECT VERSION()"); '
                 'case "$version" in *MariaDB*) ;; *) exit 1 ;; esac; '
-                'mariadb --no-defaults --protocol=socket --skip-ssl --user=root --batch'
+                'sudo -n mariadb --no-defaults --protocol=socket --skip-ssl --user=root --batch'
             )
-            self._run(host, command, user='root', input=provisioning_sql())
+            self._run(host, command, input=provisioning_sql())
             return self._ready(host)
         except (OSError, subprocess.SubprocessError):
             # Hosts without MariaDB or administrative access retry next scan.

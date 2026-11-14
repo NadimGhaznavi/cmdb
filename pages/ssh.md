@@ -5,26 +5,22 @@ title: SSH Interface
 [Documentation index]({{ site.baseurl }}{% link index.md %})
 
 `cmdb/interface/SSH.py` wraps the system OpenSSH client for remote commands.
-It defaults to remote user `cmdbagent`, using the local service account's private key generated
+It defaults to the FreeIPA-managed remote user `cmdbagent`, using the local service account's private key generated
 by the [installer]({{ site.baseurl }}{% link pages/installation.md %}). It does
 not use the database credentials or require a Python SSH package.
 
 ```python
 from cmdb.interface.SSH import SSH
 
-# Example host; its remote cmdbagent account must already authorize the public key.
+# Example host; SSSD must supply the IPA account and its authorized public key.
 result = SSH().run("192.168.1.10", "uname -a")
 print(result.stdout)
-
-# Direct root login uses the same local cmdb key.
-result = SSH().run("192.168.1.10", "id -u", user="root")
 ```
 
-The `user` argument selects the remote login account. Direct root login requires
-the remote root account to authorize the public key and its SSH server to permit
-root key authentication. Local sudo permissions are not required: the client
-still runs as local `cmdb`. Remote account configuration remains outside the
-installer's scope.
+The `user` argument selects the remote login account. The client runs as local
+`cmdb`; host administration logs in as `cmdbagent` and uses `sudo -n`.
+FreeIPA owns the agent identity, authorized public key, host access, and sudo
+privileges. Hosts use SSSD to resolve the user and supply SSH keys and sudo rules.
 
 Run the calling process as the local `cmdb` account so it can read the private
 key. Defaults are port `22`, connection timeout `10` seconds, and overall
@@ -58,41 +54,27 @@ After Nmap discovery and OS scanning, `InventoryCoordinator` uses
 
 1. Check whether TCP port 22 accepts a connection.
 2. Test a login as `cmdbagent` using `true`.
-3. If that login fails, try root using the same local key and run the account
-   provisioning script. Root must already authorize this key and permit SSH.
-4. After provisioning, test `cmdbagent` login again.
-5. Retrieve the hostname as `cmdbagent` with `hostname -f`, falling back to `hostname`,
+3. If that login fails, leave SSH inventory for this host until the next scan.
+4. Retrieve the hostname as `cmdbagent` with `hostname -f`, falling back to `hostname`,
    and update the Machine record by its stable ID.
-6. Read `ip -j address show`, match the scanned IP to its interface, and store
+5. Read `ip -j address show`, match the scanned IP to its interface, and store
    that interface's MAC address. This requires `iproute2` on the target. An
    unavailable command or missing MAC preserves the stored MAC and does not
    discard a successfully retrieved hostname.
-7. Read `/etc/os-release`, falling back to `/usr/lib/os-release` when absent,
+6. Read `/etc/os-release`, falling back to `/usr/lib/os-release` when absent,
    and update the existing OS deployment at `/`. Release contents are parsed
    as data, never executed. Missing, invalid, or unreadable release data leaves
    the current OS observation unchanged and does not discard hostname or MAC data.
 
-For the local machine, skip the port check, SSH connections, and provisioning.
+For the local machine, skip the port check and SSH connections.
 The SSH interface executes the same hostname, MAC, and OS commands locally as `cmdbagent`.
 
-Every connection uses the persistent local `cmdb` known-hosts file, including
-the initial login, root provisioning, and the `cmdbagent` retest. New host keys are
+Every connection uses the persistent local `cmdb` known-hosts file. New host keys are
 automatically recorded before authentication; changed host keys are rejected.
-The private key stays on the CMDB server; only the public key is installed remotely.
+The private key stays on the CMDB server. The public key is stored on the IPA user.
+Discovery does not create or modify Linux accounts, home directories, or SSH keys.
 
-The provisioning script targets Linux hosts with `getent`, `useradd`, and
-`usermod`. It creates `cmdbagent` with a home and `/bin/sh` when absent. For an
-existing service account it supplies a home if missing or set to `/nonexistent`,
-and replaces a `nologin` or `false` shell with `/bin/sh`. A locked password field
-is replaced with an unusable `*NP*` value to allow key authentication without
-enabling password login. Existing usable password hashes are preserved.
-
-The public key is appended to the remote account's `.ssh/authorized_keys`
-only when absent, preserving other keys. The directory and file are owned by
-`cmdbagent` with modes `700` and `600`. Repeated provisioning is safe. No remote
-sudo permissions or SSH daemon settings are added.
-
-Closed ports, denied logins, failed provisioning, invalid hostname output, and
+Closed ports, denied logins, invalid hostname output, and
 SSH timeouts leave the existing hostname unchanged and allow checks on other
 machines to continue. Successful hostname retrieval replaces the stored value,
 including a manual edit. Failures are retried on the next scan without new logging.
@@ -102,34 +84,6 @@ The activity uses `DCMDB.SSH_CONNECT_TIMEOUT_SECONDS` (5 seconds) and
 between hosts and commands. SSH follow-up still runs when the OS scan times out
 or finds no usable OS classification. No database connection is held while
 waiting for SSH.
-
-
-## Account transition
-
-The local `cmdb` service account retains `/var/lib/cmdb`, its private key, and
-known-hosts file. Install/upgrade creates a separate local `cmdbagent` account
-with `/var/lib/cmdbagent` as its home, and authorizes the same public key.
-Remote agents use their own home directories, normally `/home/cmdbagent`.
-Existing remote `cmdb` accounts are not renamed or removed by the scanner.
-
-For the one-time transition, run these commands from the development checkout:
-
-```sh
-sudo scripts/upgrade.sh
-sudo /opt/prod/cmdb/.venv/bin/python -B scripts/cleanup-remote-cmdb.py
-```
-
-The cleanup reads machine addresses from the inventory, closes its database
-connection, then runs as local `cmdb` to use the existing SSH identity. It logs
-in as root remotely and runs `userdel --remove cmdb`, deleting the legacy account
-and its home directory. Remote root must still authorize the CMDB key.
-Local addresses are skipped, and a remote machine-ID check also rejects the
-CMDB server reached through an alias. Unexpected home paths and symlinked homes
-are rejected; supported legacy homes are `/home/cmdb` and `/var/lib/cmdb`.
-Busy accounts are not forcibly killed. Failures are reported per host with a
-nonzero final exit status; successful removals are safe to retry.
-
-The next scan provisions `cmdbagent` where needed. The Linux-account cleanup does not remove database accounts.
 
 
 ## MariaDB agent account
@@ -145,15 +99,14 @@ TLS certificate checks on the local socket. Remote commands remain transported
 over SSH.
 
 After successful host inventory, the scanner checks for the MariaDB client and
-tests the database agent identity and grants. When setup is needed on a remote
-host, it connects as root using the existing SSH key, verifies that the local
-server is MariaDB, applies `schema/cmdbagent.sql`, and retests as `cmdbagent`.
-This also handles hosts whose Linux agent account already existed. Remote
-root must have local administrative MariaDB socket access.
+tests the database agent identity and grants. When setup is needed, it runs
+the MariaDB client as root through `cmdbagent`'s noninteractive sudo access,
+verifies that the local server is MariaDB, applies `schema/cmdbagent.sql`, and
+retests as `cmdbagent`. Root must have administrative MariaDB socket access.
 
-Install and upgrade apply the same SQL locally as root after creating the Linux
-agent, then verify database access under that Linux identity. Runtime local
-checks do not attempt root access. For an absent or unavailable MariaDB server,
+Install and upgrade require the IPA identity to resolve, apply the same SQL
+locally as root, and verify database access under that identity. Local discovery
+uses the same agent sudo access as remote discovery. For an absent or unavailable MariaDB server,
 failed administrative access, or failed agent verification, remote discovery
 retains the machine information and retries on the next scan.
 

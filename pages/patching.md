@@ -95,10 +95,9 @@ reboot verification without applying updates again. An interruption during apt
 instead records a failure requiring inspection before retrying; no automatic
 repair or rollback is attempted.
 
-Remote operations use the existing administrative SSH key as root. Local operations
-use a root-owned helper with sudo permission restricted to four fixed actions.
-The helper confirms Debian on the target before any action. It must be installed
-through the normal installer; never make the installed helper writable by `cmdb`.
+Local and remote operations run as the FreeIPA-managed `cmdbagent` identity and
+use its noninteractive sudo privileges. Remote SSH uses the existing CMDB key.
+The helper confirms Debian on the target before any action.
 
 ## Operation
 

@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 
 
 AGENT = 'cmdbagent'
@@ -37,6 +38,8 @@ GROUP = Path('/etc/group')
 SSH_DIRECTIVES = ('# CMDB IPA public-key lookup\n'
                   'AuthorizedKeysCommand /usr/bin/sss_ssh_authorizedkeys\n'
                   'AuthorizedKeysCommandUser nobody\n')
+CLIENT_READY_TIMEOUT = 60
+CLIENT_READY_INTERVAL = 2
 
 
 def run(*command, input=None, timeout=60, check=True):
@@ -144,13 +147,27 @@ def verify_client(login, public_key):
     require(any(' '.join(line.split()[:2]) == public_key for line in keys),
             'SSSD did not return the CMDB public key.')
     effective = run('sshd', '-T', '-C', f'user={AGENT},host={socket.getfqdn()},addr=127.0.0.1').stdout
-    settings = dict(line.split(None, 1) for line in effective.splitlines() if ' ' in line)
+    settings = {name.lower(): value for name, value in
+                (line.split(None, 1) for line in effective.splitlines() if ' ' in line)}
     require(settings.get('authorizedkeyscommand') == '/usr/bin/sss_ssh_authorizedkeys'
             and settings.get('authorizedkeyscommanduser') == 'nobody'
             and settings.get('pubkeyauthentication') == 'yes' and settings.get('usepam') == 'yes',
             'Effective sshd configuration does not permit IPA public-key login with PAM.')
     result = run('runuser', '-u', login, '--', 'sudo', '-k', '-n', 'id', '-u')
     require(result.stdout.strip() == '0', 'IPA passwordless root sudo verification failed.')
+
+
+def wait_for_client(login, public_key):
+    """Allow SSSD to load newly created IPA policy before replacing an account."""
+    deadline = time.monotonic() + CLIENT_READY_TIMEOUT
+    while True:
+        try:
+            verify_client(login, public_key)
+            return
+        except RuntimeError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(CLIENT_READY_INTERVAL)
 
 
 def verify_host(uid, gid, public_key):
@@ -216,7 +233,7 @@ def setup_host(args):
         qualified = run('getent', 'passwd', f'{AGENT}@{args.domain}').stdout.strip().split(':')
         require(len(qualified) == 7 and qualified[2:4] == [str(args.ipa_uid), str(args.ipa_gid)],
                 'IPA identity lookup failed; the local account has not been removed.')
-        verify_client(f'{AGENT}@{args.domain}', args.public_key)
+        wait_for_client(f'{AGENT}@{args.domain}', args.public_key)
         # Recheck processes just before deletion, after all directory/configuration checks.
         host_preflight(args.domain)
         entry = local_entry(PASSWD, AGENT)
@@ -416,13 +433,15 @@ def main(argv=None):
     require(local_host in hosts, 'Run on the enrolled CMDB server and include it in --hosts.')
     run('klist', '-s')
     run('sudo', '-n', 'true')
-    key = key_material(run('sudo', '-n', '-u', SERVICE_USER, 'ssh-keygen', '-y', '-P', '', '-f', str(KEY)).stdout)
-    require(key_material(run('sudo', '-n', 'cat', str(KEY) + '.pub').stdout) == key,
-            'The existing private and public key files do not match.')
     source = Path(__file__).read_text()
     for host in hosts:
         print(f'Preflight: {host}', flush=True)
         run(*host_command(host, local_host, args.ssh_user, 'preflight', args.domain), input=source)
+    if args.apply:
+        run('sudo', '-n', str(Path(__file__).resolve().with_name('install-ssh.sh')))
+    key = key_material(run('sudo', '-n', '-u', SERVICE_USER, 'ssh-keygen', '-y', '-P', '', '-f', str(KEY)).stdout)
+    require(key_material(run('sudo', '-n', 'cat', str(KEY) + '.pub').stdout) == key,
+            'The existing private and public key files do not match.')
     uid, gid = directory_setup(Directory(), hosts, key, args.apply)
     for host in hosts:
         print(f'{"Migrate" if args.apply else "Verify"}: {host}', flush=True)

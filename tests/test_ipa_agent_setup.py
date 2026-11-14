@@ -164,6 +164,42 @@ class IpaAgentSetupTests(TestCase):
         with self.assertRaisesRegex(RuntimeError, 'membership update failed'):
             directory.call('hbacrule_add_service', setup.HBAC_RULE, hbacsvc=['sudo'])
 
+    def test_client_wait_accepts_delayed_sssd_policy(self):
+        with patch.object(setup, 'verify_client', side_effect=[RuntimeError('policy not ready'), None]) as verify, \
+                patch.object(setup.time, 'monotonic', side_effect=[0, 1]), \
+                patch.object(setup.time, 'sleep') as sleep:
+            setup.wait_for_client('cmdbagent@lab.osoyalce.com', KEY)
+        self.assertEqual(verify.call_count, 2)
+        sleep.assert_called_once_with(setup.CLIENT_READY_INTERVAL)
+
+    def test_client_wait_preserves_failure_after_deadline(self):
+        with patch.object(setup, 'verify_client', side_effect=RuntimeError('policy not ready')), \
+                patch.object(setup.time, 'monotonic', side_effect=[0, setup.CLIENT_READY_TIMEOUT]), \
+                patch.object(setup.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'policy not ready'):
+                setup.wait_for_client('cmdbagent@lab.osoyalce.com', KEY)
+        sleep.assert_not_called()
+
+    def test_client_accepts_sshd_keyword_case_from_debian_and_fedora(self):
+        settings = ('AuthorizedKeysCommand /usr/bin/sss_ssh_authorizedkeys\n'
+                    'AuthorizedKeysCommandUser nobody\nPubkeyAuthentication yes\nUsePAM yes\n')
+        for effective in (settings, settings.lower()):
+            with self.subTest(effective=effective), patch.object(setup, 'run', side_effect=[
+                    subprocess.CompletedProcess([], 0, stdout=KEY + '\n'),
+                    subprocess.CompletedProcess([], 0, stdout=effective),
+                    subprocess.CompletedProcess([], 0, stdout='0\n')]):
+                setup.verify_client('cmdbagent@lab.osoyalce.com', KEY)
+
+    def test_client_rejects_disabled_pam_before_testing_sudo(self):
+        with patch.object(setup, 'run', side_effect=[
+                subprocess.CompletedProcess([], 0, stdout=KEY + '\n'),
+                subprocess.CompletedProcess([], 0, stdout=(
+                    'AuthorizedKeysCommand /usr/bin/sss_ssh_authorizedkeys\n'
+                    'AuthorizedKeysCommandUser nobody\nPubkeyAuthentication yes\nUsePAM no\n'))]) as run:
+            with self.assertRaisesRegex(RuntimeError, 'Effective sshd configuration'):
+                setup.verify_client('cmdbagent@lab.osoyalce.com', KEY)
+        self.assertEqual(run.call_count, 2)
+
     def test_administrator_preflight_failure_prevents_all_directory_writes(self):
         config = Namespace(read=Mock(), get=Mock(return_value=HOSTS[0]))
         def command(*args, **options):
@@ -177,6 +213,26 @@ class IpaAgentSetupTests(TestCase):
             with self.assertRaisesRegex(RuntimeError, 'administrator SSH failed'):
                 setup.main(['--apply', '--hosts', *HOSTS])
             directory.assert_not_called()
+
+    def test_apply_bootstraps_service_key_after_all_host_preflights(self):
+        config = Namespace(read=Mock(), get=Mock(return_value=HOSTS[0]))
+        def command(*args, **options):
+            output = (setup.AGENT + '\n0\n' if args[-1] == 'id -un && sudo -k -n id -u'
+                      else KEY + '\n')
+            return subprocess.CompletedProcess(args, 0, stdout=output, stderr='')
+        with patch.object(setup.os, 'geteuid', return_value=1000), \
+                patch.object(setup.configparser, 'ConfigParser', return_value=config), \
+                patch.object(setup, 'run', side_effect=command) as run, \
+                patch.object(setup, 'Directory', return_value=FakeDirectory()), \
+                redirect_stdout(io.StringIO()):
+            setup.main(['--apply', '--ssh-user', 'nadim', '--hosts', *HOSTS])
+        commands = [call.args for call in run.call_args_list]
+        bootstrap = commands.index(('sudo', '-n', str(SCRIPT.with_name('install-ssh.sh'))))
+        for host in HOSTS:
+            preflight = tuple(setup.host_command(host, HOSTS[0], 'nadim', 'preflight', 'lab.osoyalce.com'))
+            self.assertLess(commands.index(preflight), bootstrap)
+        key = ('sudo', '-n', '-u', setup.SERVICE_USER, 'ssh-keygen', '-y', '-P', '', '-f', str(setup.KEY))
+        self.assertLess(bootstrap, commands.index(key))
 
 
 class HostMigrationTests(TestCase):
@@ -275,7 +331,9 @@ class HostMigrationTests(TestCase):
             if command[0] == 'sss_ssh_authorizedkeys':
                 return subprocess.CompletedProcess(command, 0, stdout='', stderr='')
             return runner(*command, **options)
-        with patch.object(setup, 'run', side_effect=missing_key), redirect_stdout(io.StringIO()):
+        with patch.object(setup, 'run', side_effect=missing_key), \
+                patch.object(setup.time, 'monotonic', side_effect=[0, setup.CLIENT_READY_TIMEOUT]), \
+                redirect_stdout(io.StringIO()):
             with self.assertRaisesRegex(RuntimeError, 'public key'):
                 setup.setup_host(self.args)
         self.assertIsNotNone(setup.local_entry(setup.PASSWD, 'cmdbagent'))

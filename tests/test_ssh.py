@@ -156,6 +156,26 @@ class SSHKeyTests(unittest.TestCase):
             self.assertEqual(path.stat().st_uid, os.getuid())
             self.assertEqual(path.stat().st_gid, os.getgid())
 
+    def test_fresh_setup_creates_service_account_before_generating_key(self):
+        account = SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid())
+        runner = subprocess.run
+        created = []
+        def provision(command, **options):
+            if command[0] in ('groupadd', 'useradd'):
+                created.append(command)
+                return subprocess.CompletedProcess(command, 0)
+            return runner(command, **options)
+        with patch('pwd.getpwnam', side_effect=[KeyError(), account]), \
+                patch('grp.getgrnam', side_effect=KeyError()), \
+                patch('subprocess.run', side_effect=provision):
+            self.provision()
+        self.assertEqual(created, [
+            ['groupadd', '--system', DCMDB.SERVICE_USER],
+            ['useradd', '--system', '--gid', DCMDB.SERVICE_USER,
+             '--no-create-home', '--home-dir', str(self.home),
+             '--shell', '/usr/sbin/nologin', DCMDB.SERVICE_USER]])
+        self.assertTrue(self.public.read_text().startswith('ssh-ed25519 '))
+
     def test_reinstall_retains_identity_and_known_hosts_and_recovers_public_key(self):
         self.provision()
         original = sha256(self.key.read_bytes()).digest()

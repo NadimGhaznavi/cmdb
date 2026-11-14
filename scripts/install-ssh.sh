@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Provision the local service account's reusable SSH identity.
+# Provision the local service account and its reusable SSH identity.
 set -euo pipefail
 umask 077
 [[ $# == 0 && $EUID == 0 ]] || { printf 'Usage: sudo scripts/install-ssh.sh\n' >&2; exit 1; }
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 python3 -B - <<'PY'
+import grp
 import os
 from pathlib import Path
 import pwd
@@ -12,7 +13,17 @@ import subprocess
 
 from cmdb.constants.DCMDB import DCMDB
 
-account = pwd.getpwnam(DCMDB.SERVICE_USER)
+try:
+    account = pwd.getpwnam(DCMDB.SERVICE_USER)
+except KeyError:
+    try:
+        grp.getgrnam(DCMDB.SERVICE_USER)
+    except KeyError:
+        subprocess.run(['groupadd', '--system', DCMDB.SERVICE_USER], check=True)
+    subprocess.run(['useradd', '--system', '--gid', DCMDB.SERVICE_USER,
+                    '--no-create-home', '--home-dir', DCMDB.SERVICE_HOME,
+                    '--shell', '/usr/sbin/nologin', DCMDB.SERVICE_USER], check=True)
+    account = pwd.getpwnam(DCMDB.SERVICE_USER)
 home = Path(DCMDB.SERVICE_HOME)
 directory = Path(DCMDB.SSH_DIR)
 key = Path(DCMDB.SSH_KEY)

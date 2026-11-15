@@ -23,6 +23,12 @@ class HostOperatingSystemTests(TestCase):
         self.assertEqual(operating_system('ID=ubuntu\nVERSION_ID=24.04\nDEBIAN_VERSION_FULL=13.6').version,
                          '24.04')
 
+    def test_fedora_server_does_not_invent_a_supplier_or_codename(self):
+        self.assertEqual(operating_system(
+            'NAME="Fedora Linux"\nVERSION="45 (Server Edition)"\nRELEASE_TYPE=stable\n'
+            'ID=fedora\nVERSION_ID=45\nVERSION_CODENAME=""\nVARIANT_ID=server\n'),
+            SoftwareSystem(type='linux', subtype='fedora', version='45'))
+
     def test_optional_fields_are_not_inferred_from_other_values(self):
         self.assertEqual(operating_system('ID=Debian\nVERSION="trixie"\n'),
                          SoftwareSystem(type="linux", subtype="Debian"))

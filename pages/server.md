@@ -201,8 +201,13 @@ none are recorded). User databases appear first, followed by a horizontal rule
 when any are present, then system databases: `mysql`, `information_schema`,
 `performance_schema`, and `sys` when recorded.
 The outer machine border is muted green when its `IsOnline` tag is `"true"`
-and muted red otherwise. Selection turns a machine blue with cream text while
-preserving its green or red border. Software boxes use a lighter shade of their
+and muted red otherwise. A recorded SSH host-key mismatch takes precedence
+with a muted amber border, including after reloads and offline scans, until
+a successful SSH login clears it. Selecting that machine also shows a warning
+that host inventory could not be refreshed. See
+[SSH trust recovery]({{ site.baseurl }}{% link pages/ssh.md %}#reinstalled-hosts-and-ssh-trust).
+Selection turns a machine blue with cream text while preserving its green,
+red, or amber border. Software boxes use a lighter shade of their
 machine's background, including blue when selected.
 Named machines show
 only the unqualified hostname with its first letter capitalized; unnamed machines

@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from cmdb.constants.DCMDB import DCMDB
-from cmdb.interface.SSH import SSH
+from cmdb.interface.SSH import SSH, SSHHostKeyError
 
 
 class SSHTests(unittest.TestCase):
@@ -110,6 +110,19 @@ class SSHTests(unittest.TestCase):
             with self.subTest(user=user), self.assertRaises(ValueError):
                 SSH().run('server', 'true', user=user)
         run.assert_not_called()
+
+    @patch('cmdb.interface.SSH.subprocess.run')
+    def test_changed_host_key_is_identified_without_retrying_or_replacing_trust(self, run):
+        error = subprocess.CalledProcessError(255, ['ssh'], stderr=(
+            '@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @\n'
+            'Host key verification failed.\n'))
+        run.side_effect = error
+        with self.assertRaises(SSHHostKeyError) as caught:
+            SSH().run('192.0.2.7', 'true')
+        self.assertEqual(caught.exception.stderr, error.stderr)
+        self.assertIs(caught.exception.__cause__, error)
+        run.assert_called_once()
+        self.assertIn('StrictHostKeyChecking=accept-new', run.call_args.args[0])
 
     @patch('cmdb.interface.SSH.subprocess.run')
     def test_failures_propagate_with_output(self, run):

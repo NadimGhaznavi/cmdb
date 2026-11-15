@@ -14,6 +14,7 @@ from cmdb.entity.Machine import Machine
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.entity.TaggedValue import TaggedValue
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
+from cmdb.interface.SSH import SSHHostKeyError
 
 
 class InventoryCoordinatorTests(TestCase):
@@ -217,6 +218,37 @@ class InventoryCoordinatorTests(TestCase):
         self.worker.scan_inventory()
         self.assertEqual(self.worker._application.collect.call_count, 2)
         self.worker._mariadb.collect.assert_called_once_with('192.0.2.8')
+
+    def test_changed_host_key_records_warning_without_overwriting_host_inventory(self):
+        self.worker._network.collect.return_value.append(Machine('192.0.2.8'))
+        self.MachineDb.return_value.upsert.side_effect = [7, 8]
+        self.worker._host.ensure_access.side_effect = [SSHHostKeyError(255, ['ssh']), True]
+        self.worker.scan_inventory()
+        inventory = self.MachineDb.return_value
+        self.assertEqual([call.args for call in inventory.update_ssh_host_key_warning.call_args_list],
+                         [(7, True), (8, False)])
+        inventory.update_discovered_hostname.assert_called_once_with(8, 'SALLY.Example.COM')
+        self.worker._host.collect.assert_called_once_with('192.0.2.8')
+        self.worker._mariadb.collect.assert_called_once_with('192.0.2.8')
+        self.assertEqual(self.worker._application.collect.call_count, 2)
+        self.assertTrue(any('192.0.2.7: SSH host key changed' in row['message']
+                            for row in self.worker.status_messages.snapshot()))
+
+    def test_successful_login_clears_warning_even_if_later_hostname_read_fails(self):
+        self.worker._host.collect.side_effect = subprocess.TimeoutExpired('ssh', 30)
+        self.worker._collect_host(Machine('192.0.2.7', id=7))
+        self.MachineDb.return_value.update_ssh_host_key_warning.assert_called_once_with(7, False)
+        self.MachineDb.return_value.update_discovered_hostname.assert_not_called()
+
+    def test_offline_or_unavailable_login_preserves_host_key_warning(self):
+        for failure in (subprocess.TimeoutExpired('ssh', 30), ConnectionRefusedError()):
+            with self.subTest(failure=failure):
+                self.worker._host.ensure_access.side_effect = failure
+                self.worker._collect_host(Machine('192.0.2.7', id=7))
+        self.worker._host.ensure_access.side_effect = None
+        self.worker._host.ensure_access.return_value = False
+        self.worker._collect_host(Machine('192.0.2.7', id=7))
+        self.MachineDb.return_value.update_ssh_host_key_warning.assert_not_called()
 
     def test_absent_failed_and_deleted_applications_preserve_inventory(self):
         for outcome in ('not detected', 'read failed', 'unsupported name'):

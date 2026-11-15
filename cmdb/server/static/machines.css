@@ -9,12 +9,14 @@
   --danger: #9c3f32;
   --online: #5c8665;
   --offline: #a15d55;
+  --warning: #b39152;
   --selection: #365f87;
   --software-surface: #493427;
   --software-unnamed: #fff3e7;
   --software-selection: #527ca3;
 }
 * { box-sizing: border-box; }
+#machine-scan-warning { color: var(--warning); }
 [hidden] { display: none !important; }
 .header-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .header-brand { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; min-width: 0; }

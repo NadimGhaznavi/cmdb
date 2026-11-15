@@ -7,6 +7,27 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-11-15 @ 05:45
+
+### Summary
+
+Expose SSH host-key changes that prevent inventory refreshes, including after
+reinstalling a machine with Fedora. A muted amber machine border marks the
+stored warning until SSH access succeeds.
+
+### Added
+
+- Record host-key mismatches in scan status and machine inventory; show their
+  explanation in machine details and preserve the amber border during selection.
+- Cover Fedora release collection and replacement of an existing Debian
+  deployment without affecting other machines sharing that software definition.
+
+### Fixed
+
+- Verify agent SSH access by both hostname and resolved IPv4 addresses during
+  IPA setup/checks, detecting stale IP trust entries used by the scanner.
+- Document verified host-key replacement for machines that have been reinstalled.
+
 ## [2.0.1] - 2026-11-14 @ 17:45
 
 ### Fixed

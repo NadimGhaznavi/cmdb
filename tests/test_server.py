@@ -349,7 +349,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['runs'][0]['patchTime'], '2026-09-28T12:00:00+00:00')
         records.return_value.request.return_value = 12
-        for values, expected in [({'machine': 7}, 202), ({'machine': True}, 400), ({'machine': -1}, 400)]:
+        for values, expected in [({'machine': 7, 'patchType': 'kernel'}, 202),
+                                 ({'machine': 7, 'patchType': 'other'}, 202),
+                                 ({'machine': True, 'patchType': 'kernel'}, 400),
+                                 ({'machine': -1, 'patchType': 'other'}, 400),
+                                 ({'machine': 7}, 400), ({'machine': 7, 'patchType': 'all'}, 400),
+                                 ({'machine': 7, 'patchType': []}, 400)]:
             connection = HTTPConnection(*self.server.server_address)
             try:
                 connection.request('POST', '/api/patching', json.dumps(values), {'Content-Type': 'application/json'})
@@ -358,13 +363,15 @@ class ServerTests(unittest.TestCase):
                 response.read()
             finally:
                 connection.close()
-        records.return_value.request.assert_called_once_with(7)
+        self.assertEqual([call.args for call in records.return_value.request.call_args_list],
+                         [(7, 'kernel'), (7, 'other')])
 
     @patch('cmdb.server.CmdbHandler.SSH')
     @patch('cmdb.server.CmdbHandler.SoftwareDeploymentDb')
     @patch('cmdb.server.CmdbHandler.connect_database', new_callable=database_factory)
-    def test_uptime_only_contacts_known_debian_hosts(self, db, inventory, ssh):
-        inventory.return_value.debian_hosts.return_value = [{'id': 7, 'ipAddress': '192.0.2.1'}]
+    def test_uptime_only_contacts_known_patchable_hosts(self, db, inventory, ssh):
+        inventory.return_value.patchable_hosts.side_effect = lambda identity: (
+            [{'id': 7, 'ipAddress': '192.0.2.1'}] if identity == 7 else [])
         ssh.return_value.uptime.return_value = 90061
         status, body = self.get('/api/patching/hosts/7/uptime')
         self.assertEqual(status, 200)
@@ -378,7 +385,7 @@ class ServerTests(unittest.TestCase):
 
     @patch('cmdb.server.CmdbHandler.PatchScheduler')
     def test_patch_schedule_update_and_errors(self, scheduler):
-        values = dict(machine=7, enabled=True, expression='15 2 * * 0')
+        values = dict(machine=7, patchType='other', enabled=True, expression='15 2 * * 0')
         scheduler.return_value.update.return_value = dict(values, id=2)
         for failure, expected in [(None, 200), (ValueError('Invalid cron'), 400),
                                   (LookupError('not Debian'), 404), (OSError('cron failed'), 503)]:

@@ -258,9 +258,9 @@ The installer does not configure mounts or NFS permissions. The service grants
 write access to the configured backup directory for local neuromancer dumps.
 See [manual backups]({{ site.baseurl }}{% link pages/backups.md %}).
 
-## Debian patch runner
+## Debian and Fedora patch runner
 
 Installation also enables `cmdb-patch.service`, independent of the web service.
 Local and remote patch actions run as `cmdbagent` through sudo. The normal installer
 creates its job storage. Uninstall stops both services. See
-[Debian patching]({{ site.baseurl }}{% link pages/patching.md %}) for execution and recovery behavior.
+[Patching]({{ site.baseurl }}{% link pages/patching.md %}) for execution and recovery behavior.

@@ -1,4 +1,4 @@
-"""Queue and persist Debian patch jobs independently of the web service."""
+"""Queue and persist kernel and other patch jobs independently of HTTP."""
 
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 
@@ -8,33 +8,39 @@ class PatchDb:
         self.db = db
 
     def hosts(self):
-        hosts = SoftwareDeploymentDb(self.db).debian_hosts()
+        hosts = SoftwareDeploymentDb(self.db).patchable_hosts()
         for host in hosts:
-            rows = self.db.query('SELECT id, status, error FROM Patch WHERE machine=%s ORDER BY id DESC LIMIT 1', (host['id'],))
-            host['job'] = rows[0] if rows else None
-            rows = self.db.query('SELECT id, enabled, expression FROM PatchSchedule WHERE machine=%s', (host['id'],))
-            host['schedule'] = rows[0] if rows else None
+            host['patches'] = {}
+            for patch_type in ('kernel', 'other'):
+                rows = self.db.query('SELECT id, status, error FROM Patch WHERE machine=%s AND patchType=%s '
+                                     'ORDER BY id DESC LIMIT 1', (host['id'], patch_type))
+                job = rows[0] if rows else None
+                rows = self.db.query('SELECT id, enabled, expression FROM PatchSchedule '
+                                     'WHERE machine=%s AND patchType=%s', (host['id'], patch_type))
+                host['patches'][patch_type] = dict(job=job, schedule=rows[0] if rows else None)
         return hosts
 
-    def request(self, machine):
+    def request(self, machine, patchType):
         with self.db.transaction():
             # Serialize clicks for this machine while checking for an existing active job.
             self.db.query('SELECT id FROM Machine WHERE id=%s FOR UPDATE', (machine,))
-            hosts = SoftwareDeploymentDb(self.db).debian_hosts(machine)
+            hosts = SoftwareDeploymentDb(self.db).patchable_hosts(machine)
             if not hosts:
-                raise LookupError('Debian host not found.')
+                raise LookupError('Debian or Fedora host not found.')
             host = hosts[0]
-            jobs = self.db.query('SELECT id, status FROM Patch WHERE machine=%s ORDER BY id DESC LIMIT 1', (machine,))
+            jobs = self.db.query('SELECT id, status FROM Patch WHERE machine=%s AND patchType=%s '
+                                 'ORDER BY id DESC LIMIT 1', (machine, patchType))
             job = jobs[0] if jobs else None
             if job and job['status'] in ('queued', 'patching', 'rebooting'):
                 return job['id']
-            return self.db.insert('INSERT INTO Patch (machine, address) VALUES (%s, %s)', (machine, host['ipAddress']))
+            return self.db.insert('INSERT INTO Patch (machine, address, patchType) VALUES (%s, %s, %s)',
+                                  (machine, host['ipAddress'], patchType))
 
     def report(self):
         return self.db.query(
             "SELECT p.id, COALESCE(p.startedOn, p.createdOn) AS patchTime, "
             "TIMESTAMPDIFF(SECOND, p.startedOn, p.completedOn) AS elapsedSeconds, "
-            "m.hostName, p.address AS ipAddress, p.status, p.error "
+            "m.hostName, p.address AS ipAddress, p.patchType, p.status, p.error "
             "FROM Patch p JOIN Machine m ON m.id=p.machine ORDER BY p.id DESC LIMIT 100")
 
     def next(self):

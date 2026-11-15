@@ -1,4 +1,4 @@
-"""Persist each machine's cron patch schedule."""
+"""Persist separate kernel and other cron patch schedules for each machine."""
 
 
 class PatchScheduleDb:
@@ -9,8 +9,9 @@ class PatchScheduleDb:
         rows = self.db.query('SELECT * FROM PatchSchedule WHERE id=%s', (identity,))
         return rows[0] if rows else None
 
-    def save(self, machine, enabled, expression):
-        self.db.execute('INSERT INTO PatchSchedule (machine, enabled, expression) VALUES (%s,%s,%s) '
+    def save(self, machine, patchType, enabled, expression):
+        self.db.execute('INSERT INTO PatchSchedule (machine, patchType, enabled, expression) VALUES (%s,%s,%s,%s) '
                         'ON DUPLICATE KEY UPDATE enabled=VALUES(enabled), expression=VALUES(expression)',
-                        (machine, enabled, expression))
-        return self.db.query('SELECT * FROM PatchSchedule WHERE machine=%s', (machine,))[0]
+                        (machine, patchType, enabled, expression))
+        return self.db.query('SELECT * FROM PatchSchedule WHERE machine=%s AND patchType=%s',
+                             (machine, patchType))[0]

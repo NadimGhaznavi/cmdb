@@ -711,7 +711,7 @@ function updateText(element, value) {
 function updatePatchRows(body, items, render) {
   const existing = new Map([...body.rows].map(row => [row.dataset.id, row]));
   items.forEach((item, index) => {
-    const key = String(item.id);
+    const key = item.patchType ? `${item.id}-${item.patchType}` : String(item.id);
     let row = existing.get(key);
     const isNew = !row;
     if (isNew) {
@@ -725,7 +725,7 @@ function updatePatchRows(body, items, render) {
   for (const row of existing.values()) row.remove();
 }
 
-async function queuePatch(row, identity) {
+async function queuePatch(row, identity, patchType) {
   const button = row.querySelector('[data-action="patch"]');
   const status = row.querySelector('.patch-row-status');
   updateText(status, 'Queuing patch job…');
@@ -736,7 +736,7 @@ async function queuePatch(row, identity) {
   try {
     const response = await fetch('/api/patching', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ machine: identity }), signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ machine: identity, patchType }), signal: AbortSignal.timeout(15000),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not queue patch job.');
@@ -758,21 +758,27 @@ async function loadPatchingHosts() {
   const body = document.getElementById('patching-hosts');
   try {
     const response = await fetch('/api/patching/hosts', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error('Debian hosts are unavailable. Retrying…');
+    if (!response.ok) throw new Error('Patching hosts are unavailable. Retrying…');
     const { hosts } = await response.json();
     if (request !== patchingRequest) return;
     hosts.sort((left, right) => machineLabel(left).localeCompare(machineLabel(right)));
-    updatePatchRows(body, hosts, (row, host, isNew) => {
+    const policies = hosts.flatMap(host => ['kernel', 'other'].map(patchType =>
+      ({ ...host, ...host.patches[patchType], patchType })));
+    updatePatchRows(body, policies, (row, host, isNew) => {
+      const typeLabel = host.patchType === 'kernel' ? 'Kernel (reboot)' : 'Other (no reboot)';
       if (isNew) {
+        row.dataset.machine = host.id;
         const name = document.createElement('td');
         const uptime = document.createElement('td');
         uptime.dataset.field = 'uptime';
         uptime.textContent = '---';
+        const type = document.createElement('td');
+        type.textContent = typeLabel;
         const enabledCell = document.createElement('td');
         const enabled = document.createElement('input');
         enabled.type = 'checkbox';
         enabled.dataset.field = 'scheduleEnabled';
-        enabled.setAttribute('aria-label', `Enable scheduled patching for ${machineLabel(host)}`);
+        enabled.setAttribute('aria-label', `Enable ${typeLabel} patching for ${machineLabel(host)}`);
         enabled.addEventListener('change', () => { row.dataset.scheduleDirty = 'true'; });
         enabledCell.append(enabled);
         const scheduleCell = document.createElement('td');
@@ -781,7 +787,7 @@ async function loadPatchingHosts() {
         expression.size = 20;
         expression.maxLength = 255;
         expression.dataset.field = 'expression';
-        expression.setAttribute('aria-label', `Cron schedule for ${machineLabel(host)}`);
+        expression.setAttribute('aria-label', `${typeLabel} cron schedule for ${machineLabel(host)}`);
         expression.addEventListener('input', () => { row.dataset.scheduleDirty = 'true'; });
         scheduleCell.append(expression);
         const actions = document.createElement('td');
@@ -791,29 +797,32 @@ async function loadPatchingHosts() {
         update.type = 'button';
         update.textContent = 'Update';
         update.dataset.action = 'schedule';
-        update.addEventListener('click', () => savePatchSchedule(row, host.id));
+        update.setAttribute('aria-label', `Update ${typeLabel} schedule for ${machineLabel(host)}`);
+        update.addEventListener('click', () => savePatchSchedule(row, host.id, host.patchType));
         const button = document.createElement('button');
         button.type = 'button';
         button.dataset.action = 'patch';
         button.textContent = 'Patch Now';
-        button.addEventListener('click', () => queuePatch(row, host.id));
+        button.setAttribute('aria-label', `Patch ${typeLabel} now for ${machineLabel(host)}`);
+        button.addEventListener('click', () => queuePatch(row, host.id, host.patchType));
         const progress = document.createElement('td');
         progress.className = 'patch-row-status';
         progress.setAttribute('role', 'status');
         buttons.append(update, button);
         actions.append(buttons);
-        row.append(name, uptime, enabledCell, scheduleCell, actions, progress);
+        row.append(name, uptime, type, enabledCell, scheduleCell, actions, progress);
       }
       updateText(row.cells[0], machineLabel(host));
       if (!row.dataset.scheduleDirty && !row.dataset.scheduleSaving) {
         const enabled = row.querySelector('[data-field="scheduleEnabled"]');
         enabled.checked = Boolean(host.schedule?.enabled);
-        setCronExpression(row, host.schedule?.expression ?? '0 13 * * 1');
+        setCronExpression(row, host.schedule?.expression ?? (host.patchType === 'kernel' ? '0 13 * * 1' : '0 12 * * *'));
       }
       const button = row.querySelector('[data-action="patch"]');
       const disabled = Boolean(row.dataset.submitting) || ['queued', 'patching', 'rebooting'].includes(host.job?.status);
       if (button.disabled !== disabled) button.disabled = disabled;
-      const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…', succeeded: 'Patched and reboot verified.', failed: 'Patch failed' };
+      const labels = { queued: 'Queued', patching: 'Applying updates…', rebooting: 'Waiting for reboot and verification…',
+        succeeded: host.patchType === 'kernel' ? 'Kernel patched and reboot verified.' : 'Patched without reboot.', failed: 'Patch failed' };
       const jobState = JSON.stringify(host.job ? [host.job.id, host.job.status, host.job.error] : null);
       if (jobState !== row.patchJobState) {
         row.patchJobState = jobState;
@@ -824,12 +833,12 @@ async function loadPatchingHosts() {
         }
       }
     });
-    updateText(status, hosts.length ? 'Each successful patch job includes a reboot, even when no updates are available.' : 'No Debian hosts discovered yet.');
+    updateText(status, hosts.length ? 'Kernel patching reboots the host. Other patching excludes kernels and does not reboot.' : 'No Debian or Fedora hosts discovered yet.');
     if (initialUptimePending) {
       initialUptimePending = false;
       refreshUptime();
     }
-    if (hosts.some(host => ['queued', 'patching', 'rebooting'].includes(host.job?.status))) {
+    if (policies.some(host => ['queued', 'patching', 'rebooting'].includes(host.job?.status))) {
       patchingTimer = setTimeout(loadPatchingHosts, 5000);
     }
   } catch (error) {
@@ -844,7 +853,7 @@ function setCronExpression(row, value) {
   if (expression.value !== value) expression.value = value;
 }
 
-async function savePatchSchedule(row, machine) {
+async function savePatchSchedule(row, machine, patchType) {
   const enabled = row.querySelector('[data-field="scheduleEnabled"]');
   const expression = row.querySelector('[data-field="expression"]');
   const button = row.querySelector('[data-action="schedule"]');
@@ -856,7 +865,7 @@ async function savePatchSchedule(row, machine) {
   try {
     const response = await fetch('/api/patch-schedules', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ machine, enabled: enabled.checked, expression: expression.value }),
+      body: JSON.stringify({ machine, patchType, enabled: enabled.checked, expression: expression.value }),
       signal: AbortSignal.timeout(15000),
     });
     const result = await response.json();
@@ -881,37 +890,42 @@ async function refreshUptime() {
   const button = document.getElementById('refresh-uptime');
   if (button.disabled) return;
   const status = document.getElementById('uptime-status');
-  const rows = [...document.querySelectorAll('#patching-hosts tr')];
+  const groups = new Map();
+  for (const row of document.querySelectorAll('#patching-hosts tr')) {
+    if (!groups.has(row.dataset.machine)) groups.set(row.dataset.machine, []);
+    groups.get(row.dataset.machine).push(row);
+  }
+  const hosts = [...groups.entries()];
   let failures = 0;
-  const count = rows.length;
+  const count = hosts.length;
   button.disabled = true;
   updateText(status, 'Refreshing uptime…');
   async function worker() {
-    while (rows.length) {
-      const row = rows.shift();
-      const cell = row.querySelector('[data-field="uptime"]');
-      const rowStatus = row.querySelector('.patch-row-status');
-      updateText(rowStatus, 'Refreshing uptime…');
+    while (hosts.length) {
+      const [machine, rows] = hosts.shift();
+      const message = value => rows.forEach(row => updateText(row.querySelector('.patch-row-status'), value));
+      const setUptime = value => rows.forEach(row => updateText(row.querySelector('[data-field="uptime"]'), value));
+      message('Refreshing uptime…');
       try {
-        const response = await fetch(`/api/patching/hosts/${row.dataset.id}/uptime`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+        const response = await fetch(`/api/patching/hosts/${machine}/uptime`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
         if (!response.ok) throw new Error('Uptime unavailable');
         const { uptimeSeconds: seconds } = await response.json();
         const uptime = seconds < 60 ? `${Math.floor(seconds)} secs`
           : seconds < 3600 ? `${Math.floor(seconds / 60)} min`
           : seconds < 86400 ? `${(seconds / 3600).toFixed(1)} hours`
           : `${(seconds / 86400).toFixed(1)} days`;
-        updateText(cell, uptime);
-        updateText(rowStatus, 'Uptime refreshed');
+        setUptime(uptime);
+        message('Uptime refreshed');
       } catch (error) {
         failures++;
-        updateText(cell, 'Unavailable');
-        updateText(rowStatus, 'Host unavailable');
+        setUptime('Unavailable');
+        message('Host unavailable');
       }
     }
   }
   try {
     await Promise.all(Array.from({ length: Math.min(4, count) }, worker));
-    updateText(status, !count ? 'No Debian hosts to refresh.' : failures ? `Uptime refreshed; ${failures} host(s) unavailable.` : 'Uptime refreshed.');
+    updateText(status, !count ? 'No Debian or Fedora hosts to refresh.' : failures ? `Uptime refreshed; ${failures} host(s) unavailable.` : 'Uptime refreshed.');
   } finally {
     button.disabled = false;
   }
@@ -930,9 +944,10 @@ async function loadPatchReport() {
     if (request !== patchReportRequest) return;
     updatePatchRows(body, runs, (row, run, isNew) => {
       if (isNew) {
-        for (let index = 0; index < 5; index++) row.append(document.createElement('td'));
+        for (let index = 0; index < 6; index++) row.append(document.createElement('td'));
       }
       const values = [localTimestamp(run.patchTime), machineLabel(run),
+        run.patchType === 'kernel' ? 'Kernel (reboot)' : 'Other (no reboot)',
         run.elapsedSeconds == null ? '---' : elapsedTime(run.elapsedSeconds),
         { queued: 'Queued', patching: 'Patching', rebooting: 'Rebooting', succeeded: 'Succeeded', failed: 'Failed' }[run.status],
         run.error || '---'];

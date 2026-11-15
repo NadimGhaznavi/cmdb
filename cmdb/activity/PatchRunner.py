@@ -25,11 +25,15 @@ class PatchRunner:
         remote = SSHPatch()
         try:
             if job['status'] == 'patching':
-                raise RuntimeError('Runner interrupted during patching. Inspect apt/dpkg before retrying.')
+                raise RuntimeError('Runner interrupted during patching. Inspect the package manager before retrying.')
             if job['status'] == 'queued':
                 job['bootId'] = str(UUID(remote.run(address, 'probe').strip()))
                 self.record('start', identity, job['bootId'])
-                remote.run(address, 'patch')
+                remote.run(address, 'patch-' + job['patchType'])
+                if job['patchType'] == 'other':
+                    remote.run(address, 'verify-packages')
+                    self.record('finish', identity)
+                    return
                 self.record('rebooting', identity)
                 job['rebootOn'] = now()
                 remote.run(address, 'reboot')

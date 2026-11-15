@@ -284,12 +284,12 @@
     </footer>
   </main>
   <main id="patching-page" aria-labelledby="patching-heading" hidden>
-    <section class="backup-panel" aria-labelledby="debian-hosts-heading">
-    <h3 id="debian-hosts-heading">Debian Hosts</h3>
-    <p id="patching-status" role="status">Loading Debian hosts…</p>
-    <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Debian hosts">
-      <table class="backups-table debian-hosts-table" aria-label="Debian hosts">
-        <thead><tr><th scope="col">Machine</th><th scope="col">Uptime</th><th scope="col">Enabled</th><th scope="col">Cron Schedule</th><th scope="col">Actions</th><th scope="col">Status</th></tr></thead>
+    <section class="backup-panel" aria-labelledby="patching-heading">
+    <h3 id="patching-heading">Debian and Fedora Hosts</h3>
+    <p id="patching-status" role="status">Loading patching hosts…</p>
+    <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Patching hosts">
+      <table class="backups-table patching-hosts-table" aria-label="Patching hosts">
+        <thead><tr><th scope="col">Machine</th><th scope="col">Uptime</th><th scope="col">Patch Type</th><th scope="col">Enabled</th><th scope="col">Cron Schedule</th><th scope="col">Actions</th><th scope="col">Status</th></tr></thead>
         <tbody id="patching-hosts"></tbody>
       </table>
     </div>
@@ -302,8 +302,8 @@
       <h3 id="patch-report-heading">Patch Report</h3>
       <p id="patch-report-status" role="status">Loading patch runs…</p>
       <div class="backup-table-scroll" tabindex="0" role="region" aria-label="Recent patch runs">
-        <table class="backups-table" aria-label="Recent patch runs">
-          <thead><tr><th scope="col">Patch Time</th><th scope="col">Machine</th><th scope="col">Elapsed Time</th><th scope="col">Status</th><th scope="col">Details</th></tr></thead>
+        <table class="backups-table patch-report-table" aria-label="Recent patch runs">
+          <thead><tr><th scope="col">Patch Time</th><th scope="col">Machine</th><th scope="col">Patch Type</th><th scope="col">Elapsed Time</th><th scope="col">Status</th><th scope="col">Details</th></tr></thead>
           <tbody id="patch-report-rows"></tbody>
         </table>
       </div>

@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS Backup (
 CREATE TABLE IF NOT EXISTS Patch (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     machine BIGINT UNSIGNED NOT NULL,
+    patchType VARCHAR(16) NOT NULL,
     address VARCHAR(45) NOT NULL,
     status VARCHAR(16) NOT NULL DEFAULT 'queued',
     createdOn DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -186,12 +187,16 @@ CREATE TABLE IF NOT EXISTS Patch (
     error TEXT NULL,
     KEY Patch_queue_idx (status, id),
     CONSTRAINT Patch_Machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
+    CONSTRAINT Patch_type_ck CHECK (BINARY patchType IN ('kernel','other')),
     CONSTRAINT Patch_status_ck CHECK (BINARY status IN ('queued','patching','rebooting','succeeded','failed')),
     CONSTRAINT Patch_completion_ck CHECK (
         (status IN ('queued','patching','rebooting') AND completedOn IS NULL) OR
         (status IN ('succeeded','failed') AND completedOn IS NOT NULL)),
-    CONSTRAINT Patch_reboot_ck CHECK (status NOT IN ('rebooting','succeeded') OR
-        (startedOn IS NOT NULL AND rebootOn IS NOT NULL AND bootId IS NOT NULL)),
+    CONSTRAINT Patch_reboot_ck CHECK ((patchType='other' AND rebootOn IS NULL AND status<>'rebooting') OR
+        (patchType='kernel' AND (status NOT IN ('rebooting','succeeded') OR
+        (startedOn IS NOT NULL AND rebootOn IS NOT NULL AND bootId IS NOT NULL)))),
+    CONSTRAINT Patch_success_ck CHECK (status<>'succeeded' OR
+        (startedOn IS NOT NULL AND bootId IS NOT NULL)),
     CONSTRAINT Patch_error_ck CHECK ((status='failed' AND error IS NOT NULL) OR
         (status<>'failed' AND error IS NULL))
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -199,10 +204,12 @@ CREATE TABLE IF NOT EXISTS Patch (
 CREATE TABLE IF NOT EXISTS PatchSchedule (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     machine BIGINT UNSIGNED NOT NULL,
+    patchType VARCHAR(16) NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
     expression VARCHAR(255) NOT NULL DEFAULT '',
-    UNIQUE KEY PatchSchedule_machine_uq (machine),
+    UNIQUE KEY PatchSchedule_machine_type_uq (machine, patchType),
     CONSTRAINT PatchSchedule_Machine_fk FOREIGN KEY (machine) REFERENCES Machine (id),
+    CONSTRAINT PatchSchedule_type_ck CHECK (BINARY patchType IN ('kernel','other')),
     CONSTRAINT PatchSchedule_enabled_ck CHECK (enabled IN (0,1)),
     CONSTRAINT PatchSchedule_expression_ck CHECK (enabled=0 OR CHAR_LENGTH(expression)>0)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

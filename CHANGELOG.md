@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-11-15 @ 05:45
+
 ### Summary
 
 Expose SSH host-key changes that prevent inventory refreshes, including after

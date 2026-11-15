@@ -396,6 +396,20 @@ def host_command(host, local_host, ssh_user, mode, domain, uid=0, gid=0, key='')
             '-l', ssh_user, '--', host, shlex.join(command)]
 
 
+def verify_agent_ssh(host):
+    """Check both the enrolled name and the IPv4 targets used by inventory."""
+    addresses = sorted({entry[4][0] for entry in socket.getaddrinfo(
+        host, 22, family=socket.AF_INET, type=socket.SOCK_STREAM)})
+    require(addresses, f'No IPv4 scan address found for {host}.')
+    for target in [host, *addresses]:
+        result = run('sudo', '-n', '-u', SERVICE_USER, 'ssh', '-F', '/dev/null', '-T',
+                     '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
+                     '-o', 'StrictHostKeyChecking=accept-new', '-o', f'UserKnownHostsFile={KNOWN_HOSTS}',
+                     '-o', 'ConnectTimeout=10', '-i', str(KEY), '-l', AGENT, '--', target,
+                     'id -un && sudo -k -n id -u')
+        require(result.stdout.splitlines() == [AGENT, '0'], f'CMDB key login failed on {target} ({host}).')
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -449,12 +463,7 @@ def main(argv=None):
                                    args.domain, uid, gid, key), input=source, timeout=120)
         print(result.stdout, end='', flush=True)
         if host != local_host:
-            result = run('sudo', '-n', '-u', SERVICE_USER, 'ssh', '-F', '/dev/null', '-T',
-                         '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
-                         '-o', 'StrictHostKeyChecking=accept-new', '-o', f'UserKnownHostsFile={KNOWN_HOSTS}',
-                         '-o', 'ConnectTimeout=10', '-i', str(KEY), '-l', AGENT, '--', host,
-                         'id -un && sudo -k -n id -u')
-            require(result.stdout.splitlines() == [AGENT, '0'], f'CMDB key login failed on {host}.')
+            verify_agent_ssh(host)
         elif args.check:
             result = run('sudo', '-n', '-u', SERVICE_USER, 'sudo', '-n', '-H', '-u', AGENT,
                          '--', '/bin/sh', '-c', 'sudo -k -n id -u')

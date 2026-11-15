@@ -1059,7 +1059,7 @@ function compareSoftware(left, right) {
 
 async function loadMachines() {
   const theme = getComputedStyle(document.documentElement);
-  const palette = Object.fromEntries(["background", "surface", "text", "border", "selection", "online", "offline",
+  const palette = Object.fromEntries(["background", "surface", "text", "border", "selection", "online", "offline", "warning",
     "software-surface", "software-unnamed", "software-selection"]
     .map(color => [color, theme.getPropertyValue(`--${color}`).trim()]));
   const status = document.getElementById("graph-status");
@@ -1133,8 +1133,9 @@ async function loadMachines() {
           const systems = softwareDeployments.filter(system => system.machine === machine.id && !system.componentName)
             .sort(compareSoftware);
           const online = machine.taggedValue?.find(tag => tag.tag === "IsOnline")?.value === "true";
+          const warning = machine.taggedValue?.some(tag => tag.tag === "SSHHostKeyChanged" && tag.value === "true");
           elements.push({ data: { ...machine, machineId: machine.id, id: machine.ipAddress, label: machineLabel(machine) },
-            classes: online ? "machine up" : "machine down", position: center });
+            classes: warning ? "machine warning" : online ? "machine up" : "machine down", position: center });
           systems.forEach((system, offset) => {
             elements.push({ data: { ...system, id: `deployment-${system.id}`,
               parent: machine.ipAddress, label: softwareLabel(system) }, classes: "software",
@@ -1179,6 +1180,9 @@ async function loadMachines() {
             } },
             { selector: ".machine.down", style: {
               "border-color": palette.offline,
+            } },
+            { selector: ".machine.warning", style: {
+              "border-color": palette.warning,
             } },
             { selector: ".machine:selected > .software", style: {
               "background-color": palette["software-selection"], "border-color": palette.selection, "color": palette.text,
@@ -1247,6 +1251,7 @@ async function loadMachines() {
         ?? "unclassified";
       environmentStatus.textContent = "";
       hostname.value = node.data("hostName") ?? "";
+      document.getElementById("machine-scan-warning").hidden = !node.hasClass("warning");
       const rawScan = node.data("taggedValue")?.some(tag => tag.tag === "RawScanData");
       document.getElementById("raw-scan-row").hidden = !rawScan;
       document.getElementById("raw-scan-link").href = `/machines/${node.data("machineId")}/raw-scan`;

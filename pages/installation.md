@@ -225,6 +225,11 @@ sudo scripts/install.sh
 /usr/bin/python3 scripts/setup-ipa-agent.py --ssh-user nadim --check
 ```
 
+Agent login verification covers both the enrolled hostname and its resolved
+IPv4 scan addresses. If a reinstalled host's IP still has an old SSH key,
+follow [SSH trust recovery]({{ site.baseurl }}{% link pages/ssh.md %}#reinstalled-hosts-and-ssh-trust)
+before rerunning the check.
+
 After host preflight, the setup helper creates the local `cmdb` service account
 and its SSH key on a fresh server, or reuses the existing account and key.
 It checks administrator SSH access and host prerequisites before creating

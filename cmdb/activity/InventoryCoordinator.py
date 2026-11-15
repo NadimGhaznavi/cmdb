@@ -22,6 +22,7 @@ from cmdb.interface.DataManagerDb import DataManagerDb
 from cmdb.interface.Database import connect_database
 from cmdb.interface.MachineDb import MachineDb
 from cmdb.interface.Network import Network
+from cmdb.interface.SSH import SSHHostKeyError
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 
@@ -209,7 +210,18 @@ class InventoryCoordinator(Thread):
         try:
             if not self._host.ensure_access(machine.ipAddress):
                 return
+            if self._stop_requested.is_set():
+                return
+            with inventory_database() as db:
+                MachineDb(db).update_ssh_host_key_warning(machine.id, False)
             observation = self._host.collect(machine.ipAddress)
+        except SSHHostKeyError:
+            with inventory_database() as db:
+                MachineDb(db).update_ssh_host_key_warning(machine.id, True)
+            self.status_messages.append(
+                f'{machine.ipAddress}: SSH host key changed; verify the host and update CMDB SSH trust. '
+                'Host inventory was not refreshed.')
+            return
         except (OSError, subprocess.SubprocessError, ValueError):
             return
         if observation is None or self._stop_requested.is_set():

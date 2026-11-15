@@ -32,9 +32,9 @@ When CMDB finds an unclassified device, it performs a more intensive Nmap servic
 
 ## Patching
 
-CMDB includes a patching interface for Debian Linux. Discovered Debian machines automatically appear on the **Patching** page, where an administrator can run a patch job on demand or configure automatic, cron-scheduled patching for each host.
+CMDB includes a patching interface for Debian and Fedora Linux. Discovered machines appear on the **Patching** page with separate kernel and other patching controls, each with an optional cron schedule and an on-demand Patch Now action.
 
-A patch job refreshes package information, installs available package upgrades, removes obsolete packages, and then reboots the machine. CMDB verifies that the host has returned after the reboot and records the outcome.
+Kernel patching updates kernel packages, reboots the machine, and verifies that it has returned healthy. Other patching excludes kernel packages and verifies package health without requesting a reboot. CMDB records the patch type and outcome for every job.
 
 ## Backups
 
@@ -59,7 +59,7 @@ Machines with eligible backup targets appear on the **Backups** page. CMDB suppo
 * [Network discovery]({{ site.baseurl }}{% link pages/discovery.md %})
 * [App discovery settings]({{ site.baseurl }}{% link pages/app-discovery.md %})
 * [CMDB_NETWORK app developer guide]({{ site.baseurl }}{% link pages/cmdb-network.md %})
-* [Debian patching]({{ site.baseurl }}{% link pages/patching.md %})
+* [Patching]({{ site.baseurl }}{% link pages/patching.md %})
 * [CMDB server]({{ site.baseurl }}{% link pages/server.md %})
 * [Schema notes]({{ site.baseurl }}{% link pages/schema-notes.md %})
 * [Project mission]({{ site.baseurl }}{% link pages/project-mission.md %})

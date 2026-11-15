@@ -7,6 +7,30 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-15 @ 15:07
+
+### Summary
+
+Separate kernel patching with reboot verification from other patching without a
+reboot, and support both Debian and Fedora hosts with independent cron schedules.
+
+### Added
+
+- Per-host kernel and other patch policies, Patch Now actions, queue deduplication,
+  status, and patch-type reporting; both schedules start disabled.
+- Fedora DNF update and package-health checks alongside Debian APT support.
+- Regression coverage for package filtering, reboot behavior, separate schedules,
+  cron rollback, API validation, and fresh-schema queue constraints.
+
+### Changed
+
+- Exclude kernel packages from other patching and limit kernel jobs to installed
+  kernel families and their required dependencies.
+- Remove broad Debian autoremove from patch jobs to keep cleanup outside the
+  selected patch scope; old kernels require separate administrator cleanup.
+- Store patch type on jobs and schedules in fresh schemas; existing schemas are
+  not migrated automatically under the initial development policy.
+
 ## [2.0.2] - 2026-11-15 @ 05:45
 
 ### Summary

@@ -473,8 +473,8 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                                              components=(('Content', 'content'),),
                                              databases=(('Database', 'mycount'),),
                                              network=(('Web', 'HTTP', 14444),))
-            self.db.execute('INSERT INTO Patch (machine, address) VALUES (%s, %s)', (machine, '192.0.2.7'))
-            self.db.execute('INSERT INTO PatchSchedule (machine) VALUES (%s)', (machine,))
+            self.db.execute("INSERT INTO Patch (machine, address, patchType) VALUES (%s, %s, 'kernel')", (machine, '192.0.2.7'))
+            self.db.execute("INSERT INTO PatchSchedule (machine, patchType) VALUES (%s, 'kernel')", (machine,))
         targets = [row for row in BackupDb(self.db).applications(BackupDb(self.db).databases()) if row['machine'] == first]
         self.assertEqual({row['kind'] for row in targets}, {'directory', 'database'})
         policies, attempts = [], []
@@ -946,41 +946,62 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
         tab = CronTab(tab='0 12 * * * /backup # cmdb-backup-schedule-1\n')
         with patch('cmdb.activity.PatchScheduler.connect_database', return_value=self.db), \
                 patch.object(self.db, 'close'), patch('cmdb.interface.Cron.CronTab', return_value=tab):
-            schedule = PatchScheduler().update(machine, True, '15 2 * * 0')
-            self.assertEqual(PatchDb(self.db).hosts()[0]['schedule']['expression'], '15 2 * * 0')
+            schedule = PatchScheduler().update(machine, 'kernel', True, '15 2 * * 0')
+            other = PatchScheduler().update(machine, 'other', True, '0 12 * * *')
+            self.assertNotEqual(schedule['id'], other['id'])
+            policies = PatchDb(self.db).hosts()[0]['patches']
+            self.assertEqual(policies['kernel']['schedule']['expression'], '15 2 * * 0')
+            self.assertEqual(policies['other']['schedule']['expression'], '0 12 * * *')
             PatchScheduler().run(schedule['id'])
             self.assertEqual(PatchDb(self.db).next()['machine'], machine)
             with patch.object(tab, 'write', side_effect=OSError('denied')):
                 with self.assertRaises(OSError):
-                    PatchScheduler().update(machine, True, '0 1 * * *')
-            self.assertEqual(PatchDb(self.db).hosts()[0]['schedule']['expression'], '15 2 * * 0')
-            saved = PatchScheduler().update(machine, False, '15 2 * * 0')
+                    PatchScheduler().update(machine, 'kernel', True, '0 1 * * *')
+            self.assertEqual(PatchDb(self.db).hosts()[0]['patches']['kernel']['schedule']['expression'], '15 2 * * 0')
+            saved = PatchScheduler().update(machine, 'kernel', False, '15 2 * * 0')
             self.assertEqual(saved['id'], schedule['id'])
             self.assertEqual(len(list(tab.find_comment('cmdb-patch-schedule-' + str(schedule['id'])))), 0)
+            self.assertEqual(len(list(tab.find_comment('cmdb-patch-schedule-' + str(other['id'])))), 1)
+            PatchScheduler().run(other['id'])
+            self.assertEqual([job['patchType'] for job in self.db.query('SELECT patchType FROM Patch ORDER BY id')],
+                             ['kernel', 'other'])
             self.assertEqual(len(list(tab.find_comment('cmdb-backup-schedule-1'))), 1)
 
-    def test_debian_patch_queue_and_reboot_records(self):
+    def test_debian_and_fedora_patch_queue_and_reboot_records(self):
         from cmdb.interface.PatchDb import PatchDb
         debian = self.machines.upsert(Machine('192.0.2.80', hostName='debian.example'))
+        fedora = self.machines.upsert(Machine('192.0.2.82', hostName='fedora.example'))
         other = self.machines.upsert(Machine('192.0.2.81', hostName='ubuntu.example'))
         self.software.record_operating_system(debian, operating_system('ID=debian\nVERSION_ID=13'))
+        self.software.record_operating_system(fedora, operating_system('ID=fedora\nVERSION_ID=45'))
         self.software.record_operating_system(other, operating_system('ID=ubuntu\nVERSION_ID=24'))
         records = PatchDb(self.db)
-        self.assertEqual([host['id'] for host in records.hosts()], [debian])
+        self.assertEqual([host['id'] for host in records.hosts()], [debian, fedora])
         with self.assertRaises(LookupError):
-            records.request(other)
-        identity = records.request(debian)
-        self.assertEqual(records.request(debian), identity)
+            records.request(other, 'kernel')
+        identity = records.request(debian, 'kernel')
+        self.assertEqual(records.request(debian, 'kernel'), identity)
+        other_id = records.request(debian, 'other')
+        self.assertNotEqual(other_id, identity)
+        self.assertEqual(records.request(debian, 'kernel'), identity)
+        self.assertEqual(records.request(debian, 'other'), other_id)
         records.start(identity, '11111111-1111-1111-1111-111111111111')
         records.rebooting(identity)
         self.assertEqual(records.next()['status'], 'rebooting')
         records.finish(identity)
+        records.start(other_id, '11111111-1111-1111-1111-111111111111')
+        with self.assertRaises(pymysql.OperationalError) as rejected:
+            records.rebooting(other_id)
+        self.assertEqual(rejected.exception.args[0], 4025)
+        records.finish(other_id)
         self.assertIsNone(records.next())
-        self.assertEqual(records.hosts()[0]['job']['status'], 'succeeded')
-        next_id = records.request(debian)
+        self.assertEqual(records.hosts()[0]['patches']['kernel']['job']['status'], 'succeeded')
+        self.assertEqual(records.hosts()[0]['patches']['other']['job']['status'], 'succeeded')
+        next_id = records.request(fedora, 'kernel')
         self.assertNotEqual(next_id, identity)
         report = records.report()
-        self.assertEqual([row['id'] for row in report], [next_id, identity])
+        self.assertEqual([row['id'] for row in report], [next_id, other_id, identity])
+        self.assertEqual([row['patchType'] for row in report], ['kernel', 'other', 'kernel'])
         self.assertEqual(report[0]['status'], 'queued')
         self.assertIsNone(report[0]['elapsedSeconds'])
         self.assertEqual(report[1]['status'], 'succeeded')

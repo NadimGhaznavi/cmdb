@@ -21,11 +21,11 @@ connection and transaction layer, adapted to the `cmdb` package.
 | `GET /api/backups` | Lists MariaDB user databases and declared application directory/database targets, policies, latest attempts, and last successful completion times. |
 | `POST /api/backups` | Accepts a `modelElement` ID and returns HTTP 202 with a `backupId`; duplicate active requests share the attempt. |
 | `GET /api/backups/<id>` | Returns the recorded attempt and its status, file metadata, and error. |
-| `GET /api/patching/report` | Lists the most recent 100 patch jobs, newest first, with elapsed time and results. |
-| `GET /api/patching/hosts/<id>/uptime` | Reads current uptime through SSH for an inventoried Debian host. |
-| `GET /api/patching/hosts` | Lists Debian hosts and their latest patch job status. |
-| `POST /api/patch-schedules` | Saves a machine's enabled flag and five-field cron expression. |
-| `POST /api/patching` | Queues a patch-and-reboot job for a machine ID; returns HTTP 202 and jobId. |
+| `GET /api/patching/report` | Lists the most recent 100 patch jobs, newest first, with patchType, elapsed time, and results. |
+| `GET /api/patching/hosts/<id>/uptime` | Reads current uptime through SSH for an inventoried Debian or Fedora host. |
+| `GET /api/patching/hosts` | Lists Debian/Fedora hosts with separate kernel and other job status and schedules under `patches.kernel` and `patches.other`. |
+| `POST /api/patch-schedules` | Saves machine, patchType (`kernel` or `other`), enabled, and a five-field cron expression; each host/type has its own cron entry. |
+| `POST /api/patching` | Queues machine and patchType (`kernel` or `other`); only kernel jobs reboot. Returns HTTP 202 and jobId. |
 | `DELETE /api/databases/<id>` | Drops an inventoried user database after exact-name confirmation; protects cmdb and system databases. |
 | `GET /api/backups/files` | Lists successful database dumps and directory tarballs newest first with completion time and names captured at backup creation. |
 | `POST /api/backups/files/scan` | Checks recorded files for existence, returning Found or Missing without checksums. |

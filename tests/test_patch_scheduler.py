@@ -33,7 +33,10 @@ class PatchSchedulerTests(unittest.TestCase):
         with patch('cmdb.activity.PatchScheduler.connect_database', new_callable=database_factory) as db:
             for expression in ('', '@reboot', '* * * *', '61 * * * *', '0 12 * * 0\n', '* * * * * /bin/reboot'):
                 with self.subTest(expression=expression), self.assertRaises(ValueError):
-                    PatchScheduler().update(1, True, expression)
+                    PatchScheduler().update(1, 'kernel', True, expression)
+            for patch_type in ('all', None, [], {}, True):
+                with self.subTest(patch_type=patch_type), self.assertRaises(ValueError):
+                    PatchScheduler().update(1, patch_type, True, '0 12 * * *')
             db.assert_not_called()
 
     def test_cron_failure_rolls_back_and_valid_expression_is_passed_through(self):
@@ -41,14 +44,15 @@ class PatchSchedulerTests(unittest.TestCase):
                 patch('cmdb.activity.PatchScheduler.SoftwareDeploymentDb') as inventory, \
                 patch('cmdb.activity.PatchScheduler.PatchScheduleDb') as records, \
                 patch('cmdb.activity.PatchScheduler.Cron') as cron:
-            inventory.return_value.debian_hosts.return_value = [{'id': 7}]
+            inventory.return_value.patchable_hosts.return_value = [{'id': 7}]
             records.return_value.save.return_value = {'id': 2}
             expression = '*/15 1-3 * * MON,FRI'
-            PatchScheduler().update(7, True, expression)
+            PatchScheduler().update(7, 'kernel', True, expression)
+            records.return_value.save.assert_called_with(7, 'kernel', True, expression)
             cron.return_value.update_patch.assert_called_with(2, True, expression)
             cron.return_value.update_patch.side_effect = OSError('denied')
             with self.assertRaises(OSError):
-                PatchScheduler().update(7, True, expression)
+                PatchScheduler().update(7, 'kernel', True, expression)
             self.assertIs(db.return_value.transaction.return_value.__exit__.call_args.args[0], OSError)
 
     def test_cron_dispatch_rechecks_enabled_and_queues_without_web(self):
@@ -59,9 +63,10 @@ class PatchSchedulerTests(unittest.TestCase):
                 schedules.return_value.get.return_value = record
                 PatchScheduler().run(2)
             jobs.return_value.request.assert_not_called()
-            schedules.return_value.get.return_value = {'enabled': 1, 'machine': 7}
-            PatchScheduler().run(2)
-            jobs.return_value.request.assert_called_once_with(7)
+            for patch_type in ('kernel', 'other'):
+                schedules.return_value.get.return_value = {'enabled': 1, 'machine': 7, 'patchType': patch_type}
+                PatchScheduler().run(2)
+                jobs.return_value.request.assert_called_with(7, patch_type)
 
     def test_cli_schedule_mode_does_not_start_worker(self):
         spec = importlib.util.spec_from_file_location('patch_cli', Path('cmdb-patch.py'))

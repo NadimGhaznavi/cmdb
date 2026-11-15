@@ -334,13 +334,14 @@ class CmdbHandler(BaseHTTPRequestHandler):
 
     def host_uptime(self, identity: str) -> None:
         if not identity.isdecimal() or len(identity) > 20 or not 0 < int(identity) < 2**64:
-            self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+            self.respond(404, b'{"error":"Debian or Fedora host not found."}', 'application/json')
             return
         try:
             with connect_database() as db:
-                host = next((host for host in SoftwareDeploymentDb(db).debian_hosts() if host['id'] == int(identity)), None)
+                hosts = SoftwareDeploymentDb(db).patchable_hosts(int(identity))
+                host = hosts[0] if hosts else None
             if host is None:
-                self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+                self.respond(404, b'{"error":"Debian or Fedora host not found."}', 'application/json')
                 return
             seconds = SSH().uptime(host['ipAddress'])
         except (OSError, ValueError, subprocess.SubprocessError, pymysql.MySQLError):
@@ -353,17 +354,18 @@ class CmdbHandler(BaseHTTPRequestHandler):
         if values is None:
             return
         try:
-            if (values.keys() != {'machine'}
-                    or type(values['machine']) is not int or not 0 < values['machine'] < 2**64):
+            if (values.keys() != {'machine', 'patchType'}
+                    or type(values['machine']) is not int or not 0 < values['machine'] < 2**64
+                    or values['patchType'] not in ('kernel', 'other')):
                 raise ValueError
         except ValueError:
-            self.respond(400, b'{"error":"Provide a valid machine ID."}', 'application/json')
+            self.respond(400, b'{"error":"Provide a valid machine ID and patchType (kernel or other)."}', 'application/json')
             return
         try:
             with connect_database() as db:
-                identity = PatchDb(db).request(values['machine'])
+                identity = PatchDb(db).request(values['machine'], values['patchType'])
         except LookupError:
-            self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+            self.respond(404, b'{"error":"Debian or Fedora host not found."}', 'application/json')
             return
         except pymysql.MySQLError:
             self.respond(503, b'{"error":"Could not queue patch job."}', 'application/json')
@@ -400,14 +402,14 @@ class CmdbHandler(BaseHTTPRequestHandler):
         if values is None:
             return
         try:
-            if values.keys() != {'machine', 'enabled', 'expression'}:
-                raise ValueError('Provide machine, enabled, and expression.')
+            if values.keys() != {'machine', 'patchType', 'enabled', 'expression'}:
+                raise ValueError('Provide machine, patchType (kernel or other), enabled, and expression.')
             schedule = PatchScheduler().update(**values)
         except ValueError as error:
             self.respond(400, json.dumps({'error': str(error)}).encode(), 'application/json')
             return
         except LookupError:
-            self.respond(404, b'{"error":"Debian host not found."}', 'application/json')
+            self.respond(404, b'{"error":"Debian or Fedora host not found."}', 'application/json')
             return
         except (OSError, RuntimeError, pymysql.MySQLError):
             logging.exception('Could not save patch schedule')

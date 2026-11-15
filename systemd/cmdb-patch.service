@@ -1,5 +1,5 @@
 [Unit]
-Description=CMDB Debian patch runner
+Description=CMDB Debian and Fedora patch runner
 After=network-online.target mariadb.service
 Wants=network-online.target
 

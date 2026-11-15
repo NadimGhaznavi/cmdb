@@ -35,6 +35,10 @@ case "${1:-}" in
                         -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
                         install $packages </dev/null
                 fi
+                # APT's default retention keeps the current kernel and one fallback.
+                timeout --kill-after=10 3500 apt-get -y \
+                    -o APT::Get::AutomaticRemove=false \
+                    -o APT::Get::AutomaticRemove::Kernels=true install </dev/null
             else
                 # Add a per-command pin without changing holds or administrator preferences.
                 preferences=$(mktemp)
@@ -51,7 +55,7 @@ case "${1:-}" in
                     -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade </dev/null
             fi
         elif [ "$1" = patch-kernel ]; then
-            timeout --kill-after=10 7000 dnf -y --refresh upgrade 'kernel*' </dev/null
+            timeout --kill-after=10 7000 dnf -y --refresh --setopt=installonly_limit=2 upgrade 'kernel*' </dev/null
         else
             timeout --kill-after=10 7000 dnf -y --refresh --exclude='kernel*' upgrade </dev/null
         fi

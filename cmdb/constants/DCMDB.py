@@ -7,8 +7,8 @@ class DCMDB:
     CMDB_TYPE: Final[str] = "application"
     CMDB_SUBTYPE: Final[str] = "Metadata Repo"
     CMDB_SUPPLIER: Final[str] = "Nadim-Daniel"
-    CMDB_CODENAME: Final[str] = "Dixieland"
-    VERSION: Final[str] = "2.1.0"
+    CMDB_CODENAME: Final[str] = "Eve"
+    VERSION: Final[str] = "2.1.1"
     CMDB_DATABASES: Final[tuple[tuple[str, str], ...]] = (("CMDB", "cmdb"),)
     CMDB_NETWORK: Final[tuple[tuple[str, str, int], ...]] = (
         ("http", "0.0.0.0", 14444),

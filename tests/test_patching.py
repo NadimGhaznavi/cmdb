@@ -15,22 +15,42 @@ NEW = '22222222-2222-2222-2222-222222222222'
 
 class PatchRunnerTests(unittest.TestCase):
     @patch('cmdb.activity.PatchRunner.SSHPatch')
-    def test_success_always_reboots_even_with_no_updates(self, remote):
+    def test_kernel_success_always_reboots_even_with_no_updates(self, remote):
         remote.return_value.run.side_effect = [OLD, '0 upgraded', '', NEW, 'healthy']
         runner = PatchRunner()
         runner.record = Mock()
-        runner.execute(dict(id=1, address='192.0.2.1', status='queued'))
+        runner.execute(dict(id=1, address='192.0.2.1', status='queued', patchType='kernel'))
         self.assertEqual([c.args[1] for c in remote.return_value.run.call_args_list],
-                         ['probe', 'patch', 'reboot', 'probe', 'verify'])
+                         ['probe', 'patch-kernel', 'reboot', 'probe', 'verify'])
         self.assertEqual([c.args[0] for c in runner.record.call_args_list], ['start', 'rebooting', 'finish'])
         runner.record.assert_called_with('finish', 1)
+
+    @patch('cmdb.activity.PatchRunner.SSHPatch')
+    def test_other_patching_verifies_packages_without_reboot(self, remote):
+        remote.return_value.run.side_effect = [OLD, 'updated', 'healthy']
+        runner = PatchRunner()
+        runner.record = Mock()
+        runner.execute(dict(id=1, address='192.0.2.1', status='queued', patchType='other'))
+        self.assertEqual([c.args[1] for c in remote.return_value.run.call_args_list],
+                         ['probe', 'patch-other', 'verify-packages'])
+        self.assertEqual([c.args[0] for c in runner.record.call_args_list], ['start', 'finish'])
+        runner.record.assert_called_with('finish', 1)
+
+    @patch('cmdb.activity.PatchRunner.SSHPatch')
+    def test_other_package_verification_failure_is_recorded_without_reboot(self, remote):
+        remote.return_value.run.side_effect = [OLD, '', subprocess.CalledProcessError(1, 'dnf', stderr='broken dependency')]
+        runner = PatchRunner()
+        runner.record = Mock()
+        runner.execute(dict(id=1, address='192.0.2.1', status='queued', patchType='other'))
+        runner.record.assert_called_with('finish', 1, 'broken dependency')
+        self.assertNotIn('reboot', [c.args[1] for c in remote.return_value.run.call_args_list])
 
     @patch('cmdb.activity.PatchRunner.SSHPatch')
     def test_patch_failure_stops_before_reboot(self, remote):
         remote.return_value.run.side_effect = [OLD, subprocess.CalledProcessError(100, 'apt', stderr='apt failed')]
         runner = PatchRunner()
         runner.record = Mock()
-        runner.execute(dict(id=1, address='192.0.2.1', status='queued'))
+        runner.execute(dict(id=1, address='192.0.2.1', status='queued', patchType='kernel'))
         self.assertEqual(remote.return_value.run.call_count, 2)
         runner.record.assert_called_with('finish', 1, 'apt failed')
 
@@ -75,7 +95,8 @@ class PatchRunnerTests(unittest.TestCase):
     @patch('cmdb.interface.SSHPatch.SSH')
     def test_actions_use_agent_sudo_and_preserve_the_host_timeout(self, ssh):
         ssh.return_value.run.return_value.stdout = OLD
-        for action, timeout in (('probe', 60), ('patch', 7200), ('reboot', 60), ('verify', 60)):
+        for action, timeout in (('probe', 60), ('patch-kernel', 7200), ('patch-other', 7200),
+                                ('reboot', 60), ('verify', 60), ('verify-packages', 60)):
             self.assertEqual(SSHPatch().run('192.0.2.1', action), OLD)
             call = ssh.return_value.run.call_args
             self.assertEqual(call.args[1], f'sudo -n timeout --kill-after=10 {timeout} /bin/sh -s -- {action}')
@@ -99,44 +120,122 @@ class PatchRunnerTests(unittest.TestCase):
 
 
 class PatchScriptTests(unittest.TestCase):
-    def test_package_commands_fail_before_upgrade_and_never_reboot_implicitly(self):
+    def setUp(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
-        import os
-        source = Path('cmdb/interface/scripts/patch-host.sh').read_text()
-        with TemporaryDirectory() as directory:
-            root = Path(directory)
-            release = root / 'os-release'
-            release.write_text('ID=debian\n')
-            script = root / 'patch-host.sh'
-            script.write_text(source.replace('PATH=/usr/sbin:/usr/bin:/sbin:/bin', f'PATH={root}:/usr/bin:/bin')
-                             .replace('. /etc/os-release', f'. {release}'))
-            for name, body in {
-                'apt-get': 'echo "$*" >> "$LOG"\ncase "$*" in *update*) exit "${UPDATE_EXIT:-0}";; *autoremove*) exit "${AUTOREMOVE_EXIT:-0}";; esac\n',
-                'dpkg': 'exit 0\n',
-                'shutdown': 'echo reboot >> "$LOG"\n',
-                'systemctl': 'echo running\n',
-            }.items():
-                path = root / name
-                path.write_text('#!/bin/sh\n' + body)
-                path.chmod(0o755)
-            log = root / 'log'
-            env = dict(os.environ, LOG=str(log))
-            subprocess.run(['sh', str(script), 'patch'], env=env, check=True)
-            commands = log.read_text()
-            self.assertIn('APT::Update::Error-Mode=any update', commands)
-            self.assertIn('--with-new-pkgs', commands)
-            self.assertIn('-y autoremove', commands)
-            self.assertLess(commands.index(' upgrade'), commands.index(' autoremove'))
-            self.assertNotIn('reboot', commands)
-            log.write_text('')
-            self.assertNotEqual(subprocess.run(['sh', str(script), 'patch'], env=dict(env, UPDATE_EXIT='100')).returncode, 0)
-            self.assertNotIn('upgrade', log.read_text())
-            self.assertNotIn('autoremove', log.read_text())
-            log.write_text('')
-            self.assertNotEqual(subprocess.run(['sh', str(script), 'patch'], env=dict(env, AUTOREMOVE_EXIT='100')).returncode, 0)
-            self.assertNotIn('reboot', log.read_text())
-            release.write_text('ID=ubuntu\n')
-            log.write_text('')
-            self.assertNotEqual(subprocess.run(['sh', str(script), 'patch'], env=env).returncode, 0)
-            self.assertEqual(log.read_text(), '')
+        self.directory = TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.release = self.root / 'os-release'
+        self.release.write_text('ID=debian\n')
+        self.preferences = self.root / 'preferences'
+        self.preferences.write_text('Package: example\nPin: version 1*\nPin-Priority: 900\n')
+        self.script = self.root / 'patch-host.sh'
+        self.script.write_text(Path('cmdb/interface/scripts/patch-host.sh').read_text()
+                               .replace('PATH=/usr/sbin:/usr/bin:/sbin:/bin', f'PATH={self.root}:/usr/bin:/bin')
+                               .replace('. /etc/os-release', f'. {self.release}'))
+        commands = {
+            'apt-get': '''echo "apt-get $*" >> "$LOG"
+for argument in "$@"; do
+    case "$argument" in Dir::Etc::preferences=*) cat "${argument#*=}" > "$PIN_SNAPSHOT";; esac
+done
+case "$*" in
+    *" update") exit "${UPDATE_EXIT:-0}";;
+    *" upgrade"|*" install "*) exit "${UPGRADE_EXIT:-0}";;
+    check) exit "${CHECK_EXIT:-0}";;
+esac
+''',
+            'apt-config': '''printf "original_preferences='%s'\\n" "$ORIGINAL_PREFERENCES"''',
+            'dpkg-query': '''printf '%s\\n' 'installed linux-image-amd64' 'installed linux-image-6.1-amd64' \\
+'installed linux-headers-amd64' 'installed linux-kbuild-6.1' 'installed linux-compiler-gcc-12-x86' \\
+'installed bash' 'installed linux-libc-dev' 'config-files linux-image-5.1-amd64'
+''',
+            'dpkg': 'printf "%s" "${AUDIT:-}"\n',
+            'dnf': '''echo "dnf $*" >> "$LOG"
+case "$*" in *upgrade*) exit "${UPGRADE_EXIT:-0}";; check) exit "${CHECK_EXIT:-0}";; esac
+''',
+            'shutdown': 'echo reboot >> "$LOG"\n',
+            'systemctl': 'echo "${SYSTEM_STATE:-running}"\n',
+        }
+        for name, body in commands.items():
+            path = self.root / name
+            path.write_text('#!/bin/sh\n' + body)
+            path.chmod(0o755)
+        self.log = self.root / 'log'
+        self.log.touch()
+        self.env = dict(os.environ, LOG=str(self.log), TMPDIR=str(self.root),
+                        ORIGINAL_PREFERENCES=str(self.preferences), PIN_SNAPSHOT=str(self.root / 'pin-snapshot'))
+
+    def run_action(self, action, **environment):
+        return subprocess.run(['sh', str(self.script), action], env=dict(self.env, **environment),
+                              capture_output=True, text=True)
+
+    def test_debian_kernel_targets_installed_kernel_packages_and_keeps_userspace_out(self):
+        result = self.run_action('patch-kernel')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = self.log.read_text()
+        self.assertIn('APT::Update::Error-Mode=any update', commands)
+        self.assertIn('--only-upgrade --no-remove', commands)
+        self.assertIn('install linux-image-amd64 linux-image-6.1-amd64 linux-headers-amd64', commands)
+        for excluded in ('bash', 'linux-libc-dev', 'linux-image-5.1-amd64', 'autoremove', 'reboot'):
+            self.assertNotIn(excluded, commands)
+        self.assertIn('apt-get check', commands)
+
+    def test_debian_other_pins_kernels_and_preserves_existing_preferences(self):
+        result = self.run_action('patch-other')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = self.log.read_text()
+        self.assertIn('--with-new-pkgs --no-remove', commands)
+        pin = (self.root / 'pin-snapshot').read_text()
+        self.assertIn('linux-image-* linux-headers-* linux-modules-* linux-kbuild-* linux-compiler-*', pin)
+        self.assertIn('Pin-Priority: -1', pin)
+        self.assertTrue(pin.endswith(self.preferences.read_text()))
+        self.assertIn('apt-get check', commands)
+        self.assertNotIn('autoremove', commands)
+        self.assertNotIn('reboot', commands)
+        self.assertEqual(list(self.root.glob('tmp*')), [])
+
+    def test_fedora_uses_separate_dnf_filters_and_package_checks(self):
+        self.release.write_text('ID=fedora\n')
+        for action, expected in [('patch-kernel', 'dnf -y --refresh upgrade kernel*'),
+                                 ('patch-other', 'dnf -y --refresh --exclude=kernel* upgrade')]:
+            with self.subTest(action=action):
+                self.log.write_text('')
+                result = self.run_action(action)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.log.read_text().splitlines(), [expected, 'dnf check'])
+
+    def test_update_failure_stops_before_any_package_transaction(self):
+        for action in ('patch-kernel', 'patch-other'):
+            with self.subTest(action=action):
+                self.log.write_text('')
+                self.assertNotEqual(self.run_action(action, UPDATE_EXIT='100').returncode, 0)
+                self.assertEqual(len(self.log.read_text().splitlines()), 1)
+
+    def test_transaction_and_health_failures_never_reboot(self):
+        for system in ('debian', 'fedora'):
+            self.release.write_text(f'ID={system}\n')
+            for action in ('patch-kernel', 'patch-other'):
+                for environment in ({'UPGRADE_EXIT': '1'}, {'CHECK_EXIT': '1'}):
+                    with self.subTest(system=system, action=action, environment=environment):
+                        self.log.write_text('')
+                        self.assertNotEqual(self.run_action(action, **environment).returncode, 0)
+                        self.assertNotIn('reboot', self.log.read_text())
+                        self.assertEqual(list(self.root.glob('tmp*')), [])
+
+    def test_verification_uses_distribution_package_manager_and_kernel_checks_system_state(self):
+        for system, expected in [('debian', 'apt-get check'), ('fedora', 'dnf check')]:
+            self.release.write_text(f'ID={system}\n')
+            self.log.write_text('')
+            self.assertEqual(self.run_action('verify').returncode, 0)
+            self.assertEqual(self.log.read_text().strip(), expected)
+            self.log.write_text('')
+            self.assertNotEqual(self.run_action('verify', SYSTEM_STATE='degraded').returncode, 0)
+            self.assertEqual(self.log.read_text(), '')
+            self.assertEqual(self.run_action('verify-packages', SYSTEM_STATE='degraded').returncode, 0)
+
+    def test_unsupported_host_and_invalid_action_stop_before_package_commands(self):
+        self.assertNotEqual(self.run_action('patch').returncode, 0)
+        self.release.write_text('ID=ubuntu\n')
+        self.assertNotEqual(self.run_action('patch-other').returncode, 0)
+        self.assertEqual(self.log.read_text(), '')

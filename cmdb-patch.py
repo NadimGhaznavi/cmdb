@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the independent Debian patch queue, resuming verification after reboot."""
+"""Run the Debian/Fedora patch queue, resuming kernel reboot verification."""
 
 import os
 import argparse

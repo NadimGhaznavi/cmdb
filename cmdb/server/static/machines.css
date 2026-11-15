@@ -67,10 +67,13 @@
 .patch-row-status:empty { display: none; }
 .backups-table th, .backups-table td { text-align: left; padding: .8rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 .backups-table th { background: var(--surface); }
-.debian-hosts-table thead tr:last-child th:nth-child(-n+3),
-.debian-hosts-table tbody td:nth-child(-n+3) { white-space: nowrap; overflow-wrap: normal; width: 1%; }
-.debian-hosts-table thead th { vertical-align: bottom; }
-.debian-hosts-table .patch-row-status { width: 100%; }
+.patching-hosts-table thead tr:last-child th:nth-child(-n+4),
+.patching-hosts-table tbody td:nth-child(-n+4) { white-space: nowrap; overflow-wrap: normal; width: 1%; }
+.patching-hosts-table thead th { vertical-align: bottom; }
+#patching-page .patching-hosts-table { min-width: 70rem; }
+.patching-hosts-table .patch-row-status { width: 100%; min-width: 16rem; }
+#patching-page .patch-report-table { min-width: 58rem; }
+.patch-report-table th, .patch-report-table td:not(:last-child) { white-space: nowrap; }
 .backup-files-table th, .backup-files-table td:not(:last-child) { white-space: nowrap; }
 .backup-files-table:not(.filesystem-scanned) [data-field="fileStatus"] { display: none; }
 .backup-files-filters td { background: var(--surface); }

@@ -193,14 +193,14 @@ class SoftwareDeploymentDb:
                 'INSERT INTO DeployedComponent (id, pathname, machine, component) VALUES (%s, %s, %s, %s)',
                 (identity, pathname, machine, component))
 
-    def debian_hosts(self, machine: int | None = None) -> list[dict]:
-        """List machines whose deployed operating system is identified as Debian."""
+    def patchable_hosts(self, machine: int | None = None) -> list[dict]:
+        """List machines whose root operating system is Debian or Fedora."""
         return self._db.query(
             "SELECT DISTINCT m.id, m.hostName, m.ipAddress FROM Machine m "
             "JOIN DeployedComponent dc ON dc.machine=m.id "
             "JOIN Component c ON c.id=dc.component JOIN ModelElement me ON me.id=c.id "
             "JOIN SoftwareSystem ss ON ss.id=me.namespace "
-            "WHERE dc.pathname='/' AND ss.type='linux' AND ss.subtype='debian' "
+            "WHERE dc.pathname='/' AND ss.type='linux' AND ss.subtype IN ('debian','fedora') "
             + ("AND m.id=%s " if machine is not None else "")
             + "ORDER BY m.hostName, m.ipAddress", (machine,) if machine is not None else ())
 

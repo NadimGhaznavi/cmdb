@@ -10,8 +10,9 @@ from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 
 
 class PatchScheduler:
-    def update(self, machine, enabled, expression):
+    def update(self, machine, patchType, enabled, expression):
         if (type(machine) is not int or not 0 < machine < 2**64
+                or patchType not in ('kernel', 'other')
                 or type(enabled) is not bool or not isinstance(expression, str)
                 or len(expression) > 255 or '\n' in expression or '\r' in expression):
             raise ValueError('Invalid patch schedule.')
@@ -22,9 +23,9 @@ class PatchScheduler:
         with Cron.EDIT_LOCK:
             with connect_database() as db:
                 with db.transaction():
-                    if not SoftwareDeploymentDb(db).debian_hosts(machine):
-                        raise LookupError('Debian host not found.')
-                    schedule = PatchScheduleDb(db).save(machine, enabled, expression)
+                    if not SoftwareDeploymentDb(db).patchable_hosts(machine):
+                        raise LookupError('Debian or Fedora host not found.')
+                    schedule = PatchScheduleDb(db).save(machine, patchType, enabled, expression)
                     Cron().update_patch(schedule['id'], enabled, expression)
                 return schedule
 
@@ -32,4 +33,4 @@ class PatchScheduler:
         with connect_database() as db:
             schedule = PatchScheduleDb(db).get(identity)
             if schedule and schedule['enabled']:
-                PatchDb(db).request(schedule['machine'])
+                PatchDb(db).request(schedule['machine'], schedule['patchType'])

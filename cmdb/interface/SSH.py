@@ -10,6 +10,10 @@ import re
 from cmdb.constants.DCMDB import DCMDB
 
 
+class SSHHostKeyError(subprocess.CalledProcessError):
+    """The host's key differs from the service account's trusted key."""
+
+
 class SSH:
     def uptime(self, host: str) -> int:
         """Read elapsed boot time through the existing inventory identity."""
@@ -72,9 +76,16 @@ class SSH:
              "-o", f"ConnectTimeout={connect_timeout}",
              "-i", DCMDB.SSH_KEY, "-l", user, "-p", str(port),
              "--", host, command]
-        return subprocess.run(
-            argv,
-            **({"stdin": subprocess.DEVNULL} if input is None else {"input": input}),
-            capture_output=True, text=True,
-            timeout=timeout, check=True,
-        )
+        try:
+            return subprocess.run(
+                argv,
+                **({"stdin": subprocess.DEVNULL} if input is None else {"input": input}),
+                capture_output=True, text=True,
+                timeout=timeout, check=True,
+            )
+        except subprocess.CalledProcessError as error:
+            if (argv[0] == "/usr/bin/ssh" and error.returncode == 255
+                    and "REMOTE HOST IDENTIFICATION HAS CHANGED" in (error.stderr or "")):
+                raise SSHHostKeyError(error.returncode, error.cmd, output=error.output,
+                                      stderr=error.stderr) from error
+            raise

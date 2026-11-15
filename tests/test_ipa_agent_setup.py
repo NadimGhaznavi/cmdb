@@ -9,6 +9,7 @@ import io
 import os
 from pathlib import Path
 import shlex
+import socket
 import subprocess
 import tempfile
 from unittest import TestCase
@@ -223,6 +224,8 @@ class IpaAgentSetupTests(TestCase):
         with patch.object(setup.os, 'geteuid', return_value=1000), \
                 patch.object(setup.configparser, 'ConfigParser', return_value=config), \
                 patch.object(setup, 'run', side_effect=command) as run, \
+                patch.object(setup.socket, 'getaddrinfo', return_value=[
+                    (socket.AF_INET, socket.SOCK_STREAM, 6, '', ('192.0.2.7', 22))]), \
                 patch.object(setup, 'Directory', return_value=FakeDirectory()), \
                 redirect_stdout(io.StringIO()):
             setup.main(['--apply', '--ssh-user', 'nadim', '--hosts', *HOSTS])
@@ -233,6 +236,27 @@ class IpaAgentSetupTests(TestCase):
             self.assertLess(commands.index(preflight), bootstrap)
         key = ('sudo', '-n', '-u', setup.SERVICE_USER, 'ssh-keygen', '-y', '-P', '', '-f', str(setup.KEY))
         self.assertLess(bootstrap, commands.index(key))
+
+    def test_agent_verification_checks_name_and_each_distinct_scan_ip(self):
+        entries = [(socket.AF_INET, socket.SOCK_STREAM, 6, '', (address, 22))
+                   for address in ('192.0.2.8', '192.0.2.7', '192.0.2.7')]
+        with patch.object(setup.socket, 'getaddrinfo', return_value=entries), \
+                patch.object(setup, 'run', return_value=subprocess.CompletedProcess(
+                    [], 0, stdout='cmdbagent\n0\n')) as run:
+            setup.verify_agent_ssh(HOSTS[1])
+        self.assertEqual([call.args[-2] for call in run.call_args_list],
+                         [HOSTS[1], '192.0.2.7', '192.0.2.8'])
+        for call in run.call_args_list:
+            self.assertIn('StrictHostKeyChecking=accept-new', call.args)
+            self.assertIn(f'UserKnownHostsFile={setup.KNOWN_HOSTS}', call.args)
+
+    def test_hostname_success_does_not_hide_stale_ip_host_key(self):
+        entries = [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('192.0.2.7', 22))]
+        with patch.object(setup.socket, 'getaddrinfo', return_value=entries), \
+                patch.object(setup, 'run', side_effect=[subprocess.CompletedProcess(
+                    [], 0, stdout='cmdbagent\n0\n'), RuntimeError('Host key verification failed')]):
+            with self.assertRaisesRegex(RuntimeError, 'Host key verification failed'):
+                setup.verify_agent_ssh(HOSTS[1])
 
 
 class HostMigrationTests(TestCase):

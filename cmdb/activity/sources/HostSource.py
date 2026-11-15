@@ -8,7 +8,7 @@ import subprocess
 from threading import Event
 
 from cmdb.constants.DCMDB import DCMDB
-from cmdb.interface.SSH import SSH
+from cmdb.interface.SSH import SSH, SSHHostKeyError
 from cmdb.interface.HostOperatingSystem import operating_system
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 
@@ -33,6 +33,8 @@ class HostSource:
                 pass
         try:
             self._run(address, "true")
+        except SSHHostKeyError:
+            raise
         except subprocess.CalledProcessError:
             return False
         return True

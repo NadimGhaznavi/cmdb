@@ -19,6 +19,7 @@ from cmdb.activity.sources.MariaDBSource import MariaDBSource
 from cmdb.activity.sources.NetworkSource import NetworkSource
 from cmdb.activity.sources.NmapOSSource import NmapOSSource
 from cmdb.constants.DCMDB import DCMDB
+from cmdb.interface.SSH import SSHHostKeyError
 from cmdb.entity.SoftwareSystem import SoftwareSystem
 from cmdb.entity.TaggedValue import TaggedValue
 
@@ -203,9 +204,10 @@ class HostSourceTests(TestCase):
         self.remote.assert_called_once()
 
     def test_changed_key_and_closed_port_do_not_provision(self):
-        self.remote.side_effect = subprocess.CalledProcessError(
+        self.remote.side_effect = SSHHostKeyError(
             255, ['ssh'], stderr='REMOTE HOST IDENTIFICATION HAS CHANGED')
-        self.assertFalse(self.source.ensure_access('192.0.2.7'))
+        with self.assertRaises(SSHHostKeyError):
+            self.source.ensure_access('192.0.2.7')
         self.remote.assert_called_once()
         self.remote.reset_mock()
         self.port.side_effect = ConnectionRefusedError()
@@ -229,6 +231,14 @@ class HostSourceTests(TestCase):
                                    subprocess.TimeoutExpired('cat', 30)]
         self.assertEqual(self.source.collect('192.0.2.7'),
                          {'hostname': 'worker', 'mac_address': None, 'system': None})
+
+    def test_fedora_release_is_collected_without_debian_commands(self):
+        self.remote.side_effect = [result('worker.example.org'), result('[]'), result(
+            'NAME="Fedora Linux"\nVERSION="45 (Server Edition)"\nID=fedora\n'
+            'VERSION_ID=45\nVERSION_CODENAME=""\nVARIANT_ID=server\n')]
+        observation = self.source.collect('192.0.2.7')
+        self.assertEqual(observation['hostname'], 'worker.example.org')
+        self.assertEqual(observation['system'], SoftwareSystem(type='linux', subtype='fedora', version='45'))
 
     def test_invalid_hostname_stops_collection(self):
         for value in ('', 'banner\nhost', 'x' * 256):

@@ -163,6 +163,21 @@ class MachineDb:
         self._db.execute('UPDATE Machine SET updatedOn = CURRENT_TIMESTAMP(6) WHERE id = %s', (machine_id,))
         return True
 
+    def update_ssh_host_key_warning(self, machine_id: int, changed: bool) -> bool:
+        """Keep the warning until a successful login, without recreating deleted machines."""
+        if not self._db.query('SELECT id FROM Machine WHERE id = %s FOR UPDATE', (machine_id,)):
+            return False
+        if changed:
+            self._db.execute(
+                'INSERT INTO TaggedValue (modelElement, tag, value) VALUES (%s, %s, %s) '
+                'ON DUPLICATE KEY UPDATE value = VALUES(value)',
+                (machine_id, 'SSHHostKeyChanged', 'true'),
+            )
+        else:
+            self._db.execute('DELETE FROM TaggedValue WHERE modelElement = %s AND tag = %s',
+                             (machine_id, 'SSHHostKeyChanged'))
+        return True
+
     def update_discovered_hostname(self, machine_id: int, host_name: str) -> None:
         """Store the hostname reported over SSH using the stable machine identity."""
         self._db.execute(

@@ -29,6 +29,7 @@ from cmdb.interface.NetworkDb import NetworkDb
 from cmdb.interface.SoftwareDeploymentDb import SoftwareDeploymentDb
 from cmdb.interface.SoftwareSystemDb import SoftwareSystemDb
 from cmdb.interface.HostOperatingSystem import operating_system
+from cmdb.interface.SSH import SSHHostKeyError
 
 
 @unittest.skipUnless(os.environ.get("CMDB_TEST_DB_SOCKET"), "Set CMDB_TEST_DB_SOCKET for database checks")
@@ -329,6 +330,62 @@ class SoftwareDeploymentDbTests(unittest.TestCase):
                                       (machine,)), [{'value': 'false'}])
         with self.db.transaction():
             self.assertFalse(self.machines.update_discovered_online(999999, True))
+
+    def test_host_key_warning_survives_failures_then_fedora_replaces_shared_debian(self):
+        with self.db.transaction():
+            machine = self.machines.upsert(Machine('192.0.2.7', hostName='old.example.org'))
+            other = self.machines.upsert(Machine('192.0.2.8'))
+            self.machines.update_environment(machine, 'qa')
+            self.machines.update_discovered_online(machine, True)
+            for identity in (machine, other):
+                self.software.record_operating_system(identity, operating_system(
+                    'ID=debian\nVERSION_ID=13\nVERSION_CODENAME=trixie\n'))
+        before = self.software.list_deployments()
+        worker = InventoryCoordinator()
+        worker._host = Mock()
+        worker._mariadb.collect = Mock(return_value=None)
+        target = Machine('192.0.2.7', id=machine)
+        def tags():
+            record = next(row for row in self.machines.list_machines() if row.id == machine)
+            return {tag.tag: tag.value for tag in record.taggedValue}
+        with patch('cmdb.activity.InventoryCoordinator.connect_database', return_value=self.db), \
+                patch.object(self.db, 'close'):
+            worker._host.ensure_access.side_effect = SSHHostKeyError(255, ['ssh'])
+            for _ in range(2):
+                worker._collect_host(target)
+                self.assertEqual(tags(), {'DeploymentEnvironment': 'qa', 'IsOnline': 'true',
+                                          'SSHHostKeyChanged': 'true'})
+                self.assertEqual(self.software.list_deployments(), before)
+            worker._host.ensure_access.side_effect = subprocess.TimeoutExpired('ssh', 30)
+            worker._collect_host(target)
+            self.assertEqual(tags()['SSHHostKeyChanged'], 'true')
+            worker._host.ensure_access.side_effect = None
+            worker._host.ensure_access.return_value = True
+            worker._host.collect.return_value = {
+                'hostname': 'reported.example.org', 'mac_address': None,
+                'system': operating_system('ID=fedora\nVERSION_ID=45\nVERSION_CODENAME=""\n')}
+            worker._collect_host(target)
+        self.assertEqual(tags(), {'DeploymentEnvironment': 'qa', 'IsOnline': 'true'})
+        after = self.software.list_deployments()
+        self.assertEqual(after[0]['id'], before[0]['id'])
+        self.assertEqual((after[0]['subtype'], after[0]['version'], after[0]['supplier'], after[0]['codename']),
+                         ('fedora', '45', None, None))
+        self.assertEqual(after[1], before[1])
+
+    def test_host_key_warning_updates_roll_back_and_do_not_recreate_deleted_machine(self):
+        machine = self.machines.upsert(Machine('192.0.2.7'))
+        with self.db.transaction():
+            self.machines.update_ssh_host_key_warning(machine, True)
+        with self.assertRaisesRegex(RuntimeError, 'rollback'):
+            with self.db.transaction():
+                self.machines.update_ssh_host_key_warning(machine, False)
+                raise RuntimeError('rollback')
+        self.assertEqual([tag.tag for tag in self.machines.list_machines()[0].taggedValue],
+                         ['SSHHostKeyChanged'])
+        with self.db.transaction():
+            self.machines.delete_machine(machine)
+            self.assertFalse(self.machines.update_ssh_host_key_warning(machine, True))
+        self.assertEqual(self.db.query('SELECT id FROM TaggedValue'), [])
 
     def test_raw_scan_storage_large_output_retention_and_classification_cleanup(self):
         first = self.machines.upsert(Machine('192.0.2.7'))

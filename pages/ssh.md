@@ -55,6 +55,10 @@ After Nmap discovery and OS scanning, `InventoryCoordinator` uses
 1. Check whether TCP port 22 accepts a connection.
 2. Test a login as `cmdbagent` using `true`.
 3. If that login fails, leave SSH inventory for this host until the next scan.
+   A changed host key records `SSHHostKeyChanged="true"` on the machine and
+   reports the failure in Status Messages. Inventory displays a muted amber
+   border and a warning in machine details. A successful login clears the tag;
+   other failures and offline scans preserve it.
 4. Retrieve the hostname as `cmdbagent` with `hostname -f`, falling back to `hostname`,
    and update the Machine record by its stable ID.
 5. Read `ip -j address show`, match the scanned IP to its interface, and store
@@ -77,7 +81,8 @@ Discovery does not create or modify Linux accounts, home directories, or SSH key
 Closed ports, denied logins, invalid hostname output, and
 SSH timeouts leave the existing hostname unchanged and allow checks on other
 machines to continue. Successful hostname retrieval replaces the stored value,
-including a manual edit. Failures are retried on the next scan without new logging.
+including a manual edit. Failures are retried on the next scan; host-key
+changes are reported without exposing raw SSH output.
 
 The activity uses `DCMDB.SSH_CONNECT_TIMEOUT_SECONDS` (5 seconds) and
 `SSH_COMMAND_TIMEOUT_SECONDS` (30 seconds per command). It checks for shutdown
@@ -85,6 +90,37 @@ between hosts and commands. SSH follow-up still runs when the OS scan times out
 or finds no usable OS classification. No database connection is held while
 waiting for SSH.
 
+## Reinstalled hosts and SSH trust
+
+Inventory connects to a machine's scanned IP address. The IPA setup tool checks
+both the enrolled hostname and its resolved IPv4 addresses. A successful login
+using the hostname alone does not verify an existing IP entry in
+`/var/lib/cmdb/.ssh/known_hosts`.
+
+After reinstalling a host, compare its replacement host key through a trusted
+console or authenticated Kerberos SSH session. For example, on that host:
+
+```sh
+cat /etc/ssh/ssh_host_ed25519_key.pub
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+Once verified, an administrator can replace only the affected IP entry on the
+CMDB server. This example uses a documentation address and a placeholder for
+the verified public key's base64 field:
+
+```sh
+sudo -u cmdb ssh-keygen -F 192.0.2.7 -f /var/lib/cmdb/.ssh/known_hosts
+sudo -u cmdb ssh-keygen -R 192.0.2.7 -f /var/lib/cmdb/.ssh/known_hosts
+printf '%s\n' '192.0.2.7 ssh-ed25519 VERIFIED_BASE64_PUBLIC_KEY' |
+  sudo -u cmdb tee -a /var/lib/cmdb/.ssh/known_hosts > /dev/null
+```
+
+Re-Scan that machine afterward. Successful SSH access clears the warning and
+refreshes its hostname, MAC address, and OS release. Fedora's `ID=fedora` and
+`VERSION_ID` populate the existing Linux OS deployment; an empty codename and
+absent vendor remain unset. CMDB never automatically replaces a changed host
+key or disables host-key checking.
 
 ## MariaDB agent account
 

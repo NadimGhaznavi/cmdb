@@ -7,6 +7,8 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-15 @ 15:07
+
 ### Summary
 
 Separate kernel patching with reboot verification from other patching without a

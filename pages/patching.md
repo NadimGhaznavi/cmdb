@@ -84,6 +84,11 @@ Kernel jobs select installed `linux-image-*`, `linux-headers-*`,
 `apt-get --only-upgrade --no-remove install`. Required dependencies, including
 new versioned kernel images, may be installed. Keep the appropriate kernel
 metapackage installed so new kernel ABI packages are selected automatically.
+After the update, APT's kernel-only automatic removal uses its default retention
+of two kernel versions: the current kernel plus one previous version. APT
+protects the running kernel and respects held or manually retained packages.
+Unrelated unused packages are
+not removed. A cleanup failure stops the job before rebooting.
 
 Other jobs use `apt-get --with-new-pkgs --no-remove upgrade`, with a temporary
 negative APT pin for those kernel families. Existing administrator preferences
@@ -93,18 +98,21 @@ installing it in this window. `linux-libc-dev` remains in other patching because
 it provides userspace development headers.
 
 Neither type runs a broad `autoremove`, which could remove packages outside
-its scope. Old Debian kernels therefore require separate administrator cleanup.
+its scope. Other patching does not perform kernel cleanup.
 The commands do not change Debian releases. Existing dpkg configuration files
 are kept when dpkg cannot choose a default, and held packages are not overridden.
 See the [APT command reference](https://manpages.debian.org/bookworm/apt/apt-get.8.en.html)
 and [APT preferences](https://manpages.debian.org/bookworm/apt/apt_preferences.5.en.html).
+The retention options are described in the
+[APT configuration reference](https://manpages.debian.org/trixie/apt/apt.conf.5.en.html).
 
 ## Fedora packages
 
-Kernel jobs run `dnf -y --refresh upgrade 'kernel*'`. Other jobs run
+Kernel jobs run `dnf -y --refresh --setopt=installonly_limit=2 upgrade 'kernel*'`.
+This keeps the current kernel plus one previous version. Other jobs run
 `dnf -y --refresh --exclude='kernel*' upgrade`. The kernel family includes the
 image, modules, development packages, and headers with that prefix. DNF resolves
-necessary dependencies and applies its configured kernel retention policy.
+necessary dependencies and protects the running kernel during removal.
 The workflow uses the host's `dnf` command, including Fedora's DNF5 implementation,
 and does not perform a Fedora release upgrade. See the
 [DNF5 upgrade reference](https://dnf5.readthedocs.io/en/latest/commands/upgrade.8.html)

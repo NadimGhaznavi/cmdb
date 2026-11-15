@@ -7,6 +7,23 @@ permalink: /CHANGELOG/
 
 ## [Unreleased]
 
+### Summary
+
+Kernel patching keeps the current kernel plus one previous version to limit
+space used in `/boot`, using APT's kernel-only cleanup and DNF's two-version limit.
+
+### Changed
+
+- Use Debian's default two-kernel retention and enable kernel-only automatic
+  removal after kernel updates, leaving unrelated unused packages alone.
+- Set Fedora kernel updates to `installonly_limit=2`; other patching does not
+  change kernel retention or run kernel cleanup.
+
+### Documentation
+
+- Record the commands, backup reference, and verification results for the
+  authorized Neuromancer database repair under 2.1.0.
+
 ## [2.1.0] - 2026-11-15 @ 15:07
 
 ### Summary
@@ -30,6 +47,90 @@ reboot, and support both Debian and Fedora hosts with independent cron schedules
   selected patch scope; old kernels require separate administrator cleanup.
 - Store patch type on jobs and schedules in fresh schemas; existing schemas are
   not migrated automatically under the initial development policy.
+
+### Production schema repair
+
+Applied on Neuromancer after the 2.1.0 upgrade retained the old `Patch` and
+`PatchSchedule` tables. `CREATE TABLE IF NOT EXISTS` did not add `patchType`,
+so both patching API endpoints returned HTTP 503 while `/health` remained 200.
+This was an explicitly authorized one-time production repair, not an automatic
+installer migration. The SQL was first tested locally against the old schema
+with synthetic records, including both reboot constraints and separate schedules.
+
+The existing backup stayed on Neuromancer at
+`/imports/disk1/backups/neuromancer/db/cmdb/mariadb-neuromancer-cmdb-2026-11-15_17:00:01.dump`.
+It contained both patch tables and a dump-completion marker. Its SHA-256 was
+`c514cccddcd400182571e2ae748d87280b1336e5cd724c060fbaaa20cd0be7d3`.
+
+The following repair commands ran through SSH from Sally as the FreeIPA `codex`
+account, using its existing Kerberos ticket and noninteractive sudo. They apply
+once to the pre-2.1.0 table layout; do not rerun them after the columns exist.
+The temporary defaults classify all legacy jobs and schedules as `kernel`,
+preserving their reboot behavior and existing schedule IDs and cron entries.
+Historical jobs included other package updates before the split. Other patching
+remains disabled until configured separately. The defaults are then removed so
+new records must explicitly select their patch type.
+
+```sh
+sudo -n -u codex -H -- ssh -o BatchMode=yes -o StrictHostKeyChecking=yes neuromancer.lab.osoyalce.com /bin/sh -s <<'REMOTE'
+set -eu
+backup=/imports/disk1/backups/neuromancer/db/cmdb/mariadb-neuromancer-cmdb-2026-11-15_17:00:01.dump
+sudo -n test -s "$backup"
+active_jobs=$(sudo -n mariadb --no-defaults --protocol=socket --user=root --database=cmdb --batch --skip-column-names --execute="SELECT COUNT(*) FROM Patch WHERE status IN ('queued','patching','rebooting')")
+[ "$active_jobs" = 0 ] || { printf 'Active patch jobs: %s; wait before repairing.\n' "$active_jobs" >&2; exit 1; }
+sudo -n systemctl stop cmdb-server.service
+sudo -n systemctl stop cmdb-patch.service
+sudo -n mariadb --no-defaults --protocol=socket --user=root --database=cmdb <<'SQL'
+SET SESSION lock_wait_timeout = 15;
+
+ALTER TABLE Patch
+    ADD COLUMN patchType VARCHAR(16) CHARACTER SET utf8mb4
+        COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'kernel' AFTER machine,
+    DROP CONSTRAINT Patch_reboot_ck,
+    ADD CONSTRAINT Patch_type_ck CHECK (BINARY patchType IN ('kernel','other')),
+    ADD CONSTRAINT Patch_reboot_ck CHECK (
+        (patchType='other' AND rebootOn IS NULL AND status<>'rebooting') OR
+        (patchType='kernel' AND (status NOT IN ('rebooting','succeeded') OR
+            (startedOn IS NOT NULL AND rebootOn IS NOT NULL AND bootId IS NOT NULL)))),
+    ADD CONSTRAINT Patch_success_ck CHECK (
+        status<>'succeeded' OR (startedOn IS NOT NULL AND bootId IS NOT NULL));
+ALTER TABLE Patch ALTER COLUMN patchType DROP DEFAULT;
+
+ALTER TABLE PatchSchedule
+    ADD COLUMN patchType VARCHAR(16) CHARACTER SET utf8mb4
+        COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'kernel' AFTER machine,
+    DROP INDEX PatchSchedule_machine_uq,
+    ADD UNIQUE KEY PatchSchedule_machine_type_uq (machine, patchType),
+    ADD CONSTRAINT PatchSchedule_type_ck CHECK (BINARY patchType IN ('kernel','other'));
+ALTER TABLE PatchSchedule ALTER COLUMN patchType DROP DEFAULT;
+SQL
+sudo -n systemctl start cmdb-patch.service
+sudo -n systemctl start cmdb-server.service
+sudo -n systemctl is-active cmdb-server.service cmdb-patch.service
+sudo -n mariadb --no-defaults --protocol=socket --user=root --database=cmdb <<'SQL'
+SELECT patchType, status, COUNT(*) AS jobs FROM Patch GROUP BY patchType, status;
+SELECT patchType, enabled, COUNT(*) AS schedules FROM PatchSchedule GROUP BY patchType, enabled;
+SELECT TABLE_NAME, COLUMN_NAME, IS_NULLABLE, COLUMN_DEFAULT, COLLATION_NAME
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA='cmdb' AND TABLE_NAME IN ('Patch','PatchSchedule') AND COLUMN_NAME='patchType';
+SELECT INDEX_NAME, NON_UNIQUE, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS columnsInIndex
+FROM information_schema.STATISTICS
+WHERE TABLE_SCHEMA='cmdb' AND TABLE_NAME='PatchSchedule' AND INDEX_NAME='PatchSchedule_machine_type_uq'
+GROUP BY INDEX_NAME, NON_UNIQUE;
+SQL
+for endpoint in health api/patching/hosts api/patching/report; do
+    code=$(curl --noproxy '*' --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:14444/$endpoint")
+    printf '%s HTTP %s\n' "$endpoint" "$code"
+    [ "$code" = 200 ]
+done
+sudo -n systemctl show cmdb-server.service cmdb-patch.service --property=Id,ActiveState,SubState,ExecMainStatus
+REMOTE
+```
+
+Both services restarted successfully. The repair retained all 23 historical
+jobs (14 failed and nine successful) and all seven enabled schedules. `/health`,
+`/api/patching/hosts`, and `/api/patching/report` each returned HTTP 200 after
+the repair. API response bodies were discarded during verification.
 
 ## [2.0.2] - 2026-11-15 @ 05:45
 

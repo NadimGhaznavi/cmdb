@@ -141,6 +141,7 @@ for argument in "$@"; do
 done
 case "$*" in
     *" update") exit "${UPDATE_EXIT:-0}";;
+    *"AutomaticRemove::Kernels=true install") exit "${CLEANUP_EXIT:-0}";;
     *" upgrade"|*" install "*) exit "${UPGRADE_EXIT:-0}";;
     check) exit "${CHECK_EXIT:-0}";;
 esac
@@ -180,6 +181,8 @@ case "$*" in *upgrade*) exit "${UPGRADE_EXIT:-0}";; check) exit "${CHECK_EXIT:-0
         for excluded in ('bash', 'linux-libc-dev', 'linux-image-5.1-amd64', 'autoremove', 'reboot'):
             self.assertNotIn(excluded, commands)
         self.assertIn('apt-get check', commands)
+        self.assertIn('APT::Get::AutomaticRemove=false', commands)
+        self.assertIn('APT::Get::AutomaticRemove::Kernels=true install', commands)
 
     def test_debian_other_pins_kernels_and_preserves_existing_preferences(self):
         result = self.run_action('patch-other')
@@ -192,18 +195,25 @@ case "$*" in *upgrade*) exit "${UPGRADE_EXIT:-0}";; check) exit "${CHECK_EXIT:-0
         self.assertTrue(pin.endswith(self.preferences.read_text()))
         self.assertIn('apt-get check', commands)
         self.assertNotIn('autoremove', commands)
+        self.assertNotIn('AutomaticRemove', commands)
         self.assertNotIn('reboot', commands)
         self.assertEqual(list(self.root.glob('tmp*')), [])
 
     def test_fedora_uses_separate_dnf_filters_and_package_checks(self):
         self.release.write_text('ID=fedora\n')
-        for action, expected in [('patch-kernel', 'dnf -y --refresh upgrade kernel*'),
+        for action, expected in [('patch-kernel', 'dnf -y --refresh --setopt=installonly_limit=2 upgrade kernel*'),
                                  ('patch-other', 'dnf -y --refresh --exclude=kernel* upgrade')]:
             with self.subTest(action=action):
                 self.log.write_text('')
                 result = self.run_action(action)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(self.log.read_text().splitlines(), [expected, 'dnf check'])
+
+    def test_kernel_cleanup_failure_stops_before_verification_and_reboot(self):
+        result = self.run_action('patch-kernel', CLEANUP_EXIT='100')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('apt-get check', self.log.read_text())
+        self.assertNotIn('reboot', self.log.read_text())
 
     def test_update_failure_stops_before_any_package_transaction(self):
         for action in ('patch-kernel', 'patch-other'):
